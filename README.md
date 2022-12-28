@@ -15,3 +15,6 @@
 
 ## Reference
 - [YooAsset](https://github.com/tuyoogame/YooAsset) URS运行时的代码，很大一部分来自 YooAsset
+
+## 免责声明
+里面用的收费插件，仅仅用做学习的目的，鼓励大家购买正版，不要随便传播收费插件
