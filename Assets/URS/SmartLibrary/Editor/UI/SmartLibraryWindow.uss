@@ -1,0 +1,178 @@
+/*****************************************************************************/
+/* Header Toolbar*/
+/*****************************************************************************/
+#toolbarAddMenu {
+    flex-shrink: 0;
+    font-size: 28px;
+    -unity-text-align: middle-left;
+}
+
+#toolbarAddMenu > .unity-text-element {
+    margin-top: -2px;
+}
+
+#toolbarDefaultParentToggle  {
+    border-right-width: 0px;
+}
+
+#toolbarSortMenu {
+    flex-shrink: 0;
+}
+
+#toolbarSearch {
+    flex-shrink: 1;
+}
+/*****************************************************************************/
+/* Collections Panel*/
+/*****************************************************************************/
+.bewildered-tree-view {
+    flex-grow: 1;
+}
+
+.bewildered-tree-view__item {
+    align-items: center;
+}
+
+.bewildered-tree-view__item-content {
+    justify-content: center;
+}
+
+.bewildered-list-view__drag_bar {
+    position: absolute;
+    height: 2px;
+}
+
+.bewildered-list-view__drag_bar {
+    background-color: rgb(36, 113, 201);
+}
+
+/*****************************************************************************/
+/* Tree Item*/
+/*****************************************************************************/
+.bewildered-collection-tree-item {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: center;
+    padding-right: 4px;
+}
+
+.bewildered-collection-tree-item > #collectionIcon {
+    width: 16px;
+    height: 16px;
+}
+
+.bewildered-collection-tree-item > #collectionName {
+    flex-grow: 1;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.bewildered-collection-tree-item > #itemCount {
+    padding-left: 3px;
+}
+
+.bewildered-library-collection-settings {
+    opacity: 0;
+}
+
+.bewildered-collection-tree-item:hover > .bewildered-library-collection-settings {
+    opacity: 0.3;
+}
+
+.bewildered-collection-tree-item:hover > .bewildered-library-collection-settings:hover {
+    opacity: 0.75;
+}
+
+#allItemsCollection .bewildered-library-collection-settings {
+    opacity: 0;
+}
+
+
+
+.bewildered-library-items-container {
+    flex-grow: 1;
+}
+
+#overlayContainer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+#itemsFooter {
+    border-bottom-width: 0;
+    border-top-width: 1px;
+    justify-content: center;
+    overflow: hidden;
+}
+
+#toolbarRefilterButton {
+    justify-content: center;
+    flex-shrink: 0;
+    left: 0px;
+}
+
+#toolbarInfoIcon {
+    margin-top: 2px;
+    margin-left: 3px;
+}
+
+#toolbarInfoLabel {
+    flex-shrink: 1;
+    overflow: hidden;
+    -unity-text-align: middle-left;
+}
+
+#toolbarItemSize {
+    width: 80px;
+}
+
+#toolbarViewToggle {
+    flex-grow: 0;
+    flex-shrink: 0;
+    justify-content: center;
+    margin-right: -2px;
+    padding-top: 0;
+}
+
+.bewildered-library-items__empty-overlay-container {
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    position: absolute;
+    justify-content: center;
+    align-items: center;
+}
+
+.bewildered-library-items__empty-overlay-container .bewildered-library-empty-collection-text {
+    font-size: 18px;
+    opacity: 0.5;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.bewildered-library-items__notification-container {
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    position: absolute;
+    justify-content: center;
+}
+
+.bewildered-library-items__notification-label {
+    padding: 10px;
+    margin: 35px;
+    background-color: rgba(26, 26, 26, 0.85);
+    align-self: center;
+    white-space: normal;
+    border-radius: 10px;
+    color: white;
+    font-size: 16px;
+    -unity-text-align: middle-center;
+}

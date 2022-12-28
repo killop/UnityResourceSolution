@@ -1,0 +1,12 @@
+# Blender v2.79 (sub 0) OBJ File: ''
+# www.blender.org
+mtllib __importerdummy__.mtl
+o Plane
+v -1.002917 -0.012019 1.021426
+v 0.997083 -0.012019 1.021426
+v -1.002917 -0.012019 -0.978574
+v 0.997083 -0.012019 -0.978574
+vn 0.0000 1.0000 0.0000
+usemtl None
+s off
+f 1//1 2//1 4//1 3//1

@@ -1,0 +1,9 @@
+.bewildered-rules-list__item-in-scope {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-color: rgb(43, 43, 43);
+    border-left-color: rgb(142, 142, 142);
+}
+
+.bewildered-library-icon:hover {
+    background-color: rgba(256, 256, 256, 0.08);
+}

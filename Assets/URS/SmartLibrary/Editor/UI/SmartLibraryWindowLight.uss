@@ -1,0 +1,16 @@
+/* Changes to color of the + of the add menu to be the same as the icon color.*/
+#toolbarAddMenu {
+    color: rgb(85, 85, 85);
+}
+
+.bewildered-library-items-container {
+    background-color: rgb(178, 178, 178);
+}
+
+#collectionsTree .unity-list-view__item--selected:checked {
+    background-color: rgb(58, 114, 176);
+}
+
+#collectionsTree .unity-list-view__item--selected .unity-text-element {
+    color: white;
+}

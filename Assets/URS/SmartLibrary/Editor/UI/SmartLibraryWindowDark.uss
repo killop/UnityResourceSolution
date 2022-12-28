@@ -1,0 +1,14 @@
+﻿/*****************************************************************************/
+/* Items */
+/*****************************************************************************/
+.bewildered-library-items-container {
+    background-color: rgb(45, 45, 45);
+}
+
+#collectionsTree .unity-list-view__item--selected:checked {
+    background-color: rgb(62, 95, 150);
+}
+
+#collectionsTree .unity-list-view__item--selected .unity-text-element {
+    color: white;
+}

@@ -1,0 +1,22 @@
+{
+  "name": "com.daihenka.assetpipeline",
+  "displayName": "Asset Pipeline",
+  "description": "A rule-based modular approach to AssetPostProcessors",
+  "version": "0.5.7",
+  "unity": "2019.3",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/daihenka/asset-pipeline.git"
+  },
+  "author": {
+    "name": "Sean McAllister",
+    "email": "daihenka@gmail.com"
+  },
+  "keywords": [
+    "assets",
+    "pipeline",
+    "postprocessor",
+    "unity"
+  ],
+  "license": "MIT"
+}

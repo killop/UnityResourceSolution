@@ -1,0 +1,9 @@
+.bewildered-folder-selector__spinner-container {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.bewildered-folder-selector__folder {
+    flex-direction: row;
+}

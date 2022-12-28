@@ -1,0 +1,102 @@
+﻿/*General*/
+.bewildered-icon-button:hover {
+    background-color: rgb(190, 190, 190);
+}
+
+.bewildered-icon-button:hover:active {
+    background-color: rgb(230, 230, 230);
+}
+
+/*GridView*/
+.bewildered-grid-view__item--selected {
+    background-color: rgb(62, 95, 150);
+}
+
+.bewildered-grid-view .bewildered-grid-view__item--selected:hover {
+    background-color: rgb(62, 95, 150);
+}
+
+.bewildered-grid-view__item:hover {
+    background-color: rgb(48, 48, 48);
+}
+
+/*Folder field*/
+.bewildered-folder-field__input {
+    background-color: rgb(240, 240, 240);
+    border-color: rgb(183, 183, 183);
+    border-top-color: rgb(160, 160, 160);
+}
+
+.bewildered-folder-field__input:hover {
+    border-color: rgb(110, 110, 110);
+}
+
+.bewildered-folder-field__selector {
+    background-color: rgb(222, 222, 222);
+}
+
+.bewildered-folder-field__selector:hover {
+    background-color: rgb(196, 196, 196);
+}
+
+/*Collection field*/
+.bewildered-collection-field__input {
+    background-color: rgb(240, 240, 240);
+    border-color: rgb(183, 183, 183);
+    border-top-color: rgb(160, 160, 160);
+}
+
+.bewildered-collection-field__input:hover {
+    border-color: rgb(110, 110, 110);
+}
+
+.bewildered-collection-field__selector {
+    background-color: rgb(222, 222, 222);
+}
+
+.bewildered-collection-field__selector:hover {
+    background-color: rgb(196, 196, 196);
+}
+
+
+/*****************************************************************************/
+/* ReorderableList */
+/*****************************************************************************/
+.bewildered-reorderable-list__container {
+    background-color: rgb(200, 200, 200);
+    border-color: rgb(161, 161, 161);
+}
+
+.bewildered-reorderable-list__header {
+    background-color: rgb(182, 182, 182);
+    border-color: rgb(161, 161, 161);
+}
+
+.bewildered-reorderable-list__footer {
+    background-color: rgb(200, 200, 200);
+    border-color: rgb(161, 161, 161);
+}
+
+.bewildered-reorderable-list__button:hover {
+    background-color: rgb(186, 186, 186);
+}
+
+.bewildered-reorderable-list-item:hover {
+    background-color: rgb(178, 178, 178);
+}
+
+.bewildered-reorderable-list__container .bewildered-reorderable-list-item--selected {
+    background-color: rgb(58, 114, 176);
+}
+
+.bewildered-reorderable-list__drag-bar {
+    background-color: rgb(36, 113, 201);
+}
+
+
+/*****************************************************************************/
+/* SplitView */
+/*****************************************************************************/
+.bewildered-split-view__dragline-anchor {
+    background-color: rgb(153, 153, 153);
+}

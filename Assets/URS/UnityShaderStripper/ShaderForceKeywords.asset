@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 915541fb327ef3f4896f9fe4361da6b4, type: 3}
+  m_Name: ShaderForceKeywords
+  m_EditorClassIdentifier: 
+  _expanded: 1
+  _order: 1
+  _active: 1
+  _notes: 
+  _logOutput: 1
+  _forceBuiltins: []
+  _forceKeywords:
+  - DYNAMICLIGHTMAP_ON
+  - LOD_FADE_CROSSFADE
+  - _MIXED_LIGHTING_SUBTRACTIVE
+  - LIGHTMAP_SHADOW_MIXING

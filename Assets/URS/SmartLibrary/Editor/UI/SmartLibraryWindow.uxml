@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<engine:UXML
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:engine="UnityEngine.UIElements"
+    xmlns:editor="UnityEditor.UIElements"
+    xmlns:library="Bewildered.SmartLibrary.UI"
+    xsi:noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd"
+>
+	<editor:Toolbar name="header">
+		<editor:ToolbarMenu name="toolbarAddMenu" text="+"/>
+	    <editor:ToolbarToggle name="toolbarCollectionsPanelToggle"/>
+		<editor:ToolbarSpacer/>
+		<editor:ToolbarToggle name="toolbarDefaultParentToggle" tooltip="When enabled, objects added to the scene from a collection will be children of a specified Parent. Parent will be created if one is not specified."/>
+		<editor:ToolbarMenu name="toolbarSortMenu"/>
+		<editor:ToolbarSearchField name="toolbarSearch"/>
+	</editor:Toolbar>
+	<library:SplitView fixed-pane-initial-size="250" orientation="Horizontal">
+		<engine:VisualElement name ="collections">
+			<library:LibraryCollectionsView name="collectionsTree" item-height="24"/>
+		</engine:VisualElement>
+		
+		<engine:VisualElement name="items">
+			<library:LibraryItemsView name="libraryItems"/>
+			
+			<editor:Toolbar name="itemsFooter">
+				 <editor:ToolbarButton name="toolbarRefilterButton" tooltip="Update the items in the collection.">
+					<engine:VisualElement name="icon" class="bewildered-library-icon"/>
+				</editor:ToolbarButton>
+				<engine:VisualElement name="toolbarInfoIcon" class="bewildered-library-icon"/>
+				<engine:Label name="toolbarInfoLabel"/>
+
+				<editor:ToolbarSpacer/>
+
+				<library:IconButton name="collectionViewLinkToggle" tooltip="Toggle using collection view specific settings."/>
+				<engine:Slider picking-mode="Ignore" value="125" high-value="256" low-value="40" name="toolbarItemSize"/>
+				<editor:ToolbarButton name="toolbarViewToggle" tooltip="Toggle between grid and list view">
+					<engine:VisualElement name="icon" class="bewildered-library-icon" />
+				</editor:ToolbarButton>	
+			</editor:Toolbar>
+		
+		</engine:VisualElement>
+	
+	</library:SplitView>
+
+</engine:UXML>

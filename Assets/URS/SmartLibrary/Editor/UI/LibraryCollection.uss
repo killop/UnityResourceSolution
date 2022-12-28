@@ -1,0 +1,98 @@
+#updateItemsButton {
+    align-self: center;
+    width: 220px;
+    height: 24px;
+}
+
+.bewildered-rules-list__item {
+    flex-direction: row;
+    align-items: center;
+    padding: 1px 2px 1px 6px;
+}
+
+.bewildered-rules-list__item-in-scope {
+    border-left-width: 2px;
+    padding-left: 4px;
+}
+
+.bewildered-rules-list__item-open-scope {
+    border-top-width: 1px;
+    padding-top: 0px;
+}
+
+.bewildered-rules-list__item-close-scope {
+    border-bottom-width: 1px;
+    padding-bottom: 0px;
+}
+
+
+/*****************************************************************************/
+/* Rules */
+/*****************************************************************************/
+/*Base Rule*/
+.bewildered-library-rule {
+    flex-direction: row;
+    align-items: center;
+}
+
+.bewildered-library-rule__operand-popup {
+    width: 66px;
+    min-width: 66px;
+    flex-shrink: 1;
+}
+
+.bewildered-library-rule__type-label {
+    width: 88px;
+}
+
+.bewildered-library-rule-options {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.bewildered-library-rule-options:hover {
+    background-color: rgba(256, 256, 256, 0.16);
+}
+
+/*Name Rule*/
+.bewildered-library-name-rule > .bewildered-library-name-rule__rule-type {
+    width: 85px;
+    flex-shrink: 1;
+}
+
+.bewildered-library-name-rule > .bewildered-library-name-rule__rule {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+/*Label Rule*/
+.bewildered-library-label-rule > .bewildered-library-label-rule__label {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+/*Extension Rule*/
+.bewildered-library-extension-rule > .bewildered-library-extension-rule__extension {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+
+/*Folder Reference*/
+.bewildered-library-folder-reference {
+    flex-direction: row;
+}
+
+.bewildered-library-folder-reference .bewildered-library-folder-reference__match-option {
+    width: 85px;
+}
+
+.bewildered-library-folder-reference .bewildered-library-folder-reference__folder {
+    flex-grow: 1;
+}
+
+.bewildered-library-folder-reference > .unity-label {
+    width: 55px;
+    -unity-text-align: middle-left;
+}

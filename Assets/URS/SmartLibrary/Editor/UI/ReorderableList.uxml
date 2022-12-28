@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <ui:VisualElement>
+        <ui:VisualElement name="header" class="bewildered-reorderable-list__header">
+            <ui:Label text="Label" display-tooltip-when-elided="true" name="headerLabel" />
+        </ui:VisualElement>
+        <ui:ScrollView name="itemsContainer" class="bewildered-reorderable-list__container" />
+        <ui:VisualElement name="footer" class="bewildered-reorderable-list__footer" />
+    </ui:VisualElement>
+</ui:UXML>

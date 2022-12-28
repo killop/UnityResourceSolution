@@ -1,0 +1,17 @@
+{
+    "name": "UnityEditor.CacheServerTests",
+    "references": [
+        "UnityEditor.CacheServer"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+	"optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+	"defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ]
+}

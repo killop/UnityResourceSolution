@@ -1,0 +1,151 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f780564f37454ff78ed14f6648c0379e, type: 3}
+  m_Name: AssetPipelineSettings
+  m_EditorClassIdentifier: 
+  m_AssetTypeFileExtensions:
+  - m_AssetType: 0
+    m_FileExtensions:
+    - .ai
+    - .apng
+    - .png
+    - .bmp
+    - .cdr
+    - .dib
+    - .eps
+    - .exif
+    - .gif
+    - .ico
+    - .icon
+    - .j
+    - .j2c
+    - .j2k
+    - .jas
+    - .jiff
+    - .jng
+    - .jp2
+    - .jpc
+    - .jpe
+    - .jpeg
+    - .jpf
+    - .jpg
+    - .jpw
+    - .jpx
+    - .jtf
+    - .mac
+    - .omf
+    - .qif
+    - .qti
+    - .qtif
+    - .tex
+    - .tfw
+    - .tga
+    - .tif
+    - .tiff
+    - .wmf
+    - .psd
+    - .exr
+    - .hdr
+  - m_AssetType: 1
+    m_FileExtensions:
+    - .3df
+    - .3dm
+    - .3dmf
+    - .3ds
+    - .3dv
+    - .3dx
+    - .blend
+    - .c4d
+    - .lwo
+    - .lws
+    - .ma
+    - .max
+    - .mb
+    - .mesh
+    - .obj
+    - .vrl
+    - .wrl
+    - .wrz
+    - .fbx
+  - m_AssetType: 2
+    m_FileExtensions:
+    - .aac
+    - .aif
+    - .aiff
+    - .au
+    - .mid
+    - .midi
+    - .mp3
+    - .mpa
+    - .ra
+    - .ram
+    - .wma
+    - .wav
+    - .wave
+    - .ogg
+    - .flac
+  - m_AssetType: 3
+    m_FileExtensions:
+    - .dv
+    - .mp4
+    - .mpg
+    - .mpeg
+    - .m4v
+    - .ogv
+    - .vp8
+    - .webm
+    - .asf
+    - .asx
+    - .avi
+    - .dat
+    - .divx
+    - .dvx
+    - .mlv
+    - .m2l
+    - .m2t
+    - .m2ts
+    - .m2v
+    - .m4e
+    - .mjp
+    - .mov
+    - .movie
+    - .mp21
+    - .mpe
+    - .mpv2
+    - .ogm
+    - .qt
+    - .rm
+    - .rmvb
+    - .wmw
+    - .xvid
+  - m_AssetType: 4
+    m_FileExtensions:
+    - .ttf
+    - .otf
+    - .fon
+    - .fnt
+  - m_AssetType: 5
+    m_FileExtensions:
+    - .anim
+  - m_AssetType: 6
+    m_FileExtensions:
+    - .mat
+  - m_AssetType: 7
+    m_FileExtensions:
+    - .prefab
+  - m_AssetType: 8
+    m_FileExtensions:
+    - .spriteatlas
+  m_DefaultProfileStoragePath: Assets/Editor/AssetPipeline/
+  m_EnabledColor: {r: 0.2688679, g: 1, b: 0.2688679, a: 1}
+  m_DisabledColor: {r: 1, g: 0.2688679, b: 0.2688679, a: 1}
+  m_DefaultConvention: 0
