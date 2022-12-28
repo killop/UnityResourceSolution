@@ -10,6 +10,8 @@
 - shader变体收集系统
 - shader变体裁剪系统
 - 二次打包系统，在零冗余和减少IO之间取得一个适当的平衡
+## Roadmap
+- 远程下载暂时用了比较稳健的besthttp插件，正在接入：https://github.com/bezzad/Downloader
 
 ## Reference
 - [YooAsset](https://github.com/tuyoogame/YooAsset) URS运行时的代码，很大一部分来自 YooAsset
