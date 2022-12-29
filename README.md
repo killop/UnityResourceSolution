@@ -1,6 +1,12 @@
 # 青霜-Unity-Resource-Solution
 
-## Feature
+## 描述
+- URS是一套unity资源管理方案，该方案把原始资源看作为一等公民，更新系统和ab系统完全分离。该方案包含了资源的导入，ab的导出，ab的热更新。这套方案涉及到了你在日常unity资源管理中的有可能遇到的方方面面
+- URS的方向和初衷：争取在各个问题领域给出最好的答案
+- 青霜的名字取自（腾蛟起凤，孟学士之词宗；紫电青霜，王将军之武库 --滕王阁序）
+## 特点
+- 支持边玩边下载资源
+- 完备的基于tag的资源管理系统，一个资源多个tag
 - 按照目录结构更新
 - 文件不以hash结尾
 - 优化并且扩展了[smart-library](https://assetstore.unity.com/packages/tools/utilities/smart-library-asset-manager-200724) 打造了一个优美的打包资源收集系统
@@ -10,10 +16,10 @@
 - shader变体收集系统
 - shader变体裁剪系统
 - 二次打包系统，在零冗余和减少IO之间取得一个适当的平衡
-## Roadmap
+## 路线图
 - 远程下载暂时用了比较稳健的besthttp插件，正在接入：https://github.com/bezzad/Downloader
 
-## Reference
+## 参考
 - [YooAsset](https://github.com/tuyoogame/YooAsset) URS运行时的代码，很大一部分来自 YooAsset
 
 ## 交流
