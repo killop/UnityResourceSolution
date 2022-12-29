@@ -9,13 +9,13 @@
 - 完备的基于tag的资源管理系统，一个资源多个tag
 - 按照目录结构更新
 - 文件不以hash结尾
+- 全网唯一支持二次打包的系统，根据第一次打包的结果，自动优化ab大小，io数量。在零冗余和减少IO之间取得一个适当的平衡，相信我，用了它你会起飞的
 - 优化并且扩展了[smart-library](https://assetstore.unity.com/packages/tools/utilities/smart-library-asset-manager-200724) 打造了一个优美的打包资源收集系统
 - 支持 AssetBundleBrowser
 - 无状态多版本管理系统
 - binary diff，保证多版本之间最小更新体积
 - shader变体收集系统
 - shader变体裁剪系统
-- 二次打包系统，在零冗余和减少IO之间取得一个适当的平衡
 ## 路线图
 - 远程下载暂时用了比较稳健的besthttp插件，正在接入：https://github.com/bezzad/Downloader
 
