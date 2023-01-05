@@ -16,6 +16,8 @@
 - binary diff，保证多版本之间最小更新体积
 - shader变体收集系统
 - shader变体裁剪系统
+- 动画任意长度裁剪工具
+- 动画属性绑定失败纠正和报错工具
 ## 路线图
 - 远程下载暂时用了比较稳健的besthttp插件，正在接入：https://github.com/bezzad/Downloader
 
