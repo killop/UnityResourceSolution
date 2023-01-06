@@ -14,10 +14,11 @@
 - 支持 AssetBundleBrowser
 - 无状态多版本管理系统
 - binary diff，保证多版本之间最小更新体积
-- shader变体收集系统
-- shader变体裁剪系统
+- shader变体收集工具
+- shader变体裁剪工具
 - 动画任意长度裁剪工具
 - 动画属性绑定失败纠正和报错工具
+- 材质多余属性剔除工具
 ## 路线图
 - 远程下载暂时用了比较稳健的besthttp插件，正在接入：https://github.com/bezzad/Downloader
 
