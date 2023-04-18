@@ -26,7 +26,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
 
         private static int GetValueLength(DHParameters dh)
         {
-            return (dh.P.BitLength + 7) / 8;
+            return BigIntegers.GetUnsignedByteLength(dh.P);
         }
 
         public static BcTlsSecret CalculateDHAgreement(BcTlsCrypto crypto, DHPrivateKeyParameters privateKey,
@@ -39,7 +39,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             return crypto.AdoptLocalSecret(secret);
         }
 
-        public static DHParameters GetParameters(TlsDHConfig dhConfig)
+        public static DHParameters GetDomainParameters(TlsDHConfig dhConfig)
         {
             DHGroup dhGroup = TlsDHUtilities.GetDHGroup(dhConfig);
             if (dhGroup == null)
@@ -48,21 +48,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             return new DHParameters(dhGroup.P, dhGroup.G, dhGroup.Q, dhGroup.L);
         }
 
-        protected readonly BcTlsCrypto crypto;
-        protected readonly TlsDHConfig dhConfig;
-        protected readonly DHParameters dhParameters;
+        protected readonly BcTlsCrypto m_crypto;
+        protected readonly TlsDHConfig m_config;
+        protected readonly DHParameters m_domainParameters;
 
         public BcTlsDHDomain(BcTlsCrypto crypto, TlsDHConfig dhConfig)
         {
-            this.crypto = crypto;
-            this.dhConfig = dhConfig;
-            this.dhParameters = GetParameters(dhConfig);
+            this.m_crypto = crypto;
+            this.m_config = dhConfig;
+            this.m_domainParameters = GetDomainParameters(dhConfig);
         }
 
         public virtual BcTlsSecret CalculateDHAgreement(DHPrivateKeyParameters privateKey,
             DHPublicKeyParameters publicKey)
         {
-            return CalculateDHAgreement(crypto, privateKey, publicKey, dhConfig.IsPadded);
+            return CalculateDHAgreement(m_crypto, privateKey, publicKey, m_config.IsPadded);
         }
 
         public virtual TlsAgreement CreateDH()
@@ -73,7 +73,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
         /// <exception cref="IOException"/>
         public virtual BigInteger DecodeParameter(byte[] encoding)
         {
-            if (dhConfig.IsPadded && GetValueLength(dhParameters) != encoding.Length)
+            if (m_config.IsPadded && GetValueLength(m_domainParameters) != encoding.Length)
                 throw new TlsFatalAlert(AlertDescription.illegal_parameter);
 
             return new BigInteger(1, encoding);
@@ -91,7 +91,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             {
                 BigInteger y = DecodeParameter(encoding);
 
-                return new DHPublicKeyParameters(y, dhParameters);
+                return new DHPublicKeyParameters(y, m_domainParameters);
             }
             catch (Exception e)
             {
@@ -99,22 +99,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             }
         }
 
-        /// <exception cref="IOException"/>
         public virtual byte[] EncodeParameter(BigInteger x)
         {
-            return EncodeValue(dhParameters, dhConfig.IsPadded, x);
+            return EncodeValue(m_domainParameters, m_config.IsPadded, x);
         }
 
-        /// <exception cref="IOException"/>
         public virtual byte[] EncodePublicKey(DHPublicKeyParameters publicKey)
         {
-            return EncodeValue(dhParameters, true, publicKey.Y);
+            return EncodeValue(m_domainParameters, true, publicKey.Y);
         }
 
         public virtual AsymmetricCipherKeyPair GenerateKeyPair()
         {
             DHBasicKeyPairGenerator keyPairGenerator = new DHBasicKeyPairGenerator();
-            keyPairGenerator.Init(new DHKeyGenerationParameters(crypto.SecureRandom, dhParameters));
+            keyPairGenerator.Init(new DHKeyGenerationParameters(m_crypto.SecureRandom, m_domainParameters));
             return keyPairGenerator.GenerateKeyPair();
         }
     }

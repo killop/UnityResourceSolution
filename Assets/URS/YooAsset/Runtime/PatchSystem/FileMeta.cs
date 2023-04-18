@@ -18,6 +18,11 @@ namespace URS
         {
             return _fileMetaMap;
         }
+
+        public void ClearMetaMap() 
+        {
+            _fileMetaMap = new Dictionary<string, FileMeta>();
+        }
         public FileManifest(FileMeta[] fileMetas)
         {
             FileMetas = fileMetas;

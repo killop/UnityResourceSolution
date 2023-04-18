@@ -1,19 +1,15 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 {
@@ -24,10 +20,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 	{
 		private readonly X509ExtensionsGenerator extGenerator = new X509ExtensionsGenerator();
 
-		private V2TbsCertListGenerator	tbsGen;
-		private DerObjectIdentifier		sigOID;
-		private AlgorithmIdentifier		sigAlgId;
-		private string					signatureAlgorithm;
+		private V2TbsCertListGenerator tbsGen;
 
 		public X509V2CrlGenerator()
 		{
@@ -88,7 +81,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 			int			reason,
 			DateTime	invalidityDate)
 		{
-			tbsGen.AddCrlEntry(new DerInteger(userCertificate), new Time(revocationDate), reason, new DerGeneralizedTime(invalidityDate));
+			tbsGen.AddCrlEntry(new DerInteger(userCertificate), new Time(revocationDate), reason,
+				new Asn1GeneralizedTime(invalidityDate));
 		}
 
 		/**
@@ -107,13 +101,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		*
 		* @param other the X509Crl to source the other entries from.
 		*/
-		public void AddCrl(
-			X509Crl other)
+		public void AddCrl(X509Crl other)
 		{
 			if (other == null)
 				throw new ArgumentNullException("other");
 
-			ISet revocations = other.GetRevokedCertificates();
+			var revocations = other.GetRevokedCertificates();
 
 			if (revocations != null)
 			{
@@ -131,30 +124,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 					}
 				}
 			}
-		}
-
-        /// <summary>
-        /// Set the signature algorithm that will be used to sign this CRL.
-        /// </summary>
-        /// <param name="signatureAlgorithm"/>
-
-        public void SetSignatureAlgorithm(
-			string signatureAlgorithm)
-		{
-			this.signatureAlgorithm = signatureAlgorithm;
-
-			try
-			{
-				sigOID = X509Utilities.GetAlgorithmOid(signatureAlgorithm);
-			}
-			catch (Exception e)
-			{
-				throw new ArgumentException("Unknown signature type requested", e);
-			}
-
-			sigAlgId = X509Utilities.GetSigAlgID(sigOID, signatureAlgorithm);
-
-			tbsGen.SetSignature(sigAlgId);
 		}
 
 		/**
@@ -201,78 +170,41 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 			extGenerator.AddExtension(oid, critical, new DerOctetString(extensionValue));
 		}
 
-        /// <summary>
-        /// Generate an X.509 CRL, based on the current issuer and subject.
-        /// </summary>
-        /// <param name="privateKey">The private key of the issuer that is signing this certificate.</param>
-        /// <returns>An X509Crl.</returns>
-
-        public X509Crl Generate(
-            AsymmetricKeyParameter privateKey)
+		/// <summary>
+		/// Generate a new <see cref="X509Crl"/> using the provided <see cref="ISignatureFactory"/>.
+		/// </summary>
+		/// <param name="signatureFactory">A <see cref="ISignatureFactory">signature factory</see> with the necessary
+		/// algorithm details.</param>
+		/// <returns>An <see cref="X509Crl"/>.</returns>
+		public X509Crl Generate(ISignatureFactory signatureFactory)
         {
-            return Generate(privateKey, null);
-        }
+			var sigAlgID = (AlgorithmIdentifier)signatureFactory.AlgorithmDetails;
 
-        /// <summary>
-        /// Generate an X.509 CRL, based on the current issuer and subject using the specified secure random.
-        /// </summary>
-        /// <param name="privateKey">The private key of the issuer that is signing this certificate.</param>
-        /// <param name="random">Your Secure Random instance.</param>
-        /// <returns>An X509Crl.</returns>
+			tbsGen.SetSignature(sigAlgID);
 
-        public X509Crl Generate(
-            AsymmetricKeyParameter privateKey,
-            SecureRandom random)
-        {
-            return Generate(new Asn1SignatureFactory(signatureAlgorithm, privateKey, random));
-        }
-
-        /// <summary>
-        /// Generate a new X509Crl using the passed in SignatureCalculator.
-        /// </summary>
-		/// <param name="signatureCalculatorFactory">A signature calculator factory with the necessary algorithm details.</param>
-        /// <returns>An X509Crl.</returns>
-        public X509Crl Generate(ISignatureFactory signatureCalculatorFactory)
-        {
-            tbsGen.SetSignature((AlgorithmIdentifier)signatureCalculatorFactory.AlgorithmDetails);
-
-            TbsCertificateList tbsCertList = GenerateCertList();
-
-            IStreamCalculator streamCalculator = signatureCalculatorFactory.CreateCalculator();
-
-            byte[] encoded = tbsCertList.GetDerEncoded();
-
-            streamCalculator.Stream.Write(encoded, 0, encoded.Length);
-
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(streamCalculator.Stream);
-
-            return GenerateJcaObject(tbsCertList, (AlgorithmIdentifier)signatureCalculatorFactory.AlgorithmDetails, ((IBlockResult)streamCalculator.GetResult()).Collect());
-        }
-
-        private TbsCertificateList GenerateCertList()
-		{
 			if (!extGenerator.IsEmpty)
 			{
 				tbsGen.SetExtensions(extGenerator.Generate());
 			}
 
-			return tbsGen.GenerateTbsCertList();
-		}
+			TbsCertificateList tbsCertList = tbsGen.GenerateTbsCertList();
 
-		private X509Crl GenerateJcaObject(
-			TbsCertificateList	tbsCrl,
-            AlgorithmIdentifier algId,
-			byte[]				signature)
-		{
+            IStreamCalculator<IBlockResult> streamCalculator = signatureFactory.CreateCalculator();
+			using (Stream sigStream = streamCalculator.Stream)
+			{
+				tbsCertList.EncodeTo(sigStream, Asn1Encodable.Der);
+			}
+
+			var signature = streamCalculator.GetResult().Collect();
+
 			return new X509Crl(
-				CertificateList.GetInstance(
-					new DerSequence(tbsCrl, algId, new DerBitString(signature))));
+				CertificateList.GetInstance(new DerSequence(tbsCertList, sigAlgID, new DerBitString(signature))));
 		}
 
 		/// <summary>
 		/// Allows enumeration of the signature names supported by the generator.
 		/// </summary>
-		public IEnumerable SignatureAlgNames
+		public IEnumerable<string> SignatureAlgNames
 		{
 			get { return X509Utilities.GetAlgNames(); }
 		}

@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
@@ -22,7 +21,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             this.m_domain = domain;
         }
 
-        /// <exception cref="IOException"/>
         public virtual byte[] GenerateEphemeral()
         {
             this.m_localKeyPair = m_domain.GenerateKeyPair();
@@ -30,13 +28,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             return m_domain.EncodePublicKey((DHPublicKeyParameters)m_localKeyPair.Public);
         }
 
-        /// <exception cref="IOException"/>
         public virtual void ReceivePeerValue(byte[] peerValue)
         {
             this.m_peerPublicKey = m_domain.DecodePublicKey(peerValue);
         }
 
-        /// <exception cref="IOException"/>
         public virtual TlsSecret CalculateSecret()
         {
             return m_domain.CalculateDHAgreement((DHPrivateKeyParameters)m_localKeyPair.Private, m_peerPublicKey);

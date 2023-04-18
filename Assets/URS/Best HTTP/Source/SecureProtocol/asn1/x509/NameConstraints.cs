@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
@@ -25,7 +25,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 				return new NameConstraints((Asn1Sequence) obj);
 			}
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public NameConstraints(
@@ -45,15 +45,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 			}
 		}
 
-#if !(SILVERLIGHT || PORTABLE || NETFX_CORE)
-        public NameConstraints(
-            ArrayList permitted,
-            ArrayList excluded)
-            : this((IList)permitted, (IList)excluded)
-        {
-        }
-#endif
-
         /**
 		 * Constructor from a given details.
 		 *
@@ -63,8 +54,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 		 * @param excluded Excluded subtrees
 		 */
 		public NameConstraints(
-			IList   permitted,
-			IList   excluded)
+			IList<GeneralSubtree> permitted,
+			IList<GeneralSubtree> excluded)
 		{
 			if (permitted != null)
 			{
@@ -77,13 +68,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 			}
 		}
 
-		private DerSequence CreateSequence(
-			IList subtrees)
+		private DerSequence CreateSequence(IList<GeneralSubtree> subtrees)
 		{
             GeneralSubtree[] gsts = new GeneralSubtree[subtrees.Count];
             for (int i = 0; i < subtrees.Count; ++i)
             {
-                gsts[i] = (GeneralSubtree)subtrees[i];
+                gsts[i] = subtrees[i];
             }
             return new DerSequence(gsts);
 		}

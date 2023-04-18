@@ -60,7 +60,7 @@ public class BuildTaskCopyAsssetBundle : BuildTask
             additionFileInfos = new Dictionary<string, AdditionFileInfo>();
             SetData(CONTEXT_FILE_ADDITION_INFO, additionFileInfos);
         }
-        var rPath = URSRuntimeSetting.instance.BundleManifestFileName;
+        var rPath = URSRuntimeSetting.instance.BundleManifestFileRelativePath;
         if (additionFileInfos.ContainsKey(rPath))
         {
             Debug.LogWarning("already exist path " + rPath);
@@ -72,7 +72,7 @@ public class BuildTaskCopyAsssetBundle : BuildTask
             IsEncrypted = false,
             IsUnityBundle = false
         };
-        BundleManifest.Serialize($"{versionDirectory}/{URSRuntimeSetting.instance.BundleManifestFileName}", bundleManifest, true);
+        BundleManifest.Serialize($"{versionDirectory}/{URSRuntimeSetting.instance.BundleManifestFileRelativePath}", bundleManifest, true);
         EditorUtility.ClearProgressBar();
     }
 

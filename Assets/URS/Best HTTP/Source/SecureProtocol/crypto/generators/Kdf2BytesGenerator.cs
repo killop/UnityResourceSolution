@@ -1,10 +1,5 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
-
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
-
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 {
 	/**
@@ -12,7 +7,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 	 * <br/>
 	 * This implementation is based on IEEE P1363/ISO 18033.
 	 */
-	public class Kdf2BytesGenerator
+	public sealed class Kdf2BytesGenerator
 		: BaseKdfBytesGenerator
 	{
 		/**

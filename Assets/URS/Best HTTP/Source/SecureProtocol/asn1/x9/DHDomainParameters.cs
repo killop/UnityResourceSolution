@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
@@ -26,7 +26,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9
 			if (obj is Asn1Sequence)
 				return new DHDomainParameters((Asn1Sequence)obj);
 
-			throw new ArgumentException("Invalid DHDomainParameters: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("Invalid DHDomainParameters: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public DHDomainParameters(DerInteger p, DerInteger g, DerInteger q, DerInteger j,
@@ -51,7 +51,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9
 			if (seq.Count < 3 || seq.Count > 5)
 				throw new ArgumentException("Bad sequence size: " + seq.Count, "seq");
 
-			IEnumerator e = seq.GetEnumerator();
+			var e = seq.GetEnumerator();
 			this.p = DerInteger.GetInstance(GetNext(e));
 			this.g = DerInteger.GetInstance(GetNext(e));
 			this.q = DerInteger.GetInstance(GetNext(e));
@@ -70,7 +70,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9
 			}
 		}
 
-		private static Asn1Encodable GetNext(IEnumerator e)
+		private static Asn1Encodable GetNext(IEnumerator<Asn1Encodable> e)
 		{
 			return e.MoveNext() ? (Asn1Encodable)e.Current : null;
 		}

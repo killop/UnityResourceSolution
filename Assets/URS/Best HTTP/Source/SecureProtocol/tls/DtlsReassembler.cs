@@ -1,9 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using System.Collections.Generic;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
@@ -12,7 +10,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         private readonly short m_msg_type;
         private readonly byte[] m_body;
 
-        private readonly IList m_missing = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+        private readonly List<Range> m_missing = new List<Range>();
 
         internal DtlsReassembler(short msg_type, int length)
         {

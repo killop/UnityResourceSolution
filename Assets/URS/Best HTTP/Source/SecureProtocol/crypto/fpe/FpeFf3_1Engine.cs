@@ -13,7 +13,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Fpe
         : FpeEngine
     {
         public FpeFf3_1Engine()
-            : this(new AesEngine())
+            : this(AesUtilities.CreateEngine())
         {
         }
 

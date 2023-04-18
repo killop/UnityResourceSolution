@@ -235,6 +235,11 @@ namespace Daihenka.AssetPipeline.Import
         {
         }
 
+        public virtual bool IsConfigOK(AssetImporter importer) 
+        {
+            return true;
+        }
+
         protected string ReplaceVariables(string input, string assetPath)
         {
             if (string.IsNullOrEmpty(input))

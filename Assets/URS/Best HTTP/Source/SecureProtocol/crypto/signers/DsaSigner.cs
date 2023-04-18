@@ -14,7 +14,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
      * Cryptography", pages 452 - 453.
      */
     public class DsaSigner
-        : IDsaExt
+        : IDsa
     {
         protected readonly IDsaKCalculator kCalculator;
 
@@ -157,7 +157,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 
         protected virtual SecureRandom InitSecureRandom(bool needed, SecureRandom provided)
         {
-            return !needed ? null : (provided != null) ? provided : new SecureRandom();
+            return !needed ? null : CryptoServicesRegistrar.GetSecureRandom(provided);
         }
     }
 }

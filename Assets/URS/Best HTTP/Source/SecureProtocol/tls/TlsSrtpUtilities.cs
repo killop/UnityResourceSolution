@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
@@ -10,13 +10,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
     public abstract class TlsSrtpUtilities
 {
         /// <exception cref="IOException"/>
-        public static void AddUseSrtpExtension(IDictionary extensions, UseSrtpData useSrtpData)
+        public static void AddUseSrtpExtension(IDictionary<int, byte[]> extensions, UseSrtpData useSrtpData)
         {
             extensions[ExtensionType.use_srtp] = CreateUseSrtpExtension(useSrtpData);
         }
 
         /// <exception cref="IOException"/>
-        public static UseSrtpData GetUseSrtpExtension(IDictionary extensions)
+        public static UseSrtpData GetUseSrtpExtension(IDictionary<int, byte[]> extensions)
         {
             byte[] extensionData = TlsUtilities.GetExtensionData(extensions, ExtensionType.use_srtp);
             return extensionData == null ? null : ReadUseSrtpExtension(extensionData);

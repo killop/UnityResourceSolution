@@ -76,6 +76,12 @@ namespace BestHTTP
         /// <summary>
         /// https://tools.ietf.org/html/rfc8441
         /// </summary>
-        Connect
+        Connect,
+
+        /// <summary>
+        /// https://horovits.medium.com/http-s-new-method-for-data-apis-http-query-1ff71e6f73f3
+        /// https://datatracker.ietf.org/doc/draft-ietf-httpbis-safe-method-w-body/
+        /// </summary>
+        Query
     }
 }

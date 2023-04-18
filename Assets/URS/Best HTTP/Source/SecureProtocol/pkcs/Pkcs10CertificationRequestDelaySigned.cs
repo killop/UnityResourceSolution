@@ -1,21 +1,12 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-using System.Globalization;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.CryptoPro;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Oiw;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.TeleTrust;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
@@ -105,27 +96,26 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
 				throw new ArgumentNullException("publicKey");
 			if (publicKey.IsPrivate)
 				throw new ArgumentException("expected public key", "publicKey");
-//			DerObjectIdentifier sigOid = SignerUtilities.GetObjectIdentifier(signatureAlgorithm);
-			string algorithmName = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(signatureAlgorithm);
-			DerObjectIdentifier sigOid = (DerObjectIdentifier) algorithms[algorithmName];
+
+			DerObjectIdentifier sigOid = CollectionUtilities.GetValueOrNull(m_algorithms, signatureAlgorithm);
 			if (sigOid == null)
 			{
 				try
 				{
-					sigOid = new DerObjectIdentifier(algorithmName);
+					sigOid = new DerObjectIdentifier(signatureAlgorithm);
 				}
 				catch (Exception e)
 				{
 					throw new ArgumentException("Unknown signature type requested", e);
 				}
 			}
-			if (noParams.Contains(sigOid))
+			if (m_noParams.Contains(sigOid))
 			{
 				this.sigAlgId = new AlgorithmIdentifier(sigOid);
 			}
-			else if (exParams.Contains(algorithmName))
+			else if (m_exParams.TryGetValue(signatureAlgorithm, out var explicitParameters))
 			{
-				this.sigAlgId = new AlgorithmIdentifier(sigOid, (Asn1Encodable) exParams[algorithmName]);
+				this.sigAlgId = new AlgorithmIdentifier(sigOid, explicitParameters);
 			}
 			else
 			{
@@ -134,6 +124,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
 			SubjectPublicKeyInfo pubInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(publicKey);
 			this.reqInfo = new CertificationRequestInfo(subject, pubInfo, attributes);
 		}
+
 		public byte[] GetDataToSign()
 		{
 			return reqInfo.GetDerEncoded();

@@ -30,23 +30,28 @@ public class URSRuntimeSetting : Hextant.Settings<URSRuntimeSetting>
     /// <summary>
     /// 构建输出的文件清单文件名称
     /// </summary>
+    public string BundleManifestFileRelativePath = "bundles/bundle_manifest.txt";
+
+    /// <summary>
+    /// 构建输出的文件清单文件名称
+    /// </summary>
     public string BundleManifestFileName = "bundle_manifest.txt";
 
     /// <summary>
-    /// 表示app的id文件名称，放在stream asset的 sandbox 里面
+    /// 表示app的id文件名称，放在stream asset的 urs_buildin_resource 里面
     /// </summary>
-    public string AppIdFileName = "app_id.txt";
+    public string ChannelFileName = "channel.txt";
 
     /// <summary>
     /// 默认的沙盒目录是 persistent 目录，你可以强制指定这个目录，到本地某个版本的时候
     /// </summary>
-    public string ForceSandboxDirectory = string.Empty;
+    public string ForceDownloadDirectory = string.Empty;
 
     public YooAssets.EPlayMode PlayMode = YooAssets.EPlayMode.EditorPlayMode;
 
     public string RemoteChannelRootUrl = "http://127.0.0.1:8000";
 
-    public string RemoteAppToChannelRouterFileName = "channel_router.txt";
+    public string RemoteAppVersionRouterFileName = "app_version_router.txt";
    //public string FallbackHostServer = "";
 
     public string DefaultTag = "default";

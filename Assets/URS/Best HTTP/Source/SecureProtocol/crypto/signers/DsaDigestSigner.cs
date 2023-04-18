@@ -16,19 +16,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
         private readonly IDsaEncoding encoding;
         private bool forSigning;
 
-		public DsaDigestSigner(
-			IDsa	dsa,
-			IDigest	digest)
+		public DsaDigestSigner(IDsa dsa, IDigest digest)
+			: this(dsa, digest, StandardDsaEncoding.Instance)
 		{
-            this.dsa = dsa;
-            this.digest = digest;
-            this.encoding = StandardDsaEncoding.Instance;
 		}
 
-        public DsaDigestSigner(
-            IDsaExt dsa,
-            IDigest digest,
-            IDsaEncoding encoding)
+        public DsaDigestSigner(IDsa dsa, IDigest digest, IDsaEncoding encoding)
         {
             this.dsa = dsa;
             this.digest = digest;
@@ -40,17 +33,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 			get { return digest.AlgorithmName + "with" + dsa.AlgorithmName; }
 		}
 
-        public virtual void Init(
-			bool forSigning,
-			ICipherParameters parameters)
+        public virtual void Init(bool forSigning, ICipherParameters parameters)
 		{
 			this.forSigning = forSigning;
 
 			AsymmetricKeyParameter k;
-
-			if (parameters is ParametersWithRandom)
+			if (parameters is ParametersWithRandom withRandom)
 			{
-				k = (AsymmetricKeyParameter)((ParametersWithRandom)parameters).Parameters;
+				k = (AsymmetricKeyParameter)withRandom.Parameters;
 			}
 			else
 			{
@@ -68,31 +58,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 			dsa.Init(forSigning, parameters);
 		}
 
-		/**
-		 * update the internal digest with the byte b
-		 */
-        public virtual void Update(
-			byte input)
+        public virtual void Update(byte input)
 		{
 			digest.Update(input);
 		}
 
-		/**
-		 * update the internal digest with the byte array in
-		 */
-        public virtual void BlockUpdate(
-			byte[]	input,
-			int			inOff,
-			int			length)
+        public virtual void BlockUpdate(byte[] input, int inOff, int inLen)
 		{
-			digest.BlockUpdate(input, inOff, length);
+			digest.BlockUpdate(input, inOff, inLen);
 		}
 
-		/**
-		 * Generate a signature for the message we've been loaded with using
-		 * the key we were initialised with.
-     */
-        public virtual byte[] GenerateSignature()
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public virtual void BlockUpdate(ReadOnlySpan<byte> input)
+		{
+			digest.BlockUpdate(input);
+		}
+#endif
+
+		public virtual byte[] GenerateSignature()
 		{
 			if (!forSigning)
 				throw new InvalidOperationException("DSADigestSigner not initialised for signature generation.");
@@ -112,9 +95,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             }
 		}
 
-		/// <returns>true if the internal state represents the signature described in the passed in array.</returns>
-        public virtual bool VerifySignature(
-			byte[] signature)
+        public virtual bool VerifySignature(byte[] signature)
 		{
 			if (forSigning)
 				throw new InvalidOperationException("DSADigestSigner not initialised for verification");
@@ -134,7 +115,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             }
 		}
 
-		/// <summary>Reset the internal state</summary>
         public virtual void Reset()
 		{
 			digest.Reset();
@@ -142,7 +122,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 
         protected virtual BigInteger GetOrder()
         {
-            return dsa is IDsaExt ? ((IDsaExt)dsa).Order : null;
+            return dsa.Order;
         }
 	}
 }

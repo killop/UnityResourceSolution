@@ -48,54 +48,58 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
         {
             this.n = n;
 
-            Arrays.Fill(V, (byte)0x01);
-            Arrays.Fill(K, (byte)0);
-
-            int size = BigIntegers.GetUnsignedByteLength(n);
-            byte[] x = new byte[size];
-            byte[] dVal = BigIntegers.AsUnsignedByteArray(d);
-
-            Array.Copy(dVal, 0, x, x.Length - dVal.Length, dVal.Length);
-
-            byte[] m = new byte[size];
+            Arrays.Fill(V, 0x01);
+            Arrays.Fill(K, 0);
 
             BigInteger mInt = BitsToInt(message);
-
             if (mInt.CompareTo(n) >= 0)
             {
                 mInt = mInt.Subtract(n);
             }
 
-            byte[] mVal = BigIntegers.AsUnsignedByteArray(mInt);
+            int size = BigIntegers.GetUnsignedByteLength(n);
 
-            Array.Copy(mVal, 0, m, m.Length - mVal.Length, mVal.Length);
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            int xmSize = size * 2;
+            Span<byte> xm = xmSize <= 512
+                ? stackalloc byte[xmSize]
+                : new byte[xmSize];
+            BigIntegers.AsUnsignedByteArray(d, xm[..size]);
+            BigIntegers.AsUnsignedByteArray(mInt, xm[size..]);
+#else
+            byte[] x = BigIntegers.AsUnsignedByteArray(size, d);
+            byte[] m = BigIntegers.AsUnsignedByteArray(size, mInt);
+#endif
 
             hMac.Init(new KeyParameter(K));
 
             hMac.BlockUpdate(V, 0, V.Length);
-            hMac.Update((byte)0x00);
+            hMac.Update(0x00);
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            hMac.BlockUpdate(xm);
+#else
             hMac.BlockUpdate(x, 0, x.Length);
             hMac.BlockUpdate(m, 0, m.Length);
-
+#endif
+            InitAdditionalInput0(hMac);
             hMac.DoFinal(K, 0);
 
             hMac.Init(new KeyParameter(K));
-
             hMac.BlockUpdate(V, 0, V.Length);
-
             hMac.DoFinal(V, 0);
 
             hMac.BlockUpdate(V, 0, V.Length);
-            hMac.Update((byte)0x01);
+            hMac.Update(0x01);
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            hMac.BlockUpdate(xm);
+#else
             hMac.BlockUpdate(x, 0, x.Length);
             hMac.BlockUpdate(m, 0, m.Length);
-
+#endif
             hMac.DoFinal(K, 0);
 
             hMac.Init(new KeyParameter(K));
-
             hMac.BlockUpdate(V, 0, V.Length);
-
             hMac.DoFinal(V, 0);
         }
 
@@ -110,7 +114,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
                 while (tOff < t.Length)
                 {
                     hMac.BlockUpdate(V, 0, V.Length);
-
                     hMac.DoFinal(V, 0);
 
                     int len = System.Math.Min(t.Length - tOff, V.Length);
@@ -121,21 +124,32 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
                 BigInteger k = BitsToInt(t);
 
                 if (k.SignValue > 0 && k.CompareTo(n) < 0)
-                {
                     return k;
-                }
 
                 hMac.BlockUpdate(V, 0, V.Length);
-                hMac.Update((byte)0x00);
-
+                hMac.Update(0x00);
                 hMac.DoFinal(K, 0);
 
                 hMac.Init(new KeyParameter(K));
-
                 hMac.BlockUpdate(V, 0, V.Length);
-
                 hMac.DoFinal(V, 0);
             }
+        }
+
+        /// <summary>Supports use of additional input.</summary>
+        /// <remarks>
+        /// RFC 6979 3.6. Additional data may be added to the input of HMAC [..]. A use case may be a protocol that
+        /// requires a non-deterministic signature algorithm on a system that does not have access to a high-quality
+        /// random source. It suffices that the additional data[..] is non-repeating(e.g., a signature counter or a
+        /// monotonic clock) to ensure "random-looking" signatures are indistinguishable, in a cryptographic way, from
+        /// plain (EC)DSA signatures.
+        /// <para/>
+        /// By default there is no additional input. Override this method to supply additional input, bearing in mind
+        /// that this calculator may be used for many signatures.
+        /// </remarks>
+        /// <param name="hmac0">The <see cref="HMac"/> to which the additional input should be added.</param>
+        protected virtual void InitAdditionalInput0(HMac hmac0)
+        {
         }
 
         private BigInteger BitsToInt(byte[] t)

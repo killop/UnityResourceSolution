@@ -1,5 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
+using System;
+using System.IO;
+
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
     /**
@@ -8,14 +13,68 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
     public abstract class Asn1Null
         : Asn1Object
     {
+        internal class Meta : Asn1UniversalType
+        {
+            internal static readonly Asn1UniversalType Instance = new Meta();
+
+            private Meta() : base(typeof(Asn1Null), Asn1Tags.Null) {}
+
+            internal override Asn1Object FromImplicitPrimitive(DerOctetString octetString)
+            {
+                return CreatePrimitive(octetString.GetOctets());
+            }
+        }
+
+        public static Asn1Null GetInstance(object obj)
+        {
+            if (obj == null)
+                return null;
+
+            if (obj is Asn1Null asn1Null)
+                return asn1Null;
+
+            if (obj is IAsn1Convertible asn1Convertible)
+            {
+                Asn1Object asn1Object = asn1Convertible.ToAsn1Object();
+                if (asn1Object is Asn1Null converted)
+                    return converted;
+            }
+            else if (obj is byte[] bytes)
+            {
+                try
+                {
+                    return (Asn1Null)Meta.Instance.FromByteArray(bytes);
+                }
+                catch (IOException e)
+                {
+                    throw new ArgumentException("failed to construct NULL from byte[]: " + e.Message);
+                }
+            }
+
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+        }
+
+        public static Asn1Null GetInstance(Asn1TaggedObject taggedObject, bool declaredExplicit)
+        {
+            return (Asn1Null)Meta.Instance.GetContextInstance(taggedObject, declaredExplicit);
+        }
+
         internal Asn1Null()
         {
         }
 
-		public override string ToString()
-		{
-			return "NULL";
-		}
+        public override string ToString()
+        {
+            return "NULL";
+        }
+
+        internal static Asn1Null CreatePrimitive(byte[] contents)
+        {
+            if (0 != contents.Length)
+                throw new InvalidOperationException("malformed NULL encoding encountered");
+
+            return DerNull.Instance;
+        }
     }
 }
 #pragma warning restore

@@ -3,6 +3,7 @@
 using System;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
@@ -53,10 +54,26 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             Reset();
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void SetKey(ReadOnlySpan<byte> key)
+        {
+            this.m_secret = key.ToArray();
+
+            Reset();
+        }
+#endif
+
         public virtual void Update(byte[] input, int inOff, int len)
         {
             m_digest.BlockUpdate(input, inOff, len);
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void Update(ReadOnlySpan<byte> input)
+        {
+            m_digest.BlockUpdate(input);
+        }
+#endif
 
         public virtual byte[] CalculateMac()
         {

@@ -51,31 +51,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
             get { return Arrays.Clone(mPassword); }
         }
 
-        /**
-         * return the password byte array.
-         *
-         * @return the password byte array.
-         */
-
-        public byte[] GetPassword()
-        {
-            return Password;
-        }
-
         public virtual byte[] Salt
         {
             get { return Arrays.Clone(mSalt); }
-        }
-
-        /**
-         * return the salt byte array.
-         *
-         * @return the salt byte array.
-         */
-
-        public byte[] GetSalt()
-        {
-            return Salt;
         }
 
         /**
@@ -88,26 +66,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
             get { return mIterationCount; }
         }
 
-        /**
-         * Generate derived parameters for a key of length keySize.
-         *
-         * @param keySize the length, in bits, of the key required.
-         * @return a parameters object representing a key.
-         */
-
-        public abstract ICipherParameters GenerateDerivedParameters(int keySize);
         public abstract ICipherParameters GenerateDerivedParameters(string algorithm, int keySize);
-
-        /**
-         * Generate derived parameters for a key of length keySize, and
-         * an initialisation vector (IV) of length ivSize.
-         *
-         * @param keySize the length, in bits, of the key required.
-         * @param ivSize the length, in bits, of the iv required.
-         * @return a parameters object representing a key and an IV.
-         */
-
-        public abstract ICipherParameters GenerateDerivedParameters(int keySize, int ivSize);
         public abstract ICipherParameters GenerateDerivedParameters(string algorithm, int keySize, int ivSize);
 
         /**
@@ -135,16 +94,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
             return Strings.ToByteArray(password);
         }
 
-
-        public static byte[] Pkcs5PasswordToBytes(
-            string password)
-        {
-            if (password == null)
-                return new byte[0];
-
-            return Strings.ToByteArray(password);
-        }
-
         /**
          * converts a password to a byte array according to the scheme in
          * PKCS5 (UTF-8, no padding)
@@ -154,16 +103,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
          */
         public static byte[] Pkcs5PasswordToUtf8Bytes(
             char[] password)
-        {
-            if (password == null)
-                return new byte[0];
-
-            return Encoding.UTF8.GetBytes(password);
-        }
-
-
-        public static byte[] Pkcs5PasswordToUtf8Bytes(
-            string password)
         {
             if (password == null)
                 return new byte[0];

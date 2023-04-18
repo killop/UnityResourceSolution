@@ -86,7 +86,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 
 			throw new ArgumentException(
 				"Unknown object in 'CommitmentTypeQualifier' factory: "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
 				"obj");
 		}
 

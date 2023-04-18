@@ -29,7 +29,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 			if (obj is IAsn1String)
 				return new AdditionalInformationSyntax(DirectoryString.GetInstance(obj));
 
-            throw new ArgumentException("Unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("Unknown object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		private AdditionalInformationSyntax(

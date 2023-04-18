@@ -1,12 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-using System.IO;
-using System.Text;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
@@ -22,11 +17,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
         private int halfSize;
         private bool forSigning;
 
-
-
-        public Gost3410DigestSigner(
-            IDsa signer,
-            IDigest digest)
+        public Gost3410DigestSigner(IDsa signer, IDigest digest)
         {
             this.dsaSigner = signer;
             this.digest = digest;
@@ -41,9 +32,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             get { return digest.AlgorithmName + "with" + dsaSigner.AlgorithmName; }
         }
 
-        public virtual void Init(
-            bool forSigning,
-            ICipherParameters parameters)
+        public virtual void Init(bool forSigning, ICipherParameters parameters)
         {
             this.forSigning = forSigning;
 
@@ -73,30 +62,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             dsaSigner.Init(forSigning, parameters);
         }
 
-        /**
-		 * update the internal digest with the byte b
-		 */
-        public virtual void Update(
-            byte input)
+        public virtual void Update(byte input)
         {
             digest.Update(input);
         }
 
-        /**
-		 * update the internal digest with the byte array in
-		 */
-        public virtual void BlockUpdate(
-            byte[] input,
-            int inOff,
-            int length)
+        public virtual void BlockUpdate(byte[] input, int inOff, int inLen)
         {
-            digest.BlockUpdate(input, inOff, length);
+            digest.BlockUpdate(input, inOff, inLen);
         }
 
-        /**
-		 * Generate a signature for the message we've been loaded with using
-		 * the key we were initialised with.
-		 */
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            digest.BlockUpdate(input);
+        }
+#endif
+
         public virtual byte[] GenerateSignature()
         {
             if (!forSigning)
@@ -123,9 +105,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             }
         }
 
-        /// <returns>true if the internal state represents the signature described in the passed in array.</returns>
-        public virtual bool VerifySignature(
-            byte[] signature)
+        public virtual bool VerifySignature(byte[] signature)
         {
             if (forSigning)
                 throw new InvalidOperationException("DSADigestSigner not initialised for verification");
@@ -147,7 +127,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             return dsaSigner.VerifySignature(hash, R, S);
         }
 
-        /// <summary>Reset the internal state</summary>
         public virtual void Reset()
         {
             digest.Reset();

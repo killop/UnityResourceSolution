@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X500;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -39,25 +38,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 		private readonly string					namingAuthorityUrl;
 		private readonly DirectoryString		namingAuthorityText;
 
-		public static NamingAuthority GetInstance(
-			object obj)
+		public static NamingAuthority GetInstance(object obj)
 		{
 			if (obj == null || obj is NamingAuthority)
-			{
 				return (NamingAuthority) obj;
-			}
 
-			if (obj is Asn1Sequence)
-			{
-				return new NamingAuthority((Asn1Sequence) obj);
-			}
+			if (obj is Asn1Sequence seq)
+				return new NamingAuthority(seq);
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
-		public static NamingAuthority GetInstance(
-			Asn1TaggedObject	obj,
-			bool				isExplicit)
+		public static NamingAuthority GetInstance(Asn1TaggedObject obj, bool isExplicit)
 		{
 			return GetInstance(Asn1Sequence.GetInstance(obj, isExplicit));
 		}
@@ -77,24 +69,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 		*
 		* @param seq The ASN.1 sequence.
 		*/
-		private NamingAuthority(
-			Asn1Sequence seq)
+		private NamingAuthority(Asn1Sequence seq)
 		{
 			if (seq.Count > 3)
 				throw new ArgumentException("Bad sequence size: " + seq.Count);
 
-			IEnumerator e = seq.GetEnumerator();
+			var e = seq.GetEnumerator();
 
 			if (e.MoveNext())
 			{
-				Asn1Encodable o = (Asn1Encodable) e.Current;
-				if (o is DerObjectIdentifier)
+				Asn1Encodable o = e.Current;
+				if (o is DerObjectIdentifier oid)
 				{
-					namingAuthorityID = (DerObjectIdentifier) o;
+					namingAuthorityID = oid;
 				}
-				else if (o is DerIA5String)
+				else if (o is DerIA5String ia5)
 				{
-					namingAuthorityUrl = DerIA5String.GetInstance(o).GetString();
+					namingAuthorityUrl = ia5.GetString();
 				}
 				else if (o is IAsn1String)
 				{
@@ -102,16 +93,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 				}
 				else
 				{
-                    throw new ArgumentException("Bad object encountered: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
+                    throw new ArgumentException("Bad object encountered: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
 				}
 			}
 
 			if (e.MoveNext())
 			{
-				Asn1Encodable o = (Asn1Encodable) e.Current;
-				if (o is DerIA5String)
+				Asn1Encodable o = e.Current;
+				if (o is DerIA5String ia5)
 				{
-					namingAuthorityUrl = DerIA5String.GetInstance(o).GetString();
+					namingAuthorityUrl = ia5.GetString();
 				}
 				else if (o is IAsn1String)
 				{
@@ -119,20 +110,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 				}
 				else
 				{
-                    throw new ArgumentException("Bad object encountered: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
+                    throw new ArgumentException("Bad object encountered: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
 				}
 			}
 
 			if (e.MoveNext())
 			{
-				Asn1Encodable o = (Asn1Encodable) e.Current;
+				Asn1Encodable o = e.Current;
 				if (o is IAsn1String)
 				{
 					namingAuthorityText = DirectoryString.GetInstance(o);
 				}
 				else
 				{
-                    throw new ArgumentException("Bad object encountered: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
+                    throw new ArgumentException("Bad object encountered: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
 				}
 			}
 		}

@@ -1,7 +1,5 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
-
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 {
     /// <summary>
@@ -10,7 +8,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
     public interface ISignatureFactory
 	{
         /// <summary>The algorithm details object for this calculator.</summary>
-        Object AlgorithmDetails { get ; }
+        object AlgorithmDetails { get; }
 
         /// <summary>
         /// Create a stream calculator for this signature calculator. The stream
@@ -18,10 +16,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
         /// and producing the signature block.
         /// </summary>
         /// <returns>A calculator producing an IBlockResult with a signature in it.</returns>
-        IStreamCalculator CreateCalculator();
+        IStreamCalculator<IBlockResult> CreateCalculator();
     }
 }
-
-
 #pragma warning restore
 #endif

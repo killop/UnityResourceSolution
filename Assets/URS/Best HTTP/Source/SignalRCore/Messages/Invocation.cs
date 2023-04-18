@@ -3,72 +3,82 @@ using System;
 
 namespace BestHTTP.SignalRCore.Messages
 {
+    [PlatformSupport.IL2CPP.Preserve]
     public struct Completion
     {
-        public MessageTypes type;
-        public string invocationId;
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type;
+        [PlatformSupport.IL2CPP.Preserve] public string invocationId;
     }
 
+    [PlatformSupport.IL2CPP.Preserve]
     public struct CompletionWithResult
     {
-        public MessageTypes type;
-        public string invocationId;
-        public object result;
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type;
+        [PlatformSupport.IL2CPP.Preserve] public string invocationId;
+        [PlatformSupport.IL2CPP.Preserve] public object result;
     }
 
+    [PlatformSupport.IL2CPP.Preserve]
     public struct CompletionWithError
     {
-        public MessageTypes type;
-        public string invocationId;
-        public string error;
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type;
+        [PlatformSupport.IL2CPP.Preserve] public string invocationId;
+        [PlatformSupport.IL2CPP.Preserve] public string error;
     }
 
+    [PlatformSupport.IL2CPP.Preserve]
     public struct StreamItemMessage
     {
-        public MessageTypes type;
-        public string invocationId;
-        public object item;
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type;
+        [PlatformSupport.IL2CPP.Preserve] public string invocationId;
+        [PlatformSupport.IL2CPP.Preserve] public object item;
     }
 
+    [PlatformSupport.IL2CPP.Preserve]
     public struct InvocationMessage
     {
-        public MessageTypes type;
-        public string invocationId;
-        public bool nonblocking;
-        public string target;
-        public object[] arguments;
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type;
+        [PlatformSupport.IL2CPP.Preserve] public string invocationId;
+        [PlatformSupport.IL2CPP.Preserve] public bool nonblocking;
+        [PlatformSupport.IL2CPP.Preserve] public string target;
+        [PlatformSupport.IL2CPP.Preserve] public object[] arguments;
     }
 
+    [PlatformSupport.IL2CPP.Preserve]
     public struct UploadInvocationMessage
     {
-        public MessageTypes type;
-        public string invocationId;
-        public bool nonblocking;
-        public string target;
-        public object[] arguments;
-        public string[] streamIds;
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type;
+        [PlatformSupport.IL2CPP.Preserve] public string invocationId;
+        [PlatformSupport.IL2CPP.Preserve] public bool nonblocking;
+        [PlatformSupport.IL2CPP.Preserve] public string target;
+        [PlatformSupport.IL2CPP.Preserve] public object[] arguments;
+        [PlatformSupport.IL2CPP.Preserve] public string[] streamIds;
     }
 
+    [PlatformSupport.IL2CPP.Preserve]
     public struct CancelInvocationMessage
     {
-        public MessageTypes type { get { return MessageTypes.CancelInvocation; } }
-        public string invocationId;
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type { get { return MessageTypes.CancelInvocation; } }
+        [PlatformSupport.IL2CPP.Preserve] public string invocationId;
     }
 
+    [PlatformSupport.IL2CPP.Preserve]
     public struct PingMessage
     {
-        public MessageTypes type { get { return MessageTypes.Ping; } }
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type { get { return MessageTypes.Ping; } }
     }
 
+    [PlatformSupport.IL2CPP.Preserve]
     public struct CloseMessage
     {
-        public MessageTypes type { get { return MessageTypes.Close; } }
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type { get { return MessageTypes.Close; } }
     }
 
+    [PlatformSupport.IL2CPP.Preserve]
     public struct CloseWithErrorMessage
     {
-        public MessageTypes type { get { return MessageTypes.Close; } }
-        public string error;
+        [PlatformSupport.IL2CPP.Preserve] public MessageTypes type { get { return MessageTypes.Close; } }
+        [PlatformSupport.IL2CPP.Preserve] public string error;
     }
 }
 #endif

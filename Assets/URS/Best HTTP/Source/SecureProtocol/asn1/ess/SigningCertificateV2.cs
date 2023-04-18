@@ -24,7 +24,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ess
 
             throw new ArgumentException(
                 "unknown object in 'SigningCertificateV2' factory : "
-                + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o) + ".");
+                + Org.BouncyCastle.Utilities.Platform.GetTypeName(o) + ".");
         }
 
         private SigningCertificateV2(

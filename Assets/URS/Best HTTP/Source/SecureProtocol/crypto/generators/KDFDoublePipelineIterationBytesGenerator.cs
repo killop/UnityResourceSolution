@@ -8,11 +8,9 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 {
-    public class KdfDoublePipelineIterationBytesGenerator : IMacDerivationFunction
+    public sealed class KdfDoublePipelineIterationBytesGenerator
+        : IMacDerivationFunction
     {
-        private static readonly BigInteger IntegerMax = BigInteger.ValueOf(0x7fffffff);
-        private static readonly BigInteger Two = BigInteger.Two;
-
         // fields set by the constructor       
         private readonly IMac prf;
         private readonly int h;
@@ -30,7 +28,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
         private byte[] a;
         private byte[] k;
 
-
         public KdfDoublePipelineIterationBytesGenerator(IMac prf)
         {
             this.prf = prf;
@@ -39,16 +36,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
             this.k = new byte[h];
         }
 
-
         public void Init(IDerivationParameters parameters)
         {
-            KdfDoublePipelineIterationParameters dpiParams = parameters as KdfDoublePipelineIterationParameters;
-            if (dpiParams == null)
-            {
+            if (!(parameters is KdfDoublePipelineIterationParameters dpiParams))
                 throw new ArgumentException("Wrong type of arguments given");
-            }
-
-
 
             // --- init mac based PRF ---
 
@@ -64,13 +55,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
             if (dpiParams.UseCounter)
             {
                 // this is more conservative than the spec
-                BigInteger maxSize = Two.Pow(r).Multiply(BigInteger.ValueOf(h));
-                this.maxSizeExcl = maxSize.CompareTo(IntegerMax) == 1 ?
-                    Int32.MaxValue : maxSize.IntValue;
+                BigInteger maxSize = BigInteger.One.ShiftLeft(r).Multiply(BigInteger.ValueOf(h));
+                this.maxSizeExcl = maxSize.BitLength > 31 ? int.MaxValue : maxSize.IntValueExact;
             }
             else
             {
-                this.maxSizeExcl = IntegerMax.IntValue;
+                this.maxSizeExcl = int.MaxValue;
             }
 
             this.useCounter = dpiParams.UseCounter;
@@ -80,12 +70,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
             generatedBytes = 0;
         }
 
-
-
-
-        private void generateNext()
+        private void GenerateNext()
         {
-
             if (generatedBytes == 0)
             {
                 // --- step 4 ---
@@ -109,23 +95,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
                 // encode i into counter buffer
                 switch (ios.Length)
                 {
-                    case 4:
-                        ios[0] = (byte)(i >> 24);
-                        // fall through
-                        goto case 3;
-                    case 3:
-                        ios[ios.Length - 3] = (byte)(i >> 16);
-                        // fall through
-                        goto case 2;
-                    case 2:
-                        ios[ios.Length - 2] = (byte)(i >> 8);
-                        // fall through
-                        goto case 1;
-                    case 1:
-                        ios[ios.Length - 1] = (byte)i;
-                        break;
-                    default:
-                        throw new InvalidOperationException("Unsupported size of counter i");
+                case 4:
+                    ios[0] = (byte)(i >> 24);
+                    // fall through
+                    goto case 3;
+                case 3:
+                    ios[ios.Length - 3] = (byte)(i >> 16);
+                    // fall through
+                    goto case 2;
+                case 2:
+                    ios[ios.Length - 2] = (byte)(i >> 8);
+                    // fall through
+                    goto case 1;
+                case 1:
+                    ios[ios.Length - 1] = (byte)i;
+                    break;
+                default:
+                    throw new InvalidOperationException("Unsupported size of counter i");
                 }
                 prf.BlockUpdate(ios, 0, ios.Length);
             }
@@ -136,37 +122,33 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 
         public IDigest Digest
         {
-            get { return prf is HMac ? ((HMac)prf).GetUnderlyingDigest() : null; }
+            get { return (prf as HMac)?.GetUnderlyingDigest(); }
         }
 
         public int GenerateBytes(byte[] output, int outOff, int length)
         {
-            int generatedBytesAfter = generatedBytes + length;
-            if (generatedBytesAfter < 0 || generatedBytesAfter >= maxSizeExcl)
-            {
-                throw new DataLengthException(
-                    "Current KDFCTR may only be used for " + maxSizeExcl + " bytes");
-            }
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return GenerateBytes(output.AsSpan(outOff, length));
+#else
+            if (generatedBytes >= maxSizeExcl - length)
+                throw new DataLengthException("Current KDFCTR may only be used for " + maxSizeExcl + " bytes");
 
-            if (generatedBytes % h == 0)
-            {
-                generateNext();
-            }
-
-            // copy what is left in the currentT (1..hash
             int toGenerate = length;
             int posInK = generatedBytes % h;
-            int leftInK = h - generatedBytes % h;
-            int toCopy = System.Math.Min(leftInK, toGenerate);
-            Array.Copy(k, posInK, output, outOff, toCopy);
-            generatedBytes += toCopy;
-            toGenerate -= toCopy;
-            outOff += toCopy;
+            if (posInK != 0)
+            {
+                // copy what is left in the currentT (1..hash
+                int toCopy = System.Math.Min(h - posInK, toGenerate);
+                Array.Copy(k, posInK, output, outOff, toCopy);
+                generatedBytes += toCopy;
+                toGenerate -= toCopy;
+                outOff += toCopy;
+            }
 
             while (toGenerate > 0)
             {
-                generateNext();
-                toCopy = System.Math.Min(h, toGenerate);
+                GenerateNext();
+                int toCopy = System.Math.Min(h, toGenerate);
                 Array.Copy(k, 0, output, outOff, toCopy);
                 generatedBytes += toCopy;
                 toGenerate -= toCopy;
@@ -174,12 +156,41 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
             }
 
             return length;
+#endif
         }
 
-        public IMac GetMac()
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int GenerateBytes(Span<byte> output)
         {
-            return prf;
+            int length = output.Length;
+            if (generatedBytes >= maxSizeExcl - length)
+                throw new DataLengthException("Current KDFCTR may only be used for " + maxSizeExcl + " bytes");
+
+            int posInK = generatedBytes % h;
+            if (posInK != 0)
+            {
+                // copy what is left in the currentT (1..hash
+                GenerateNext();
+                int toCopy = System.Math.Min(h - posInK, output.Length);
+                k.AsSpan(posInK, toCopy).CopyTo(output);
+                generatedBytes += toCopy;
+                output = output[toCopy..];
+            }
+
+            while (!output.IsEmpty)
+            {
+                GenerateNext();
+                int toCopy = System.Math.Min(h, output.Length);
+                k.AsSpan(0, toCopy).CopyTo(output);
+                generatedBytes += toCopy;
+                output = output[toCopy..];
+            }
+
+            return length;
         }
+#endif
+
+        public IMac Mac => prf;
     }
 }
 #pragma warning restore

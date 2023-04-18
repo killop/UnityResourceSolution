@@ -57,6 +57,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             prehash.BlockUpdate(buf, off, len);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            prehash.BlockUpdate(input);
+        }
+#endif
+
         public virtual byte[] GenerateSignature()
         {
             if (!forSigning || null == privateKey)

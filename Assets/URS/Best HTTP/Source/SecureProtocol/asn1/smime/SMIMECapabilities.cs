@@ -1,9 +1,8 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
@@ -64,7 +63,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Smime
                     (Asn1Sequence)(((AttributeX509) obj).AttrValues[0]));
             }
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
 		public SmimeCapabilities(
@@ -73,51 +72,27 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Smime
             capabilities = seq;
         }
 
-#if !(SILVERLIGHT || PORTABLE || NETFX_CORE)
-
-        public ArrayList GetCapabilities(
-            DerObjectIdentifier capability)
-        {
-            ArrayList list = new ArrayList();
-            DoGetCapabilitiesForOid(capability, list);
-			return list;
-        }
-#endif
-
         /**
          * returns an ArrayList with 0 or more objects of all the capabilities
          * matching the passed in capability Oid. If the Oid passed is null the
          * entire set is returned.
          */
-        public IList GetCapabilitiesForOid(
-            DerObjectIdentifier capability)
+        public IList<SmimeCapability> GetCapabilitiesForOid(DerObjectIdentifier capability)
         {
-            IList list = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+            var list = new List<SmimeCapability>();
             DoGetCapabilitiesForOid(capability, list);
 			return list;
         }
 
-        private void DoGetCapabilitiesForOid(DerObjectIdentifier capability, IList list)
+        private void DoGetCapabilitiesForOid(DerObjectIdentifier capability, IList<SmimeCapability> list)
         {
-			if (capability == null)
+            foreach (object o in capabilities)
             {
-				foreach (object o in capabilities)
-				{
-                    SmimeCapability cap = SmimeCapability.GetInstance(o);
+                SmimeCapability cap = SmimeCapability.GetInstance(o);
 
-					list.Add(cap);
-                }
-            }
-            else
-            {
-				foreach (object o in capabilities)
-				{
-                    SmimeCapability cap = SmimeCapability.GetInstance(o);
-
-					if (capability.Equals(cap.CapabilityID))
-                    {
-                        list.Add(cap);
-                    }
+                if (capability == null || capability.Equals(cap.CapabilityID))
+                {
+                    list.Add(cap);
                 }
             }
         }

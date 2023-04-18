@@ -33,13 +33,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
             this.algorithm = algorithm;
         }
 
-
-        public AlgorithmIdentifier(
-            string algorithm)
-        {
-            this.algorithm = new DerObjectIdentifier(algorithm);
-        }
-
         public AlgorithmIdentifier(
             DerObjectIdentifier algorithm,
             Asn1Encodable		parameters)
@@ -65,12 +58,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 		{
 			get { return algorithm; }
 		}
-
-
-        public virtual DerObjectIdentifier ObjectID
-        {
-            get { return algorithm; }
-        }
 
         /// <summary>
         /// Return the parameters structure in the Parameters entry of this identifier.

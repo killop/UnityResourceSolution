@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace BestHTTP.Authentication
@@ -215,7 +215,7 @@ namespace BestHTTP.Authentication
                             if (entityBody == null)
                                 entityBody = BufferPool.NoData; //string.Empty.GetASCIIBytes();
 
-                            string HA2 = string.Format("{0}:{1}:{2}", method, uri, entityBody.CalculateMD5Hash()).CalculateMD5Hash();
+                            string HA2 = string.Format("{0}:{1}:{2}", method, uri, new BufferSegment(entityBody, 0, entityBody.Length).CalculateMD5Hash()).CalculateMD5Hash();
 
                             response = string.Format("{0}:{1}:{2}:{3}:{4}:{5}", HA1, Nonce, ncvalue, cnonce, qop, HA2).CalculateMD5Hash();
                         }

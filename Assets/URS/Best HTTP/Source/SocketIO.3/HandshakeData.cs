@@ -33,6 +33,11 @@ namespace BestHTTP.SocketIO3
         /// </summary>
         [PlatformSupport.IL2CPP.Preserve]
         public int PingTimeout { get; private set; }
+
+        /// <summary>
+        /// This defines how many bytes a single message can be, before the server closes the socket.
+        /// </summary>
+        public int MaxPayload { get; private set; }
     }
 }
 

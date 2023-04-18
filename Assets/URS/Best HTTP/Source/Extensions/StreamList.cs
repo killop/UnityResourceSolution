@@ -100,10 +100,9 @@ namespace BestHTTP.Extensions
 
         public void Write(string str)
         {
-            byte[] bytes = str.GetASCIIBytes();
-
-            this.Write(bytes, 0, bytes.Length);
-            BufferPool.Release(bytes);
+            var buffer = str.GetASCIIBytes();
+            this.Write(buffer.Data, buffer.Offset, buffer.Count);
+            BufferPool.Release(buffer);
         }
 
         protected override void Dispose(bool disposing)

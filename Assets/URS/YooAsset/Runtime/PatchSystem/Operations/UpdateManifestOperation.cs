@@ -51,56 +51,159 @@ namespace YooAsset
 		private enum ESteps
 		{
 			None,
-			LoadWebFileManifest,
+
+            LoadAppChannel,
+            CheckAppChannel,
+
+            LoadChannelRouter,
+            CheckChannelRouter,
+
+            LoadFilesVersionIndex,
+            CheckFilesVersionIndex,
+
+            LoadWebFileManifest,
 			CheckWebFileManifest,
+
             LoadWebBundleManifest,
             CheckWebBundelManifest,
 
-            LoadLocalFilePaths,
-            CheckLocalFileSystemIntegrity,
+            BeginCheckDownloadFolder,
+            CheckDownloadFolder,
 
-			Done,
+            BeginCheckReadOnlyFolder,
+            CheckReadOnlyFolder,
+
+            Done,
 		}
 
 		private static int RequestCount = 0;
 
 		private readonly HostPlayModeImpl _impl;
-		private readonly int _updateResourceVersion;
 		private readonly int _timeout;
 		private ESteps _steps = ESteps.None;
-		private UnityWebRequester _webFileManifestDownloader;
+
+        private UnityWebRequester _appChannelDownloader;
+        private UnityWebRequester _remoteAppToChannelRouterFileDownloader;
+        private UnityWebRequester _remoteFilesVersionIndexDownloader;
+        private UnityWebRequester _webFileManifestDownloader;
 		private UnityWebRequester _webBundleManifestDownloader;
-		private float _verifyTime;
+
         private List<(string,string)> _relativePaths = new List<(string, string)>();
         private int _currentCheckIndex = 0;
         private const int MAX_STEP = 20;
 
-        public HostPlayModeUpdateManifestOperation(HostPlayModeImpl impl, int updateResourceVersion, int timeout)
+        public HostPlayModeUpdateManifestOperation(HostPlayModeImpl impl , int timeout)
 		{
 			_impl = impl;
-			_updateResourceVersion = updateResourceVersion;
 			_timeout = timeout;
+           
 		}
 		internal override void Start()
 		{
 			RequestCount++;
-			_steps = ESteps.LoadWebFileManifest;
-
-			if (_impl.IgnoreResourceVersion && _updateResourceVersion > 0)
-			{
-				Logger.Warning($"Update resource version {_updateResourceVersion} is invalid when ignore resource version.");
-			}
-			else
-			{
-				Logger.Log($"Update patch manifest : update resource version is  {_updateResourceVersion}");
-			}
+			_steps = ESteps.LoadAppChannel;
 		}
 		internal override void Update()
 		{
 			if (_steps == ESteps.None || _steps == ESteps.Done)
 				return;
+            if (_steps == ESteps.LoadAppChannel)
+            {
 
-			if (_steps == ESteps.LoadWebFileManifest)
+                _impl.channel = null;
+				string filePath = AssetPathHelper.GetBuildInChannelFilePath();
+                // 加载APP内的补丁清单
+                Logger.Log($"Load application file manifest.{filePath}");
+                var downloadURL = AssetPathHelper.ConvertToWWWPath(filePath);
+                _appChannelDownloader = new UnityWebRequester();
+                _appChannelDownloader.SendRequest(downloadURL);
+                _steps = ESteps.CheckAppChannel;
+            }
+            if (_steps == ESteps.CheckAppChannel)
+            {
+
+                if (_appChannelDownloader.IsDone() == false)
+                    return;
+
+                if (_appChannelDownloader.HasError())
+                {
+                    Error = _appChannelDownloader.GetError();
+                    Logger.Warning($"can not Load _appId.error {Error}");
+                }
+                else
+                {
+                    // 解析补丁清单
+                    string channel = _appChannelDownloader.GetText();
+                    _impl.InitChannel(channel);
+                }
+                //_impl.LocalPatchManifest = _impl.AppPatchManifest;
+                _appChannelDownloader.Dispose();
+                _steps = ESteps.LoadChannelRouter;
+            }
+            if (_steps == ESteps.LoadChannelRouter)
+            {
+                // 加载APP内的补丁清单
+                var downloadURL = AppendSeedToFreshCDN(_impl.RemoteAppToChannelRouterFileUrl);
+                _remoteAppToChannelRouterFileDownloader = new UnityWebRequester();
+                _remoteAppToChannelRouterFileDownloader.SendRequest(downloadURL);
+                _steps = ESteps.CheckChannelRouter;
+            }
+            if (_steps == ESteps.CheckChannelRouter)
+            {
+
+                if (_remoteAppToChannelRouterFileDownloader.IsDone() == false)
+                    return;
+
+                if (_remoteAppToChannelRouterFileDownloader.HasError())
+                {
+                    Error = _remoteAppToChannelRouterFileDownloader.GetError();
+                    Logger.Warning($"can not Load _remoteAppToChannelRouterFile.error {Error}");
+                }
+                else
+                {
+                    // 解析补丁清单
+                    string jsonText = _remoteAppToChannelRouterFileDownloader.GetText();
+                    var router = AppVersionRouter.Deserialize(jsonText);
+                    var targetVersion = router.GetChannel(Application.version);
+                    _impl.InitVersion(targetVersion);
+                }
+                //_impl.LocalPatchManifest = _impl.AppPatchManifest;
+                _remoteAppToChannelRouterFileDownloader.Dispose();
+                _steps = ESteps.LoadFilesVersionIndex;
+            }
+            if (_steps == ESteps.LoadFilesVersionIndex)
+            {
+                // 加载APP内的补丁清单
+                string downloadURL = AppendSeedToFreshCDN(_impl.GetRemoteFilesVersionIndexUrl());
+                _remoteFilesVersionIndexDownloader = new UnityWebRequester();
+                _remoteFilesVersionIndexDownloader.SendRequest(downloadURL);
+                _steps = ESteps.CheckFilesVersionIndex;
+            }
+            if (_steps == ESteps.CheckFilesVersionIndex)
+            {
+
+                if (_remoteFilesVersionIndexDownloader.IsDone() == false)
+                    return;
+
+                if (_remoteFilesVersionIndexDownloader.HasError())
+                {
+                    // Error = _appIdDownloader.GetError();
+                    Logger.Warning($"can not Load _remoteFilesVersionIndex .error {Error}");
+                }
+                else
+                {
+                    // 解析补丁清单
+                    string jsonText = _remoteFilesVersionIndexDownloader.GetText();
+                    var versionIndex = JsonUtility.FromJson<URSFilesVersionIndex>(jsonText);
+                    versionIndex.AfterSerialize();
+                    _impl.InitFilesVersion(versionIndex);
+                }
+                //_impl.LocalPatchManifest = _impl.AppPatchManifest;
+                _remoteFilesVersionIndexDownloader.Dispose();
+                _steps = ESteps.LoadWebFileManifest;
+            }
+
+            if (_steps == ESteps.LoadWebFileManifest)
 			{
 				string webURL = GetWebRequestURL(URSRuntimeSetting.instance.FileManifestFileName, false);
 				_webFileManifestDownloader = new UnityWebRequester();
@@ -116,10 +219,9 @@ namespace YooAsset
 				// Check fatal
 				if (_webFileManifestDownloader.HasError())
 				{
-                    _impl.WebFileManifest = null;
+                    URSFileSystem.RemoteFolder.FileManifest = null; 
                     Error = _webFileManifestDownloader.GetError();				
 					_webFileManifestDownloader.Dispose();
-                    Debug.LogError(Error+" url "+ _webFileManifestDownloader.URL);
                     _steps = ESteps.Done;
 					Status = EOperationStatus.Failed;
 					return;
@@ -127,14 +229,14 @@ namespace YooAsset
 
 				// 获取补丁清单文件的哈希值
 				string webManifestHash = _webFileManifestDownloader.GetText();
-                _impl.WebFileManifest = FileManifest.Deserialize(webManifestHash);
+                URSFileSystem.RemoteFolder.FileManifest = FileManifest.Deserialize(webManifestHash);
 				_webFileManifestDownloader.Dispose();
                 _steps = ESteps.LoadWebBundleManifest;
             }
 
 			if (_steps == ESteps.LoadWebBundleManifest)
 			{
-				string webURL = GetWebRequestURL(URSRuntimeSetting.instance.BundleManifestFileName,false);
+				string webURL = GetWebRequestURL(URSRuntimeSetting.instance.BundleManifestFileRelativePath,false);
 				Logger.Log($"Beginning to request  web bundle manifest : {webURL}");
 				_webBundleManifestDownloader = new UnityWebRequester();
                 _webBundleManifestDownloader.SendRequest(webURL, _timeout);
@@ -157,70 +259,42 @@ namespace YooAsset
                 else
                 {
                     string text = _webBundleManifestDownloader.GetText();
-                    _impl.WebBundleManifest = BundleManifest.Deserialize(text);
+                    URSFileSystem.RemoteFolder.BundleManifest = BundleManifest.Deserialize(text);
                 }
                 _webFileManifestDownloader.Dispose();
-                _steps = ESteps.LoadLocalFilePaths;
+                _steps = ESteps.BeginCheckDownloadFolder;
             }
-            if (_steps == ESteps.LoadLocalFilePaths)
+            if (_steps == ESteps.BeginCheckDownloadFolder)
             {
-                _relativePaths.Clear();
-                string sandboxPath = SandboxFileSystem.GetSandboxDirectory();
-				Directory.CreateDirectory(sandboxPath);
-                var sandboxPathLength = sandboxPath.Length;
-                var paths = Directory.GetFiles(sandboxPath,"*", SearchOption.AllDirectories);
-                if (paths != null && paths.Length > 0)
-                {
-                    for (int i = 0; i < paths.Length; i++)
-                    {
-						var fullPath = paths[i];
-                        var relativePath = paths[i].Substring(sandboxPathLength + 1);
-                        var pure = relativePath.Replace('\\', '/').Replace("//", "/");
-                        _relativePaths.Add((pure, fullPath));
-                    }
-                }
-                _currentCheckIndex = 0;
-                _steps = ESteps.CheckLocalFileSystemIntegrity;
+                URSFileSystem.PersistentDownloadFolder.BeginCheckLocalFile();
+                _steps = ESteps.CheckDownloadFolder;
             }
-            if (_steps == ESteps.CheckLocalFileSystemIntegrity) {
+            if (_steps == ESteps.CheckDownloadFolder) {
                 // 遍历所有文件然后验证并缓存合法文件
-               
-                for (int i = 0; i < MAX_STEP; i++)
+				bool isEnd= URSFileSystem.PersistentDownloadFolder.CheckLocalFile(URSFileSystem.RemoteFolder.FileManifest);
+				if (isEnd) {
+					URSFileSystem.PersistentDownloadFolder.EndCheck();
+                    _steps = ESteps.BeginCheckReadOnlyFolder;
+                }
+              
+            }
+            if (_steps == ESteps.BeginCheckReadOnlyFolder)
+            {
+                URSFileSystem.PersistentReadOnlyFolder.BeginCheckLocalFile();
+                _steps = ESteps.CheckReadOnlyFolder;
+            }
+            if (_steps == ESteps.CheckReadOnlyFolder)
+            {
+                // 遍历所有文件然后验证并缓存合法文件
+                bool isEnd = URSFileSystem.PersistentReadOnlyFolder.CheckLocalFile(URSFileSystem.RemoteFolder.FileManifest);
+                if (isEnd)
                 {
-                    _currentCheckIndex++;
-                    if (_currentCheckIndex < _relativePaths.Count)
-                    {
-                        var relativePath = _relativePaths[_currentCheckIndex].Item1;
-						var fullPath= _relativePaths[_currentCheckIndex].Item2;
-                        if (relativePath == URSRuntimeSetting.instance.FileManifestFileName)
-                        {
-                            continue;
-                        }
-                        var webFileManifest = _impl.WebFileManifest;
-                        var fileMap = webFileManifest.GetFileMetaMap();
-                        if (fileMap.ContainsKey(relativePath))
-                        {
-                            var fileMeta = fileMap[relativePath];
-                            if (SandboxFileSystem.CheckContentIntegrity(fullPath, fileMeta.SizeBytes, fileMeta.Hash))
-                            {
-                                SandboxFileSystem.RegisterVerifyFile(fileMeta);
-                            }
-                        }
-                        else
-                        {
-                            SandboxFileSystem.DeleteSandboxFile(relativePath);
-                        }
-                    }
-                    else
-                    {
-						SandboxFileSystem.FlushSandboxFileManifestToHardisk();
-                        _steps = ESteps.Done;
-                        Status = EOperationStatus.Succeed;
-                    }
+                    URSFileSystem.PersistentReadOnlyFolder.EndCheck();
+                    _steps = ESteps.Done;
+                    Status = EOperationStatus.Succeed;
                 }
             }
-            
-		}
+        }
 
 		private string GetWebRequestURL(string fileName,bool freshCDN)
 		{
@@ -230,10 +304,15 @@ namespace YooAsset
 
 			// 注意：在URL末尾添加时间戳
 			if (freshCDN)
-				url = $"{url}?{System.DateTime.UtcNow.Ticks}";
+				url = AppendSeedToFreshCDN(url);
 
 			return url;
 		}
+
+		public string AppendSeedToFreshCDN(string url)
+		{
+			return $"{url}?{System.DateTime.UtcNow.Ticks}";
+        }
         /*
 		private void ParseAndSaveRemotePatchManifest(string content)
 		{

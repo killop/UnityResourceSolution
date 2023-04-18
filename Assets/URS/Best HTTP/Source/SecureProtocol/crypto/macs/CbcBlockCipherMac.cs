@@ -16,7 +16,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
     {
         private byte[] buf;
         private int bufOff;
-        private IBlockCipher cipher;
+        private IBlockCipherMode m_cipherMode;
         private IBlockCipherPadding padding;
 		private int macSize;
 
@@ -88,7 +88,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
             if ((macSizeInBits % 8) != 0)
                 throw new ArgumentException("MAC size must be multiple of 8");
 
-			this.cipher = new CbcBlockCipher(cipher);
+			this.m_cipherMode = new CbcBlockCipher(cipher);
             this.padding = padding;
             this.macSize = macSizeInBits / 8;
 
@@ -98,15 +98,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 
 		public string AlgorithmName
         {
-            get { return cipher.AlgorithmName; }
+            get { return m_cipherMode.AlgorithmName; }
         }
 
-		public void Init(
-            ICipherParameters parameters)
+		public void Init(ICipherParameters parameters)
         {
             Reset();
 
-			cipher.Init(true, parameters);
+            m_cipherMode.Init(true, parameters);
         }
 
 		public int GetMacSize()
@@ -114,34 +113,33 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
             return macSize;
         }
 
-		public void Update(
-            byte input)
+		public void Update(byte input)
         {
 			if (bufOff == buf.Length)
             {
-				cipher.ProcessBlock(buf, 0, buf, 0);
+                m_cipherMode.ProcessBlock(buf, 0, buf, 0);
                 bufOff = 0;
             }
 
 			buf[bufOff++] = input;
         }
 
-        public void BlockUpdate(
-            byte[]	input,
-            int		inOff,
-            int		len)
+        public void BlockUpdate(byte[] input, int inOff, int len)
         {
             if (len < 0)
                 throw new ArgumentException("Can't have a negative input length!");
 
-			int blockSize = cipher.GetBlockSize();
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            BlockUpdate(input.AsSpan(inOff, len));
+#else
+            int blockSize = m_cipherMode.GetBlockSize();
             int gapLen = blockSize - bufOff;
 
             if (len > gapLen)
             {
                 Array.Copy(input, inOff, buf, bufOff, gapLen);
 
-                cipher.ProcessBlock(buf, 0, buf, 0);
+                m_cipherMode.ProcessBlock(buf, 0, buf, 0);
 
                 bufOff = 0;
                 len -= gapLen;
@@ -149,7 +147,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 
                 while (len > blockSize)
                 {
-                    cipher.ProcessBlock(input, inOff, buf, 0);
+                    m_cipherMode.ProcessBlock(input, inOff, buf, 0);
 
                     len -= blockSize;
                     inOff += blockSize;
@@ -159,13 +157,43 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
             Array.Copy(input, inOff, buf, bufOff, len);
 
             bufOff += len;
+#endif
         }
 
-        public int DoFinal(
-            byte[]	output,
-            int		outOff)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void BlockUpdate(ReadOnlySpan<byte> input)
         {
-            int blockSize = cipher.GetBlockSize();
+            int blockSize = m_cipherMode.GetBlockSize();
+            int gapLen = blockSize - bufOff;
+
+            if (input.Length > gapLen)
+            {
+                input[..gapLen].CopyTo(buf.AsSpan(bufOff));
+
+                m_cipherMode.ProcessBlock(buf, buf);
+
+                bufOff = 0;
+                input = input[gapLen..];
+
+                while (input.Length > blockSize)
+                {
+                    m_cipherMode.ProcessBlock(input, buf);
+                    input = input[blockSize..];
+                }
+            }
+
+            input.CopyTo(buf.AsSpan(bufOff));
+
+            bufOff += input.Length;
+        }
+#endif
+
+        public int DoFinal(byte[] output, int outOff)
+        {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return DoFinal(output.AsSpan(outOff));
+#else
+            int blockSize = m_cipherMode.GetBlockSize();
 
             if (padding == null)
             {
@@ -179,23 +207,58 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
             {
                 if (bufOff == blockSize)
                 {
-                    cipher.ProcessBlock(buf, 0, buf, 0);
+                    m_cipherMode.ProcessBlock(buf, 0, buf, 0);
                     bufOff = 0;
                 }
 
 				padding.AddPadding(buf, bufOff);
             }
 
-			cipher.ProcessBlock(buf, 0, buf, 0);
+			m_cipherMode.ProcessBlock(buf, 0, buf, 0);
 
 			Array.Copy(buf, 0, output, outOff, macSize);
 
 			Reset();
 
 			return macSize;
+#endif
         }
 
-		/**
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int DoFinal(Span<byte> output)
+        {
+            int blockSize = m_cipherMode.GetBlockSize();
+
+            if (padding == null)
+            {
+                // pad with zeroes
+                while (bufOff < blockSize)
+                {
+                    buf[bufOff++] = 0;
+                }
+            }
+            else
+            {
+                if (bufOff == blockSize)
+                {
+                    m_cipherMode.ProcessBlock(buf, buf);
+                    bufOff = 0;
+                }
+
+				padding.AddPadding(buf, bufOff);
+            }
+
+            m_cipherMode.ProcessBlock(buf, buf);
+
+            buf.AsSpan(0, macSize).CopyTo(output);
+
+			Reset();
+
+			return macSize;
+        }
+#endif
+
+        /**
         * Reset the mac generator.
         */
         public void Reset()
@@ -204,8 +267,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 			Array.Clear(buf, 0, buf.Length);
 			bufOff = 0;
 
-			// Reset the underlying cipher.
-            cipher.Reset();
+            // Reset the underlying cipher.
+            m_cipherMode.Reset();
         }
     }
 }

@@ -35,11 +35,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			int		bufSize)
 		{
 			_oid = oid;
-#if NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || PORTABLE || NETFX_CORE
-			_in = new FullReaderStream(inStream);
-#else
 			_in = new FullReaderStream(new BufferedStream(inStream, bufSize));
-#endif
 		}
 
 		public string ContentType
@@ -55,7 +51,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		public void Drain()
 		{
 			Streams.Drain(_in);
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(_in);
+            _in.Dispose();
 		}
 
 		private class FullReaderStream : FilterStream
@@ -65,12 +61,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			{
 			}
 
-			public override int Read(byte[]	buf, int off, int len)
+            public override int Read(byte[]	buf, int off, int len)
 			{
-				return Streams.ReadFully(base.s, buf, off, len);
+				return Streams.ReadFully(s, buf, off, len);
 			}
-		}
-	}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            public override int Read(Span<byte> buffer)
+            {
+                return Streams.ReadFully(s, buffer);
+            }
+#endif
+        }
+    }
 }
 #pragma warning restore
 #endif

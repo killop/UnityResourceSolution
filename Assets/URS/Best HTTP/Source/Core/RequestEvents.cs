@@ -211,6 +211,78 @@ namespace BestHTTP.Core
         }
     }
 
+    class ProgressFlattener
+    {
+        struct FlattenedProgress
+        {
+            public HTTPRequest request;
+            public OnProgressDelegate onProgress;
+            public long progress;
+            public long length;
+        }
+
+        private FlattenedProgress[] progresses;
+        private bool hasProgress;
+
+        public void InsertOrUpdate(RequestEventInfo info, OnProgressDelegate onProgress)
+        {
+            if (progresses == null)
+                progresses = new FlattenedProgress[1];
+
+            hasProgress = true;
+
+            var newProgresss = new FlattenedProgress { request = info.SourceRequest, progress = info.Progress, length = info.ProgressLength, onProgress = onProgress };
+
+            int firstEmptyIdx = -1;
+            for (int i = 0; i < progresses.Length; i++)
+            {
+                var progress = progresses[i];
+                if (object.ReferenceEquals(progress.request, info.SourceRequest))
+                {
+                    progresses[i] = newProgresss;
+                    return;
+                }
+
+                if (firstEmptyIdx == -1 && progress.request == null)
+                    firstEmptyIdx = i;
+            }
+
+            if (firstEmptyIdx == -1)
+            {
+                Array.Resize(ref progresses, progresses.Length + 1);
+                progresses[progresses.Length - 1] = newProgresss;
+            }
+            else
+                progresses[firstEmptyIdx] = newProgresss;
+        }
+
+        public void DispatchProgressCallbacks()
+        {
+            if (progresses == null || !hasProgress)
+                return;
+
+            for (int i = 0; i < progresses.Length; ++i)
+            {
+                var @event = progresses[i];
+                var source = @event.request;
+                if (source != null && @event.onProgress != null)
+                {
+                    try
+                    {
+                        @event.onProgress(source, @event.progress, @event.length);
+                    }
+                    catch (Exception ex)
+                    {
+                        HTTPManager.Logger.Exception("ProgressFlattener", "DispatchProgressCallbacks", ex, source.Context);
+                    }
+                }
+            }
+
+            Array.Clear(progresses, 0, progresses.Length);
+            hasProgress = false;
+        }
+    }
+
     public static class RequestEventHelper
     {
         private static ConcurrentQueue<RequestEventInfo> requestEventQueue = new ConcurrentQueue<RequestEventInfo>();
@@ -218,6 +290,13 @@ namespace BestHTTP.Core
 #pragma warning disable 0649
         public static Action<RequestEventInfo> OnEvent;
 #pragma warning restore
+
+        // Low frame rate and hight download/upload speed can add more download/upload progress events to dispatch in one frame.
+        // This can add higher CPU usage as it might cause updating the UI/do other things unnecessary in the same frame.
+        // To avoid this, instead of calling the events directly, we store the last event's data and call download/upload callbacks only once per frame.
+
+        private static ProgressFlattener downloadProgress;
+        private static ProgressFlattener uploadProgress;
 
         public static void EnqueueRequestEvent(RequestEventInfo @event)
         {
@@ -282,7 +361,11 @@ namespace BestHTTP.Core
                         try
                         {
                             if (source.OnDownloadProgress != null)
-                                source.OnDownloadProgress(source, requestEvent.Progress, requestEvent.ProgressLength);
+                            {
+                                if (downloadProgress == null)
+                                    downloadProgress = new ProgressFlattener();
+                                downloadProgress.InsertOrUpdate(requestEvent, source.OnDownloadProgress);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -294,7 +377,11 @@ namespace BestHTTP.Core
                         try
                         {
                             if (source.OnUploadProgress != null)
-                                source.OnUploadProgress(source, requestEvent.Progress, requestEvent.ProgressLength);
+                            {
+                                if (uploadProgress == null)
+                                    uploadProgress = new ProgressFlattener();
+                                uploadProgress.InsertOrUpdate(requestEvent, source.OnUploadProgress);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -360,6 +447,9 @@ namespace BestHTTP.Core
                         break;
                 }
             }
+
+            uploadProgress?.DispatchProgressCallbacks();
+            downloadProgress?.DispatchProgressCallbacks();
         }
 
         private static bool AbortRequestWhenTimedOut(DateTime now, object context)
@@ -464,6 +554,10 @@ namespace BestHTTP.Core
                         HTTPManager.Logger.Exception("RequestEventHelper", string.Format("HandleRequestStateChange - Cache probe - CurrentUri: \"{0}\" State: {1} StatusCode: {2}", source.CurrentUri, source.State, source.Response != null ? source.Response.StatusCode : 0), ex, source.Context);
                     }
 #endif
+
+                    // Dispatch any collected download/upload progress, otherwise they would _after_ the callback!
+                    uploadProgress?.DispatchProgressCallbacks();
+                    downloadProgress?.DispatchProgressCallbacks();
 
                     source.Timing.AddEvent(TimingEventNames.Queued_For_Disptach, DateTime.Now, TimeSpan.Zero);
                     source.Timing.AddEvent(TimingEventNames.Finished, DateTime.Now, DateTime.Now - source.Timing.Start);

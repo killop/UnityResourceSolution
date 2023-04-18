@@ -1,8 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
@@ -110,7 +108,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
 
         private PrivateKeyInfo(Asn1Sequence seq)
         {
-            IEnumerator e = seq.GetEnumerator();
+            var e = seq.GetEnumerator();
 
             this.version = DerInteger.GetInstance(CollectionUtilities.RequireNext(e));
 

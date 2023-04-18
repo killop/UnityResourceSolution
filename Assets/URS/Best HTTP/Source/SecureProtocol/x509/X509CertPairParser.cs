@@ -1,13 +1,12 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
@@ -29,8 +28,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		/// Create loading data from byte array.
 		/// </summary>
 		/// <param name="input"></param>
-		public X509CertificatePair ReadCertPair(
-			byte[] input)
+		public X509CertificatePair ReadCertPair(byte[] input)
 		{
 			return ReadCertPair(new MemoryStream(input, false));
 		}
@@ -39,14 +37,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		/// Create loading data from byte array.
 		/// </summary>
 		/// <param name="input"></param>
-		public ICollection ReadCertPairs(
-			byte[] input)
+		public IList<X509CertificatePair> ReadCertPairs(byte[] input)
 		{
 			return ReadCertPairs(new MemoryStream(input, false));
 		}
 
-		public X509CertificatePair ReadCertPair(
-			Stream inStream)
+		public X509CertificatePair ReadCertPair(Stream inStream)
 		{
 			if (inStream == null)
 				throw new ArgumentNullException("inStream");
@@ -64,15 +60,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 
 			try
 			{
-				PushbackStream pis = new PushbackStream(inStream);
-				int tag = pis.ReadByte();
+                int tag = inStream.ReadByte();
+                if (tag < 0)
+                    return null;
 
-				if (tag < 0)
-					return null;
+                if (inStream.CanSeek)
+                {
+                    inStream.Seek(-1L, SeekOrigin.Current);
+                }
+                else
+                {
+                    PushbackStream pis = new PushbackStream(inStream);
+                    pis.Unread(tag);
+                    inStream = pis;
+                }
 
-				pis.Unread(tag);
-
-				return ReadDerCrossCertificatePair(pis);
+                return ReadDerCrossCertificatePair(inStream);
 			}
 			catch (Exception e)
 			{
@@ -80,12 +83,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 			}
 		}
 
-		public ICollection ReadCertPairs(
-			Stream inStream)
+		public IList<X509CertificatePair> ReadCertPairs(Stream inStream)
 		{
-			X509CertificatePair certPair;
-			IList certPairs = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+			var certPairs = new List<X509CertificatePair>();
 
+			X509CertificatePair certPair;
 			while ((certPair = ReadCertPair(inStream)) != null)
 			{
 				certPairs.Add(certPair);

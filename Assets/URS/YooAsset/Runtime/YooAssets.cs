@@ -51,7 +51,7 @@ namespace YooAsset
 			/// <summary>
 			/// 资源加载的最大数量
 			/// </summary>
-			public int AssetLoadingMaxNumber = int.MaxValue;
+			public int AssetLoadingMaxNumber =5;
 		}
 
 		
@@ -68,6 +68,10 @@ namespace YooAsset
 		private static float _releaseCD = -1f;
 
 
+		public static EPlayMode GetPlayMode() { 
+			return _playMode; 
+		}
+
 		/// <summary>
 		/// 异步初始化
 		/// </summary>
@@ -79,7 +83,7 @@ namespace YooAsset
 #if !UNITY_EDITOR
             if (_playMode == EPlayMode.EditorPlayMode)
             {
-                _playMode = EPlayMode.OfflinePlayMode; // 防止犯错
+                _playMode = EPlayMode.HostPlayMode; // 防止犯错
             }
 #endif
             if (parameters == null)
@@ -113,7 +117,7 @@ namespace YooAsset
 				_releaseCD = parameters.AutoReleaseInterval;
 			}
 
-		
+			URSFileSystem.Init();
 			// 初始化
 			if (_playMode == EPlayMode.EditorPlayMode)
 			{
@@ -147,7 +151,7 @@ namespace YooAsset
 		/// </summary>
 		/// <param name="updateResourceVersion">更新的资源版本号</param>
 		/// <param name="timeout">超时时间（默认值：60秒）</param>
-		public static UpdateManifestOperation UpdateManifestAsync(int updateResourceVersion, int timeout = 60)
+		public static UpdateManifestOperation UpdateManifestAsync(int timeout = 60)
 		{
 			if (_playMode == EPlayMode.EditorPlayMode)
 			{
@@ -165,7 +169,7 @@ namespace YooAsset
 			{
 				if (_hostPlayModeImpl == null)
 					throw new Exception("YooAsset is not initialized.");
-				return _hostPlayModeImpl.UpdatePatchManifestAsync(updateResourceVersion, timeout);
+				return _hostPlayModeImpl.UpdatePatchManifestAsync(timeout);
 			}
 			else
 			{
@@ -459,8 +463,8 @@ namespace YooAsset
 		public static void ClearSandbox()
 		{
 			Logger.Warning("Clear sandbox.");
-            SandboxFileSystem.DeleteSandboxFolder();
-		}
+            URSFileSystem.DeletePersistentRootFolder();
+        }
 
 		
 		#endregion
@@ -480,18 +484,21 @@ namespace YooAsset
 			// 下载模块
 			RemoteDownloadSystem.Update();
 
-			// 轮询更新资源系统
-			AssetSystem.Update();
-
-			// 自动释放零引用资源
-			if (_releaseCD > 0)
+            UnityEngine.Profiling.Profiler.BeginSample("AssetSystem.Update");
+            // 轮询更新资源系统
+            AssetSystem.Update();
+            UnityEngine.Profiling.Profiler.EndSample();
+            // 自动释放零引用资源
+            if (_releaseCD > 0)
 			{
 				_releaseTimer += UnityEngine.Time.unscaledDeltaTime;
 				if (_releaseTimer >= _releaseCD)
 				{
 					_releaseTimer = 0f;
+					UnityEngine.Profiling.Profiler.BeginSample("UnloadUnusedAssets");
 					AssetSystem.UnloadUnusedAssets();
-				}
+                    UnityEngine.Profiling.Profiler.EndSample();
+                }
 			}
 		}
 

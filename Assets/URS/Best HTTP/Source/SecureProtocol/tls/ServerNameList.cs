@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -11,10 +11,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
     public sealed class ServerNameList
     {
-        private readonly IList m_serverNameList;
+        private readonly IList<ServerName> m_serverNameList;
 
-        /// <param name="serverNameList">an <see cref="IList"/> of <see cref="ServerName"/>.</param>
-        public ServerNameList(IList serverNameList)
+        /// <param name="serverNameList">an <see cref="IList{T}"/> of <see cref="ServerName"/>.</param>
+        public ServerNameList(IList<ServerName> serverNameList)
         {
             if (null == serverNameList)
                 throw new ArgumentNullException("serverNameList");
@@ -22,8 +22,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             this.m_serverNameList = serverNameList;
         }
 
-        /// <returns>an <see cref="IList"/> of <see cref="ServerName"/>.</returns>
-        public IList ServerNames
+        /// <returns>an <see cref="IList{T}"/> of <see cref="ServerName"/>.</returns>
+        public IList<ServerName> ServerNames
         {
             get { return m_serverNameList; }
         }
@@ -45,10 +45,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 entry.Encode(buf);
             }
 
-            int length = (int)buf.Length;
+            int length = Convert.ToInt32(buf.Length);
             TlsUtilities.CheckUint16(length);
             TlsUtilities.WriteUint16(length, output);
-            Streams.WriteBufTo(buf, output);
+            buf.WriteTo(output);
         }
 
         /// <summary>Parse a <see cref="ServerNameList"/> from a <see cref="Stream"/>.</summary>
@@ -62,7 +62,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             MemoryStream buf = new MemoryStream(data, false);
 
             short[] nameTypesSeen = TlsUtilities.EmptyShorts;
-            IList server_name_list = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+            var server_name_list = new List<ServerName>();
             while (buf.Position < buf.Length)
             {
                 ServerName entry = ServerName.Parse(buf);

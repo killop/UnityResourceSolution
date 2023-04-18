@@ -1,7 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+
+using BestHTTP.PlatformSupport.Text;
 
 namespace BestHTTP.Forms
 {
@@ -24,7 +26,7 @@ namespace BestHTTP.Forms
             if (CachedData != null && !IsChanged)
                 return CachedData;
 
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = PlatformSupport.Text.StringBuilderPool.Get(Fields.Count * 4);
 
             // Create a "field1=value1&field2=value2" formatted string
             for (int i = 0; i < Fields.Count; ++i)
@@ -45,7 +47,7 @@ namespace BestHTTP.Forms
             }
 
             IsChanged = false;
-            return CachedData = Encoding.UTF8.GetBytes(sb.ToString());
+            return CachedData = Encoding.UTF8.GetBytes(PlatformSupport.Text.StringBuilderPool.ReleaseAndGrab(sb));
         }
 
         public static string EscapeString(string originalString)
@@ -55,13 +57,13 @@ namespace BestHTTP.Forms
             else
             {
                 int loops = originalString.Length / EscapeTreshold;
-                StringBuilder sb = new StringBuilder(loops);
+                StringBuilder sb = StringBuilderPool.Get(loops); //new StringBuilder(loops);
 
                 for (int i = 0; i <= loops; i++)
                    sb.Append(i < loops ?
                                 Uri.EscapeDataString(originalString.Substring(EscapeTreshold * i, EscapeTreshold)) :
                                 Uri.EscapeDataString(originalString.Substring(EscapeTreshold * i)));
-                return sb.ToString();
+                return StringBuilderPool.ReleaseAndGrab(sb);
             }
         }
 

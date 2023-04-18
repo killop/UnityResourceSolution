@@ -271,7 +271,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             ICipherParameters parameters)
         {
             if (!(parameters is KeyParameter))
-				throw new ArgumentException("invalid parameter passed to Twofish init - " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
+				throw new ArgumentException("invalid parameter passed to Twofish init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
 
 			this.encrypting = forEncryption;
 			this.workingKey = ((KeyParameter)parameters).GetKey();
@@ -296,16 +296,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             get { return "Twofish"; }
         }
 
-		public bool IsPartialBlockOkay
-		{
-			get { return false; }
-		}
-
-		public int ProcessBlock(
-            byte[]	input,
-            int		inOff,
-            byte[]	output,
-            int		outOff)
+		public int ProcessBlock(byte[] input, int inOff, byte[] output, int outOff)
         {
             if (workingKey == null)
                 throw new InvalidOperationException("Twofish not initialised");
@@ -313,6 +304,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             Check.DataLength(input, inOff, BLOCK_SIZE, "input buffer too short");
             Check.OutputLength(output, outOff, BLOCK_SIZE, "output buffer too short");
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            if (encrypting)
+            {
+                EncryptBlock(input.AsSpan(inOff), output.AsSpan(outOff));
+            }
+            else
+            {
+                DecryptBlock(input.AsSpan(inOff), output.AsSpan(outOff));
+            }
+#else
             if (encrypting)
             {
                 EncryptBlock(input, inOff, output, outOff);
@@ -321,17 +322,32 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             {
                 DecryptBlock(input, inOff, output, outOff);
             }
+#endif
 
             return BLOCK_SIZE;
         }
 
-        public void Reset()
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int ProcessBlock(ReadOnlySpan<byte> input, Span<byte> output)
         {
-            if (this.workingKey != null)
+            if (workingKey == null)
+                throw new InvalidOperationException("Twofish not initialised");
+
+            Check.DataLength(input, BLOCK_SIZE, "input buffer too short");
+            Check.OutputLength(output, BLOCK_SIZE, "output buffer too short");
+
+            if (encrypting)
             {
-                SetKey(this.workingKey);
+                EncryptBlock(input, output);
             }
+            else
+            {
+                DecryptBlock(input, output);
+            }
+
+            return BLOCK_SIZE;
         }
+#endif
 
         public int GetBlockSize()
         {
@@ -353,7 +369,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             /*
              * k64Cnt is the number of 8 byte blocks (64 chunks) that are in the input key.
              * The input key is 16, 24 or 32 bytes, so the range for k64Cnt is 2..4
-            */
+             */
             for (int i = 0; i < k64Cnt; i++)
             {
                 int p = i * 8;
@@ -426,6 +442,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             */
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
         /**
         * Encrypt the given input starting at the given offset and place
         * the result in the provided buffer starting at the given offset.
@@ -434,11 +451,80 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
         * encryptBlock uses the pre-calculated gSBox[] and subKey[]
         * arrays.
         */
-        private void EncryptBlock(
-            byte[] src,
-            int srcIndex,
-            byte[] dst,
-            int dstIndex)
+        private void EncryptBlock(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            int x0 = (int)Pack.LE_To_UInt32(input) ^ gSubKeys[INPUT_WHITEN];
+            int x1 = (int)Pack.LE_To_UInt32(input[4..]) ^ gSubKeys[INPUT_WHITEN + 1];
+            int x2 = (int)Pack.LE_To_UInt32(input[8..]) ^ gSubKeys[INPUT_WHITEN + 2];
+            int x3 = (int)Pack.LE_To_UInt32(input[12..]) ^ gSubKeys[INPUT_WHITEN + 3];
+
+            int k = ROUND_SUBKEYS;
+            int t0, t1;
+            for (int r = 0; r < ROUNDS; r +=2)
+            {
+                t0 = Fe32_0(x0);
+                t1 = Fe32_3(x1);
+                x2 ^= t0 + t1 + gSubKeys[k++];
+                x2 = Integers.RotateRight(x2, 1);
+                x3 = Integers.RotateLeft(x3, 1) ^ (t0 + 2*t1 + gSubKeys[k++]);
+
+                t0 = Fe32_0(x2);
+                t1 = Fe32_3(x3);
+                x0 ^= t0 + t1 + gSubKeys[k++];
+                x0 = Integers.RotateRight(x0, 1);
+                x1 = Integers.RotateLeft(x1, 1) ^ (t0 + 2*t1 + gSubKeys[k++]);
+            }
+
+            Pack.UInt32_To_LE((uint)(x2 ^ gSubKeys[OUTPUT_WHITEN]), output);
+            Pack.UInt32_To_LE((uint)(x3 ^ gSubKeys[OUTPUT_WHITEN + 1]), output[4..]);
+            Pack.UInt32_To_LE((uint)(x0 ^ gSubKeys[OUTPUT_WHITEN + 2]), output[8..]);
+            Pack.UInt32_To_LE((uint)(x1 ^ gSubKeys[OUTPUT_WHITEN + 3]), output[12..]);
+        }
+
+        /**
+        * Decrypt the given input starting at the given offset and place
+        * the result in the provided buffer starting at the given offset.
+        * The input will be an exact multiple of our blocksize.
+        */
+        private void DecryptBlock(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            int x2 = (int)Pack.LE_To_UInt32(input) ^ gSubKeys[OUTPUT_WHITEN];
+            int x3 = (int)Pack.LE_To_UInt32(input[4..]) ^ gSubKeys[OUTPUT_WHITEN + 1];
+            int x0 = (int)Pack.LE_To_UInt32(input[8..]) ^ gSubKeys[OUTPUT_WHITEN + 2];
+            int x1 = (int)Pack.LE_To_UInt32(input[12..]) ^ gSubKeys[OUTPUT_WHITEN + 3];
+
+            int k = ROUND_SUBKEYS + 2 * ROUNDS -1 ;
+            int t0, t1;
+            for (int r = 0; r< ROUNDS ; r +=2)
+            {
+                t0 = Fe32_0(x2);
+                t1 = Fe32_3(x3);
+                x1 ^= t0 + 2*t1 + gSubKeys[k--];
+                x0 = Integers.RotateLeft(x0, 1) ^ (t0 + t1 + gSubKeys[k--]);
+                x1 = Integers.RotateRight(x1, 1);
+
+                t0 = Fe32_0(x0);
+                t1 = Fe32_3(x1);
+                x3 ^= t0 + 2*t1 + gSubKeys[k--];
+                x2 = Integers.RotateLeft(x2, 1) ^ (t0 + t1 + gSubKeys[k--]);
+                x3 = Integers.RotateRight(x3, 1);
+            }
+
+            Pack.UInt32_To_LE((uint)(x0 ^ gSubKeys[INPUT_WHITEN]), output);
+            Pack.UInt32_To_LE((uint)(x1 ^ gSubKeys[INPUT_WHITEN + 1]), output[4..]);
+            Pack.UInt32_To_LE((uint)(x2 ^ gSubKeys[INPUT_WHITEN + 2]), output[8..]);
+            Pack.UInt32_To_LE((uint)(x3 ^ gSubKeys[INPUT_WHITEN + 3]), output[12..]);
+        }
+#else
+        /**
+        * Encrypt the given input starting at the given offset and place
+        * the result in the provided buffer starting at the given offset.
+        * The input will be an exact multiple of our blocksize.
+        *
+        * encryptBlock uses the pre-calculated gSBox[] and subKey[]
+        * arrays.
+        */
+        private void EncryptBlock(byte[] src, int srcIndex, byte[] dst, int dstIndex)
         {
             int x0 = (int)Pack.LE_To_UInt32(src, srcIndex) ^ gSubKeys[INPUT_WHITEN];
             int x1 = (int)Pack.LE_To_UInt32(src, srcIndex + 4) ^ gSubKeys[INPUT_WHITEN + 1];
@@ -473,11 +559,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
         * the result in the provided buffer starting at the given offset.
         * The input will be an exact multiple of our blocksize.
         */
-        private void DecryptBlock(
-            byte[] src,
-            int srcIndex,
-            byte[] dst,
-            int dstIndex)
+        private void DecryptBlock(byte[] src, int srcIndex, byte[] dst, int dstIndex)
         {
             int x2 = (int)Pack.LE_To_UInt32(src, srcIndex) ^ gSubKeys[OUTPUT_WHITEN];
             int x3 = (int)Pack.LE_To_UInt32(src, srcIndex + 4) ^ gSubKeys[OUTPUT_WHITEN + 1];
@@ -486,7 +568,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 
             int k = ROUND_SUBKEYS + 2 * ROUNDS -1 ;
             int t0, t1;
-            for (int r = 0; r< ROUNDS ; r +=2)
+            for (int r = 0; r < ROUNDS ; r += 2)
             {
                 t0 = Fe32_0(x2);
                 t1 = Fe32_3(x3);
@@ -506,6 +588,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             Pack.UInt32_To_LE((uint)(x2 ^ gSubKeys[INPUT_WHITEN + 2]), dst, dstIndex + 8);
             Pack.UInt32_To_LE((uint)(x3 ^ gSubKeys[INPUT_WHITEN + 3]), dst, dstIndex + 12);
         }
+#endif
 
         /*
         * TODO:  This can be optimised and made cleaner by combining
@@ -657,7 +740,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
                 gSBox[ 0x200 + 2*((int)((uint)x >> 8) & 0xff) ] ^
                 gSBox[ 0x201 + 2*((int)((uint)x >> 16) & 0xff) ];
         }
-        }
+    }
 }
 #pragma warning restore
 #endif

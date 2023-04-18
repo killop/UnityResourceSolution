@@ -14,7 +14,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
     * block cipher.
     */
     public class SicBlockCipher
-        : IBlockCipher
+        : IBlockCipherMode
     {
         private readonly IBlockCipher cipher;
         private readonly int blockSize;
@@ -41,10 +41,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
         *
         * @return the underlying block cipher that we are wrapping.
         */
-        public virtual IBlockCipher GetUnderlyingCipher()
-        {
-            return cipher;
-        }
+        public IBlockCipher UnderlyingCipher => cipher;
 
         public virtual void Init(
             bool				forEncryption, //ignored by this CTR mode
@@ -87,11 +84,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
             return cipher.GetBlockSize();
         }
 
-        public virtual int ProcessBlock(
-            byte[]	input,
-            int		inOff,
-            byte[]	output,
-            int		outOff)
+        public virtual int ProcessBlock(byte[] input, int inOff, byte[] output, int outOff)
         {
             cipher.ProcessBlock(counter, 0, counterOut, 0);
 
@@ -112,11 +105,33 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
             return counter.Length;
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual int ProcessBlock(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            cipher.ProcessBlock(counter, 0, counterOut, 0);
+
+            //
+            // XOR the counterOut with the plaintext producing the cipher text
+            //
+            for (int i = 0; i < counterOut.Length; i++)
+            {
+                output[i] = (byte)(counterOut[i] ^ input[i]);
+            }
+
+            // Increment the counter
+            int j = counter.Length;
+            while (--j >= 0 && ++counter[j] == 0)
+            {
+            }
+
+            return counter.Length;
+        }
+#endif
+
         public virtual void Reset()
         {
             Arrays.Fill(counter, (byte)0);
             Array.Copy(IV, 0, counter, 0, IV.Length);
-            cipher.Reset();
         }
     }
 }

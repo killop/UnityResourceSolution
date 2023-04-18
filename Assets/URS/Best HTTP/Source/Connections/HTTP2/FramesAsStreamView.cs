@@ -7,7 +7,7 @@ using System.IO;
 
 namespace BestHTTP.Connections.HTTP2
 {
-    interface IFrameDataView : IDisposable
+    public interface IFrameDataView : IDisposable
     {
         long Length { get; }
         long Position { get; }
@@ -17,7 +17,7 @@ namespace BestHTTP.Connections.HTTP2
         int Read(byte[] buffer, int offset, int count);
     }
 
-    abstract class CommonFrameView : IFrameDataView
+    public abstract class CommonFrameView : IFrameDataView
     {
         public long Length { get; protected set; }
         public long Position { get; protected set; }
@@ -74,14 +74,15 @@ namespace BestHTTP.Connections.HTTP2
         public virtual void Dispose()
         {
             for (int i = 0; i < this.frames.Count; ++i)
-                if (this.frames[i].Payload != null && !this.frames[i].DontUseMemPool)
+                //if (this.frames[i].Payload != null && !this.frames[i].DontUseMemPool)
                     BufferPool.Release(this.frames[i].Payload);
             this.frames.Clear();
         }
 
         public override string ToString()
         {
-            var sb = new System.Text.StringBuilder("[CommonFrameView ");
+            var sb = PlatformSupport.Text.StringBuilderPool.Get(this.frames.Count + 2);
+            sb.Append("[CommonFrameView ");
 
             for (int i = 0; i < this.frames.Count; ++i) {
                 sb.AppendFormat("{0} Payload: {1}\n", this.frames[i], this.frames[i].PayloadAsHex());
@@ -89,11 +90,11 @@ namespace BestHTTP.Connections.HTTP2
 
             sb.Append("]");
 
-            return sb.ToString();
+            return PlatformSupport.Text.StringBuilderPool.ReleaseAndGrab(sb);
         }
     }
 
-    sealed class HeaderFrameView : CommonFrameView
+    public sealed class HeaderFrameView : CommonFrameView
     {
         public override void AddFrame(HTTP2FrameHeaderAndPayload frame)
         {
@@ -149,7 +150,7 @@ namespace BestHTTP.Connections.HTTP2
         }
     }
 
-    sealed class DataFrameView : CommonFrameView
+    public sealed class DataFrameView : CommonFrameView
     {
         public override void AddFrame(HTTP2FrameHeaderAndPayload frame)
         {
@@ -182,7 +183,7 @@ namespace BestHTTP.Connections.HTTP2
         }
     }
 
-    sealed class FramesAsStreamView : Stream
+    public sealed class FramesAsStreamView : Stream
     {
         public override bool CanRead { get { return true; } }
         public override bool CanSeek { get { return false; } }

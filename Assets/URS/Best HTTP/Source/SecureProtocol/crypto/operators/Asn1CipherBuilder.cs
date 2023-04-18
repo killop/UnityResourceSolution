@@ -1,19 +1,15 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ntt;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Cms;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.IO;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators
 {
@@ -24,10 +20,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators
 
         public Asn1CipherBuilderWithKey(DerObjectIdentifier encryptionOID, int keySize, SecureRandom random)
         {
-            if (random == null)
-            {
-                random = new SecureRandom();
-            }
+            random = CryptoServicesRegistrar.GetSecureRandom(random);
 
             CipherKeyGenerator keyGen = CipherKeyGeneratorFactory.CreateKeyGenerator(encryptionOID, random);
 

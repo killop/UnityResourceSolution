@@ -1,13 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 {
@@ -16,7 +13,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 	 */
 	public class AttributeCertificateIssuer
 		//: CertSelector, Selector
-		: IX509Selector
+		: ISelector<X509Certificate>
 	{
 		internal readonly Asn1Encodable form;
 
@@ -137,9 +134,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 			return new AttributeCertificateIssuer(AttCertIssuer.GetInstance(form));
 		}
 
-		public bool Match(
-			X509Certificate x509Cert)
+		public bool Match(X509Certificate x509Cert)
 		{
+			if (x509Cert == null)
+				return false;
+
 			if (form is V2Form)
 			{
 				V2Form issuer = (V2Form) form;
@@ -176,18 +175,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		public override int GetHashCode()
 		{
 			return this.form.GetHashCode();
-		}
-
-		public bool Match(
-			object obj)
-		{
-			if (!(obj is X509Certificate))
-			{
-				return false;
-			}
-
-			//return Match((Certificate)obj);
-			return Match((X509Certificate)obj);
 		}
 	}
 }

@@ -33,6 +33,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto
             return new TlsEncodeResult(result, 0, result.Length, contentType);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public TlsEncodeResult EncodePlaintext(long seqNo, short contentType, ProtocolVersion recordVersion,
+            int headerAllocation, ReadOnlySpan<byte> plaintext)
+        {
+            byte[] result = new byte[headerAllocation + plaintext.Length];
+            plaintext.CopyTo(result.AsSpan(headerAllocation));
+            return new TlsEncodeResult(result, 0, result.Length, contentType);
+        }
+#endif
+
         public TlsDecodeResult DecodeCiphertext(long seqNo, short recordType, ProtocolVersion recordVersion,
             byte[] ciphertext, int offset, int len)
         {

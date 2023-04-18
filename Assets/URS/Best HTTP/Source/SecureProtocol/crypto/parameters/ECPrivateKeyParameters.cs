@@ -20,15 +20,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
         {
         }
 
-
-        public ECPrivateKeyParameters(
-            BigInteger			d,
-            DerObjectIdentifier publicKeyParamSet)
-            : base("ECGOST3410", true, publicKeyParamSet)
-        {
-            this.d = Parameters.ValidatePrivateScalar(d);
-        }
-
         public ECPrivateKeyParameters(
             string				algorithm,
             BigInteger			d,

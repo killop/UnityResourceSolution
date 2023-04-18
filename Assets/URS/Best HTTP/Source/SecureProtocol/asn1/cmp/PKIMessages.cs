@@ -11,7 +11,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cmp
     {
         private Asn1Sequence content;
 
-        private PkiMessages(Asn1Sequence seq)
+        internal PkiMessages(Asn1Sequence seq)
         {
             content = seq;
         }
@@ -24,7 +24,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cmp
             if (obj is Asn1Sequence)
                 return new PkiMessages((Asn1Sequence)obj);
 
-            throw new ArgumentException("Invalid object: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("Invalid object: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
 		public PkiMessages(params PkiMessage[] msgs)

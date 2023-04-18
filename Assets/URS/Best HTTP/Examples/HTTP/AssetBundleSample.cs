@@ -162,6 +162,7 @@ namespace BestHTTP.Examples.HTTP
                     break;
             }
 
+            this.request = null;
             this._downloadButton.enabled = true;
         }
 

@@ -25,6 +25,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto
         /// <returns>the new secret.</returns>
         TlsSecret DeriveUsingPrf(int prfAlgorithm, string label, byte[] seed, int length);
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        TlsSecret DeriveUsingPrf(int prfAlgorithm, ReadOnlySpan<char> label, ReadOnlySpan<byte> seed, int length);
+#endif
+
         /// <summary>Destroy the internal state of the secret.</summary>
         /// <remarks>
         /// After this call, any attempt to use the <see cref="TlsSecret"/> will result in an
@@ -46,6 +50,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto
         /// <returns>the secret's internal data.</returns>
         byte[] Extract();
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        void ExtractTo(Span<byte> output);
+#endif
+
         /// <summary>RFC 5869 HKDF-Expand function, with this secret's data as the pseudo-random key ('prk').</summary>
         /// <param name="cryptoHashAlgorithm">the hash algorithm to instantiate HMAC with. See
         /// <see cref="CryptoHashAlgorithm"/> for values.</param>
@@ -53,6 +61,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto
         /// <param name="length">length of output keying material in octets.</param>
         /// <returns> output keying material (of 'length' octets).</returns>
         TlsSecret HkdfExpand(int cryptoHashAlgorithm, byte[] info, int length);
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        TlsSecret HkdfExpand(int cryptoHashAlgorithm, ReadOnlySpan<byte> info, int length);
+#endif
 
         /// <summary>RFC 5869 HKDF-Extract function, with this secret's data as the 'salt'.</summary>
         /// <remarks>
@@ -66,6 +78,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto
         TlsSecret HkdfExtract(int cryptoHashAlgorithm, TlsSecret ikm);
 
         bool IsAlive();
+
+        int Length { get; }
     }
 }
 #pragma warning restore

@@ -1,6 +1,8 @@
 #if !BESTHTTP_DISABLE_WEBSOCKET
 using System;
 
+using BestHTTP.PlatformSupport.Memory;
+
 #if !UNITY_WEBGL || UNITY_EDITOR
 using BestHTTP.WebSocket.Frames;
 #endif
@@ -22,6 +24,7 @@ namespace BestHTTP.WebSocket
     public delegate void OnWebSocketOpenDelegate(WebSocket webSocket);
     public delegate void OnWebSocketMessageDelegate(WebSocket webSocket, string message);
     public delegate void OnWebSocketBinaryDelegate(WebSocket webSocket, byte[] data);
+    public delegate void OnWebSocketBinaryNoAllocDelegate(WebSocket webSocket, BufferSegment data);
     public delegate void OnWebSocketClosedDelegate(WebSocket webSocket, UInt16 code, string message);
     public delegate void OnWebSocketErrorDelegate(WebSocket webSocket, string reason);
 
@@ -68,7 +71,7 @@ namespace BestHTTP.WebSocket
             this.LastMessageReceived = DateTime.MinValue;
 
             // Set up some default values.
-            this.Parent.PingFrequency = 1000;
+            this.Parent.PingFrequency = 10_000;
             this.Parent.CloseAfterNoMessage = TimeSpan.FromSeconds(2);
 #endif
         }
@@ -79,6 +82,8 @@ namespace BestHTTP.WebSocket
         public abstract void Send(string message);
         public abstract void Send(byte[] buffer);
         public abstract void Send(byte[] buffer, ulong offset, ulong count);
+        public abstract void SendAsBinary(BufferSegment data);
+        public abstract void SendAsText(BufferSegment data);
 
 #if !UNITY_WEBGL || UNITY_EDITOR
         protected abstract void CreateInternalRequest();

@@ -2,7 +2,7 @@
 #pragma warning disable
 using System;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
@@ -555,7 +555,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
         //
         // buffers
         //
-        private byte[]  Buffer = new byte[8];
+        private byte[]  m_buffer = new byte[8];
         private int     bOff;
 
         private long[]  x = new long[8];
@@ -593,18 +593,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			return MyByteLength;
 		}
 
-		private void ProcessWord(
-            byte[]  b,
-            int     off)
+		private void ProcessWord(byte[] b, int off)
         {
-            x[xOff++] =   ((long)(b[off + 7] & 0xff) << 56)
-                        | ((long)(b[off + 6] & 0xff) << 48)
-                        | ((long)(b[off + 5] & 0xff) << 40)
-                        | ((long)(b[off + 4] & 0xff) << 32)
-                        | ((long)(b[off + 3] & 0xff) << 24)
-                        | ((long)(b[off + 2] & 0xff) << 16)
-                        | ((long)(b[off + 1] & 0xff) << 8)
-                        | ((uint)(b[off + 0] & 0xff));
+            x[xOff++] = (long)Pack.LE_To_UInt64(b, off);
 
             if (xOff == x.Length)
             {
@@ -614,14 +605,28 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             bOff = 0;
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        private void ProcessWord(ReadOnlySpan<byte> b)
+        {
+            x[xOff++] = (long)Pack.LE_To_UInt64(b);
+
+            if (xOff == x.Length)
+            {
+                ProcessBlock();
+            }
+
+            bOff = 0;
+        }
+#endif
+
         public void Update(
             byte input)
         {
-            Buffer[bOff++] = input;
+            m_buffer[bOff++] = input;
 
-            if (bOff == Buffer.Length)
+            if (bOff == m_buffer.Length)
             {
-                ProcessWord(Buffer, 0);
+                ProcessWord(m_buffer, 0);
             }
 
             byteCount++;
@@ -646,7 +651,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             //
             // process whole words.
             //
-            while (length > 8)
+            while (length >= 8)
             {
                 ProcessWord(input, inOff);
 
@@ -666,6 +671,47 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
                 length--;
             }
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            int inOff = 0, length = input.Length;
+
+            //
+            // fill the current word
+            //
+            while ((bOff != 0) && (length > 0))
+            {
+                Update(input[inOff]);
+
+                inOff++;
+                length--;
+            }
+
+            //
+            // process whole words.
+            //
+            while (length >= 8)
+            {
+                ProcessWord(input[inOff..]);
+
+                inOff += 8;
+                length -= 8;
+                byteCount += 8;
+            }
+
+            //
+            // load in the remainder.
+            //
+            while (length > 0)
+            {
+                Update(input[inOff]);
+
+                inOff++;
+                length--;
+            }
+        }
+#endif
 
         private void RoundABC(
             long    x,
@@ -783,21 +829,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             }
         }
 
-        private void UnpackWord(
-            long    r,
-            byte[]  output,
-            int     outOff)
-        {
-            output[outOff + 7]     = (byte)(r >> 56);
-            output[outOff + 6] = (byte)(r >> 48);
-            output[outOff + 5] = (byte)(r >> 40);
-            output[outOff + 4] = (byte)(r >> 32);
-            output[outOff + 3] = (byte)(r >> 24);
-            output[outOff + 2] = (byte)(r >> 16);
-            output[outOff + 1] = (byte)(r >> 8);
-            output[outOff] = (byte)r;
-        }
-
         private void ProcessLength(
             long    bitLength)
         {
@@ -826,14 +857,29 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
         {
             Finish();
 
-            UnpackWord(a, output, outOff);
-            UnpackWord(b, output, outOff + 8);
-            UnpackWord(c, output, outOff + 16);
+            Pack.UInt64_To_LE((ulong)a, output, outOff);
+            Pack.UInt64_To_LE((ulong)b, output, outOff + 8);
+            Pack.UInt64_To_LE((ulong)c, output, outOff + 16);
 
             Reset();
 
             return DigestLength;
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int DoFinal(Span<byte> output)
+        {
+            Finish();
+
+            Pack.UInt64_To_LE((ulong)a, output);
+            Pack.UInt64_To_LE((ulong)b, output[8..]);
+            Pack.UInt64_To_LE((ulong)c, output[16..]);
+
+            Reset();
+
+            return DigestLength;
+        }
+#endif
 
         /**
         * reset the chaining variables
@@ -851,9 +897,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             }
 
             bOff = 0;
-            for (int i = 0; i != Buffer.Length; i++)
+            for (int i = 0; i != m_buffer.Length; i++)
             {
-                Buffer[i] = 0;
+                m_buffer[i] = 0;
             }
 
             byteCount = 0;
@@ -875,12 +921,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			Array.Copy(t.x, 0, x, 0, t.x.Length);
 			xOff = t.xOff;
 
-			Array.Copy(t.Buffer, 0, Buffer, 0, t.Buffer.Length);
+			Array.Copy(t.m_buffer, 0, m_buffer, 0, t.m_buffer.Length);
 			bOff = t.bOff;
 
 			byteCount = t.byteCount;
 		}    
-
 	}
 }
 #pragma warning restore

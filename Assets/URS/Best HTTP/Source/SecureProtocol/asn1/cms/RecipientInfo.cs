@@ -59,7 +59,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			if (o is Asn1TaggedObject)
                 return new RecipientInfo((Asn1TaggedObject) o);
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
         }
 
 		public DerInteger Version

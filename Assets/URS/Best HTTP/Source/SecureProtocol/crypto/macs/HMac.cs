@@ -1,9 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
@@ -14,11 +12,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
     *
     * H(K XOR opad, H(K XOR ipad, text))
     */
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.NullChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.ArrayBoundsChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.DivideByZeroChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppEagerStaticClassConstructionAttribute]
-    public sealed class HMac
+    public class HMac
 		: IMac
     {
         private const byte IPAD = (byte)0x36;
@@ -42,17 +36,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
             this.outputBuf = new byte[blockLength + digestSize];
         }
 
-        public /*virtual */string AlgorithmName
+        public virtual string AlgorithmName
         {
             get { return digest.AlgorithmName + "/HMAC"; }
         }
 
-		public /*virtual */IDigest GetUnderlyingDigest()
+		public virtual IDigest GetUnderlyingDigest()
         {
             return digest;
         }
 
-        public /*virtual */void Init(ICipherParameters parameters)
+        public virtual void Init(ICipherParameters parameters)
         {
             digest.Reset();
 
@@ -92,29 +86,39 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 			}
         }
 
-        public /*virtual */int GetMacSize()
+        public virtual int GetMacSize()
         {
             return digestSize;
         }
 
-        public /*virtual */void Update(byte input)
+        public virtual void Update(byte input)
         {
             digest.Update(input);
         }
 
-        public /*virtual */void BlockUpdate(byte[] input, int inOff, int len)
+        public virtual void BlockUpdate(byte[] input, int inOff, int len)
         {
             digest.BlockUpdate(input, inOff, len);
         }
 
-        public /*virtual */int DoFinal(byte[] output, int outOff)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void BlockUpdate(ReadOnlySpan<byte> input)
         {
+            digest.BlockUpdate(input);
+        }
+#endif
+
+        public virtual int DoFinal(byte[] output, int outOff)
+        {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return DoFinal(output.AsSpan(outOff));
+#else
             digest.DoFinal(outputBuf, blockLength);
 
 			if (opadState != null)
 			{
 				((IMemoable)digest).Reset(opadState);
-				digest.BlockUpdate(outputBuf, blockLength, digest.GetDigestSize());
+				digest.BlockUpdate(outputBuf, blockLength, digestSize);
 			}
 			else
 			{
@@ -135,18 +139,55 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 			}
 
             return len;
+#endif
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual int DoFinal(Span<byte> output)
+        {
+            digest.DoFinal(outputBuf.AsSpan(blockLength));
+
+            if (opadState != null)
+            {
+                ((IMemoable)digest).Reset(opadState);
+                digest.BlockUpdate(outputBuf.AsSpan(blockLength, digestSize));
+            }
+            else
+            {
+                digest.BlockUpdate(outputBuf);
+            }
+
+            int len = digest.DoFinal(output);
+
+            Array.Clear(outputBuf, blockLength, digestSize);
+
+            if (ipadState != null)
+            {
+                ((IMemoable)digest).Reset(ipadState);
+            }
+            else
+            {
+                digest.BlockUpdate(inputPad);
+            }
+
+            return len;
+        }
+#endif
 
         /**
         * Reset the mac generator.
         */
-        public /*virtual */void Reset()
+        public virtual void Reset()
         {
-			// Reset underlying digest
-            digest.Reset();
-
-			// Initialise the digest
-            digest.BlockUpdate(inputPad, 0, inputPad.Length);
+            if (ipadState != null)
+            {
+                ((IMemoable)digest).Reset(ipadState);
+            }
+            else
+            {
+                digest.Reset();
+                digest.BlockUpdate(inputPad, 0, inputPad.Length);
+            }
         }
 
         private static void XorPad(byte[] pad, int len, byte n)

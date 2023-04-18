@@ -860,7 +860,7 @@ namespace BestHTTP.Decompression.Zlib
             int fnLength = (FileName == null) ? 0 : filenameBytes.Length + 1;
 
             int bufferLength = 10 + cbLength + fnLength;
-            byte[] header = BufferPool.Get(bufferLength, false);
+            byte[] header = BufferPool.Get(bufferLength, true);
             int i = 0;
             // ID
             header[i++] = 0x1F;
@@ -909,7 +909,7 @@ namespace BestHTTP.Decompression.Zlib
                 header[i++] = 0; // terminate
             }
 
-            _baseStream._stream.Write(header, 0, header.Length);
+            _baseStream._stream.Write(header, 0, i);
             int headerLength = header.Length;
 
             BufferPool.Release(header);

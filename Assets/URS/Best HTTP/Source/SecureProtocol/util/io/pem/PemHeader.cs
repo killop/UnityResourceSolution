@@ -40,8 +40,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 
 			PemHeader other = (PemHeader)obj;
 
-			return BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Equals(this.name, other.name)
-				&& BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Equals(this.val, other.val);
+			return Org.BouncyCastle.Utilities.Platform.Equals(this.name, other.name)
+				&& Org.BouncyCastle.Utilities.Platform.Equals(this.val, other.val);
 		}
 
 		private int GetHashCode(string s)

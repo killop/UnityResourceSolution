@@ -1,6 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
@@ -9,7 +10,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
     public class DerGraphicString
         : DerStringBase
     {
-        private readonly byte[] mString;
+        internal class Meta : Asn1UniversalType
+        {
+            internal static readonly Asn1UniversalType Instance = new Meta();
+
+            private Meta() : base(typeof(DerGraphicString), Asn1Tags.GraphicString) {}
+
+            internal override Asn1Object FromImplicitPrimitive(DerOctetString octetString)
+            {
+                return CreatePrimitive(octetString.GetOctets());
+            }
+        }
 
         /**
          * return a Graphic String from the passed in object
@@ -20,91 +31,96 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
          */
         public static DerGraphicString GetInstance(object obj)
         {
-            if (obj == null || obj is DerGraphicString)
-            {
-                return (DerGraphicString)obj;
-            }
+            if (obj == null)
+                return null;
 
-            if (obj is byte[])
+            if (obj is DerGraphicString derGraphicString)
+                return derGraphicString;
+
+            if (obj is IAsn1Convertible asn1Convertible)
+            {
+                Asn1Object asn1Object = asn1Convertible.ToAsn1Object();
+                if (asn1Object is DerGraphicString converted)
+                    return converted;
+            }
+            else if (obj is byte[] bytes)
             {
                 try
                 {
-                    return (DerGraphicString)FromByteArray((byte[])obj);
+                    return (DerGraphicString)Meta.Instance.FromByteArray(bytes);
                 }
-                catch (Exception e)
+                catch (IOException e)
                 {
-                    throw new ArgumentException("encoding error in GetInstance: " + e.ToString(), "obj");
+                    throw new ArgumentException("failed to construct graphic string from byte[]: " + e.Message);
                 }
             }
 
-            throw new ArgumentException("illegal object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
         /**
          * return a Graphic String from a tagged object.
          *
-         * @param obj the tagged object holding the object we want
-         * @param explicit true if the object is meant to be explicitly
-         *              tagged false otherwise.
-         * @exception IllegalArgumentException if the tagged object cannot
-         *               be converted.
+         * @param taggedObject the tagged object holding the object we want
+         * @param declaredExplicit true if the object is meant to be explicitly tagged false otherwise.
+         * @exception IllegalArgumentException if the tagged object cannot be converted.
          * @return a DerGraphicString instance, or null.
          */
-        public static DerGraphicString GetInstance(Asn1TaggedObject obj, bool isExplicit)
+        public static DerGraphicString GetInstance(Asn1TaggedObject taggedObject, bool declaredExplicit)
         {
-			Asn1Object o = obj.GetObject();
-
-            if (isExplicit || o is DerGraphicString)
-			{
-				return GetInstance(o);
-			}
-
-            return new DerGraphicString(((Asn1OctetString)o).GetOctets());
+            return (DerGraphicString)Meta.Instance.GetContextInstance(taggedObject, declaredExplicit);
         }
 
-        /**
-         * basic constructor - with bytes.
-         * @param string the byte encoding of the characters making up the string.
-         */
-        public DerGraphicString(byte[] encoding)
+        private readonly byte[] m_contents;
+
+        public DerGraphicString(byte[] contents)
+            : this(contents, true)
         {
-            this.mString = Arrays.Clone(encoding);
+        }
+
+        internal DerGraphicString(byte[] contents, bool clone)
+        {
+            if (null == contents)
+                throw new ArgumentNullException("contents");
+
+            this.m_contents = clone ? Arrays.Clone(contents) : contents;
         }
 
         public override string GetString()
         {
-            return Strings.FromByteArray(mString);
+            return Strings.FromByteArray(m_contents);
         }
 
         public byte[] GetOctets()
         {
-            return Arrays.Clone(mString);
+            return Arrays.Clone(m_contents);
         }
 
-        internal override int EncodedLength(bool withID)
+        internal override IAsn1Encoding GetEncoding(int encoding)
         {
-            return Asn1OutputStream.GetLengthOfEncodingDL(withID, mString.Length);
+            return new PrimitiveEncoding(Asn1Tags.Universal, Asn1Tags.GraphicString, m_contents);
         }
 
-        internal override void Encode(Asn1OutputStream asn1Out, bool withID)
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
         {
-            asn1Out.WriteEncodingDL(withID, Asn1Tags.GraphicString, mString);
+            return new PrimitiveEncoding(tagClass, tagNo, m_contents);
         }
 
         protected override int Asn1GetHashCode()
 		{
-            return Arrays.GetHashCode(mString);
+            return Arrays.GetHashCode(m_contents);
         }
 
-		protected override bool Asn1Equals(
-            Asn1Object asn1Object)
+		protected override bool Asn1Equals(Asn1Object asn1Object)
         {
-			DerGraphicString other = asn1Object as DerGraphicString;
+            DerGraphicString that = asn1Object as DerGraphicString;
+            return null != that
+                && Arrays.AreEqual(this.m_contents, that.m_contents);
+        }
 
-            if (other == null)
-				return false;
-
-            return Arrays.AreEqual(mString, other.mString);
+        internal static DerGraphicString CreatePrimitive(byte[] contents)
+        {
+            return new DerGraphicString(contents, false);
         }
     }
 }

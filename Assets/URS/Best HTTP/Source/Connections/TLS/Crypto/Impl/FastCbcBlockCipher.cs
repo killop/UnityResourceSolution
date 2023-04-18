@@ -4,6 +4,7 @@ using System;
 
 using BestHTTP.Connections.TLS.Crypto.Impl;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 
 namespace BestHTTP.Connections.TLS.Crypto
@@ -11,12 +12,12 @@ namespace BestHTTP.Connections.TLS.Crypto
     /**
     * implements Cipher-Block-Chaining (CBC) mode on top of a simple cipher.
     */
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.NullChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.ArrayBoundsChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.DivideByZeroChecks, false)]
+
+
+
     [BestHTTP.PlatformSupport.IL2CPP.Il2CppEagerStaticClassConstructionAttribute]
-    public class FastCbcBlockCipher
-        : IBlockCipher
+    public sealed class FastCbcBlockCipher
+        : IBlockCipherMode
     {
         private byte[] IV, cbcV, cbcNextV;
         private int blockSize;
@@ -44,10 +45,7 @@ namespace BestHTTP.Connections.TLS.Crypto
         *
         * @return the underlying block cipher that we are wrapping.
         */
-        public IBlockCipher GetUnderlyingCipher()
-        {
-            return cipher;
-        }
+        public IBlockCipher UnderlyingCipher => cipher;
 
         /**
         * Initialise the cipher and, possibly, the initialisation vector (IV).
@@ -59,23 +57,18 @@ namespace BestHTTP.Connections.TLS.Crypto
         * @exception ArgumentException if the parameters argument is
         * inappropriate.
         */
-        public void Init(
-            bool forEncryption,
-            ICipherParameters parameters)
+        public void Init(bool forEncryption, ICipherParameters parameters)
         {
             bool oldEncrypting = this.encrypting;
 
             this.encrypting = forEncryption;
 
-            if (parameters is FastParametersWithIV)
+            if (parameters is ParametersWithIV ivParam)
             {
-                FastParametersWithIV ivParam = (FastParametersWithIV)parameters;
                 byte[] iv = ivParam.GetIV();
 
                 if (iv.Length != blockSize)
-                {
                     throw new ArgumentException("initialisation vector must be the same length as block size");
-                }
 
                 Array.Copy(iv, 0, IV, 0, iv.Length);
 
@@ -120,29 +113,27 @@ namespace BestHTTP.Connections.TLS.Crypto
             return cipher.GetBlockSize();
         }
 
-        /**
-        * Process one block of input from the array in and write it to
-        * the out array.
-        *
-        * @param in the array containing the input data.
-        * @param inOff offset into the in array the data starts at.
-        * @param out the array the output data will be copied into.
-        * @param outOff the offset into the out array the output will start at.
-        * @exception DataLengthException if there isn't enough data in in, or
-        * space in out.
-        * @exception InvalidOperationException if the cipher isn't initialised.
-        * @return the number of bytes processed and produced.
-        */
-        public int ProcessBlock(
-            byte[] input,
-            int inOff,
-            byte[] output,
-            int outOff)
+        public int ProcessBlock(byte[] input, int inOff, byte[] output, int outOff)
         {
-            return (encrypting)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return encrypting
+                ? EncryptBlock(input.AsSpan(inOff), output.AsSpan(outOff))
+                : DecryptBlock(input.AsSpan(inOff), output.AsSpan(outOff));
+#else
+            return encrypting
                 ? EncryptBlock(input, inOff, output, outOff)
                 : DecryptBlock(input, inOff, output, outOff);
+#endif
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int ProcessBlock(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            return encrypting
+                ? EncryptBlock(input, output)
+                : DecryptBlock(input, output);
+        }
+#endif
 
         /**
         * reset the chaining vector back to the IV and reset the underlying
@@ -152,112 +143,85 @@ namespace BestHTTP.Connections.TLS.Crypto
         {
             Array.Copy(IV, 0, cbcV, 0, IV.Length);
             Array.Clear(cbcNextV, 0, cbcNextV.Length);
-
-            cipher.Reset();
         }
 
-        /**
-        * Do the appropriate chaining step for CBC mode encryption.
-        *
-        * @param in the array containing the data to be encrypted.
-        * @param inOff offset into the in array the data starts at.
-        * @param out the array the encrypted data will be copied into.
-        * @param outOff the offset into the out array the output will start at.
-        * @exception DataLengthException if there isn't enough data in in, or
-        * space in out.
-        * @exception InvalidOperationException if the cipher isn't initialised.
-        * @return the number of bytes processed and produced.
-        */
-        private unsafe int EncryptBlock(
-            byte[] input,
-            int inOff,
-            byte[] outBytes,
-            int outOff)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        private int EncryptBlock(ReadOnlySpan<byte> input, Span<byte> output)
         {
-            if ((inOff + blockSize) > input.Length)
+            Check.DataLength(input, blockSize, "input buffer too short");
+            Check.OutputLength(output, blockSize, "output buffer too short");
+
+            for (int i = 0; i < blockSize; i++)
             {
-                throw new DataLengthException("input buffer too short");
+                cbcV[i] ^= input[i];
             }
 
-            /*
-            * XOR the cbcV and the input,
-            * then encrypt the cbcV
-            */
-            //for (int i = 0; i < blockSize; i++)
-            //{
-            //    cbcV[i] ^= input[inOff + i];
-            //}
-            fixed (byte* pinput = input, pcbcV = cbcV)
-            {
-                ulong* pulongInput = (ulong*)&pinput[inOff], pulongcbcV = (ulong*)pcbcV;
+            int length = cipher.ProcessBlock(cbcV, output);
 
-                for (int i = 0; i < blockSize / 8; i++)
-                    pulongcbcV[i] ^= pulongInput[i];
-            }
-
-            int length = cipher.ProcessBlock(cbcV, 0, outBytes, outOff);
-
-            /*
-            * copy ciphertext to cbcV
-            */
-            Array.Copy(outBytes, outOff, cbcV, 0, cbcV.Length);
+            output[..blockSize].CopyTo(cbcV);
 
             return length;
         }
 
-        /**
-        * Do the appropriate chaining step for CBC mode decryption.
-        *
-        * @param in the array containing the data to be decrypted.
-        * @param inOff offset into the in array the data starts at.
-        * @param out the array the decrypted data will be copied into.
-        * @param outOff the offset into the out array the output will start at.
-        * @exception DataLengthException if there isn't enough data in in, or
-        * space in out.
-        * @exception InvalidOperationException if the cipher isn't initialised.
-        * @return the number of bytes processed and produced.
-        */
-        private unsafe int DecryptBlock(
-            byte[] input,
-            int inOff,
-            byte[] outBytes,
-            int outOff)
+        private int DecryptBlock(ReadOnlySpan<byte> input, Span<byte> output)
         {
-            if ((inOff + blockSize) > input.Length)
+            Check.DataLength(input, blockSize, "input buffer too short");
+            Check.OutputLength(output, blockSize, "output buffer too short");
+
+            input[..blockSize].CopyTo(cbcNextV);
+
+            int length = cipher.ProcessBlock(input, output);
+
+            for (int i = 0; i < blockSize; i++)
             {
-                throw new DataLengthException("input buffer too short");
+                output[i] ^= cbcV[i];
             }
 
-            Array.Copy(input, inOff, cbcNextV, 0, blockSize);
-
-            int length = cipher.ProcessBlock(input, inOff, outBytes, outOff);
-
-            /*
-            * XOR the cbcV and the output
-            */
-            //for (int i = 0; i < blockSize; i++)
-            //{
-            //    outBytes[outOff + i] ^= cbcV[i];
-            //}
-            fixed (byte* poutBytes = outBytes, pcbcV = cbcV)
-            {
-                ulong* pulongBytes = (ulong*)&poutBytes[outOff], pulongcbcV = (ulong*)pcbcV;
-
-                for (int i = 0; i < blockSize / 8; i++)
-                    pulongBytes[i] ^= pulongcbcV[i];
-            }
-
-            /*
-            * swap the back up buffer into next position
-            */
-            byte[] tmp;
-
-            tmp = cbcV;
+            byte[] tmp = cbcV;
             cbcV = cbcNextV;
             cbcNextV = tmp;
 
             return length;
         }
+#else
+        private int EncryptBlock(byte[] input, int inOff, byte[] outBytes, int outOff)
+        {
+            Check.DataLength(input, inOff, blockSize, "input buffer too short");
+            Check.OutputLength(outBytes, outOff, blockSize, "output buffer too short");
+
+            for (int i = 0; i < blockSize; i++)
+            {
+                cbcV[i] ^= input[inOff + i];
+            }
+
+            int length = cipher.ProcessBlock(cbcV, 0, outBytes, outOff);
+
+            Array.Copy(outBytes, outOff, cbcV, 0, cbcV.Length);
+
+            return length;
+        }
+
+        private int DecryptBlock(byte[] input, int inOff, byte[] outBytes, int outOff)
+        {
+            Check.DataLength(input, inOff, blockSize, "input buffer too short");
+            Check.OutputLength(outBytes, outOff, blockSize, "output buffer too short");
+
+            Array.Copy(input, inOff, cbcNextV, 0, blockSize);
+
+            int length = cipher.ProcessBlock(input, inOff, outBytes, outOff);
+            
+            for (int i = 0; i < blockSize; i++)
+            {
+                outBytes[outOff + i] ^= cbcV[i];
+            }
+
+            byte[] tmp = cbcV;
+            cbcV = cbcNextV;
+            cbcNextV = tmp;
+
+            return length;
+        }
+#endif
     }
 
 }

@@ -8,13 +8,26 @@ namespace YooAsset
 		protected AssetBundleLoader OwnerBundle { private set; get; }
 		protected DependAssetBundleGrouper DependBundles { private set; get; }
 
-		public BundledProvider(string assetPath, System.Type assetType) : base(assetPath, assetType)
+		public BundledProvider(string assetPath, System.Type assetType,bool requireLocalSecurity=false, bool skipDownloadFolder = true) : base(assetPath, assetType)
 		{
-			OwnerBundle = AssetSystem.CreateOwnerAssetBundleLoader(assetPath);
-			OwnerBundle.Reference();
-			OwnerBundle.AddProvider(this);
-			DependBundles = new DependAssetBundleGrouper(assetPath);
-			DependBundles.Reference();
+			if (requireLocalSecurity)
+			{
+				AssetSystem.CreateLocalSecurityAssetBundleLoader(assetPath, out var ownerBundle, out var dependencyLoaders, skipDownloadFolder);
+                OwnerBundle= ownerBundle;
+                OwnerBundle.Reference();
+                OwnerBundle.AddProvider(this);
+                DependBundles = new DependAssetBundleGrouper(dependencyLoaders);
+                DependBundles.Reference();
+            }
+			else
+			{
+                OwnerBundle = AssetSystem.CreateOwnerAssetBundleLoader(assetPath);
+                OwnerBundle.Reference();
+                OwnerBundle.AddProvider(this);
+                DependBundles = new DependAssetBundleGrouper(assetPath);
+                DependBundles.Reference();
+            }
+			
 		}
 		public override void Destory()
 		{

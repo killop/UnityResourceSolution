@@ -2,6 +2,7 @@
 #pragma warning disable
 using System;
 using System.IO;
+using System.Runtime.Serialization;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
@@ -12,6 +13,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
     /// malicious). It may be possible to check for truncation via some property of a higher level protocol
     /// built upon TLS, e.g.the Content-Length header for HTTPS.
     /// </remarks>
+    [Serializable]
     public class TlsNoCloseNotifyException
         : EndOfStreamException
     {
@@ -19,7 +21,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             : base("No close_notify alert received before connection closed")
         {
         }
-    }
+
+		protected TlsNoCloseNotifyException(SerializationInfo info, StreamingContext context)
+			: base(info, context)
+		{
+		}
+	}
 }
 #pragma warning restore
 #endif

@@ -71,17 +71,18 @@ namespace BestHTTP.Connections.TLS.Crypto
                     {
                         // NOTE: Ignores macAlgorithm
                         //return CreateCipher_Aes_Ccm(cryptoParams, 16, 16);
-                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), true);
-                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), false);
-
+                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), true);
+                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), false);
+                        
                         return new FastTlsAeadCipher(cryptoParams, encrypt, decrypt, 16, 16, TlsAeadCipher.AEAD_CCM);
+
                     }
                 case EncryptionAlgorithm.AES_128_CCM_8:
                     {
                         // NOTE: Ignores macAlgorithm
                         //return CreateCipher_Aes_Ccm(cryptoParams, 16, 8);
-                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), true);
-                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), false);
+                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), true);
+                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), false);
 
                         return new FastTlsAeadCipher(cryptoParams, encrypt, decrypt, 16, 8, TlsAeadCipher.AEAD_CCM);
                     }
@@ -89,8 +90,8 @@ namespace BestHTTP.Connections.TLS.Crypto
                     {
                         // NOTE: Ignores macAlgorithm
                         //return CreateCipher_Aes_Ccm(cryptoParams, 32, 16);
-                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), true);
-                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), false);
+                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), true);
+                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), false);
 
                         return new FastTlsAeadCipher(cryptoParams, encrypt, decrypt, 32, 16, TlsAeadCipher.AEAD_CCM);
                     }
@@ -98,8 +99,8 @@ namespace BestHTTP.Connections.TLS.Crypto
                     {
                         // NOTE: Ignores macAlgorithm
                         //return CreateCipher_Aes_Ccm(cryptoParams, 32, 8);
-                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), true);
-                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), false);
+                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), true);
+                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), false);
 
                         return new FastTlsAeadCipher(cryptoParams, encrypt, decrypt, 32, 8, TlsAeadCipher.AEAD_CCM);
                     }
@@ -108,8 +109,8 @@ namespace BestHTTP.Connections.TLS.Crypto
                     {
                         // NOTE: Ignores macAlgorithm
                         //return CreateCipher_Aes_Gcm(cryptoParams, 16, 16);
-                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Gcm(), true);
-                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Gcm(), false);
+                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Gcm(), true);
+                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Gcm(), false);
 
                         return new FastTlsAeadCipher(cryptoParams, encrypt, decrypt, 16, 16, TlsAeadCipher.AEAD_GCM);
                     }
@@ -118,8 +119,8 @@ namespace BestHTTP.Connections.TLS.Crypto
                     {
                         // NOTE: Ignores macAlgorithm
                         //return CreateCipher_Aes_Gcm(cryptoParams, 32, 16);
-                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Gcm(), true);
-                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Gcm(), false);
+                        FastTlsAeadCipherImpl encrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Gcm(), true);
+                        FastTlsAeadCipherImpl decrypt = new FastTlsAeadCipherImpl(CreateAeadCipher_Aes_Gcm(), false);
 
                         return new FastTlsAeadCipher(cryptoParams, encrypt, decrypt, 32, 16, TlsAeadCipher.AEAD_GCM);
                     }
@@ -135,12 +136,12 @@ namespace BestHTTP.Connections.TLS.Crypto
             return new FastAesEngine();
         }
 
-        protected override IAeadBlockCipher CreateCcmMode(IBlockCipher engine)
+        protected override IAeadCipher CreateCcmMode(IBlockCipher engine)
         {
             return new FastCcmBlockCipher(engine);
         }
 
-        protected override IAeadBlockCipher CreateGcmMode(IBlockCipher engine)
+        protected override IAeadCipher CreateGcmMode(IBlockCipher engine)
         {
             // TODO Consider allowing custom configuration of multiplier
             return new FastGcmBlockCipher(engine);

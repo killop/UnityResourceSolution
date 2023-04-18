@@ -1,33 +1,32 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Date;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Extension;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 {
 	public class X509CertStoreSelector
-		: IX509Selector
+		: ISelector<X509Certificate>
 	{
 		// TODO Missing criteria?
 
 		private byte[] authorityKeyIdentifier;
 		private int basicConstraints = -1;
 		private X509Certificate certificate;
-		private DateTimeObject certificateValid;
-		private ISet extendedKeyUsage;
+		private DateTime? certificateValid;
+		private ISet<DerObjectIdentifier> extendedKeyUsage;
         private bool ignoreX509NameOrdering;
 		private X509Name issuer;
 		private bool[] keyUsage;
-		private ISet policy;
-		private DateTimeObject privateKeyValid;
+		private ISet<DerObjectIdentifier> policy;
+		private DateTime? privateKeyValid;
 		private BigInteger serialNumber;
 		private X509Name subject;
 		private byte[] subjectKeyIdentifier;
@@ -87,13 +86,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 			set { this.certificate = value; }
 		}
 
-		public DateTimeObject CertificateValid
+		public DateTime? CertificateValid
 		{
 			get { return certificateValid; }
 			set { certificateValid = value; }
 		}
 
-		public ISet ExtendedKeyUsage
+		public ISet<DerObjectIdentifier> ExtendedKeyUsage
 		{
 			get { return CopySet(extendedKeyUsage); }
 			set { extendedKeyUsage = CopySet(value); }
@@ -111,12 +110,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 			set { issuer = value; }
 		}
 
-
-		public string IssuerAsString
-		{
-			get { return issuer != null ? issuer.ToString() : null; }
-		}
-
 		public bool[] KeyUsage
 		{
 			get { return CopyBoolArray(keyUsage); }
@@ -126,13 +119,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		/// <summary>
 		/// An <code>ISet</code> of <code>DerObjectIdentifier</code> objects.
 		/// </summary>
-		public ISet Policy
+		public ISet<DerObjectIdentifier> Policy
 		{
 			get { return CopySet(policy); }
 			set { policy = CopySet(value); }
 		}
 
-		public DateTimeObject PrivateKeyValid
+		public DateTime? PrivateKeyValid
 		{
 			get { return privateKeyValid; }
 			set { privateKeyValid = value; }
@@ -148,12 +141,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		{
 			get { return subject; }
 			set { subject = value; }
-		}
-
-
-        public string SubjectAsString
-		{
-			get { return subject != null ? subject.ToString() : null; }
 		}
 
 		public byte[] SubjectKeyIdentifier
@@ -174,11 +161,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 			set { subjectPublicKeyAlgID = value; }
 		}
 
-		public virtual bool Match(
-			object obj)
+		public virtual bool Match(X509Certificate c)
 		{
-			X509Certificate c = obj as X509Certificate;
-
 			if (c == null)
 				return false;
 
@@ -209,7 +193,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 
 			if (extendedKeyUsage != null)
 			{
-				IList eku = c.GetExtendedKeyUsage();
+				var eku = c.GetExtendedKeyUsage();
 
 				// Note: if no extended key usage set, all key purposes are implicitly allowed
 
@@ -217,7 +201,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 				{
 					foreach (DerObjectIdentifier oid in extendedKeyUsage)
 					{
-						if (!eku.Contains(oid.Id))
+						if (!eku.Contains(oid))
 							return false;
 					}
 				}
@@ -317,10 +301,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 			return b == null ? null : (bool[]) b.Clone();
 		}
 
-		private static ISet CopySet(
-			ISet s)
+		private static ISet<T> CopySet<T>(ISet<T> s)
 		{
-			return s == null ? null : new HashSet(s);
+			return s == null ? null : new HashSet<T>(s);
 		}
 
 		private static SubjectPublicKeyInfo GetSubjectPublicKey(

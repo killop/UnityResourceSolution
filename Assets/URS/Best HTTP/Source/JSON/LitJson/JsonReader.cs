@@ -398,6 +398,7 @@ namespace BestHTTP.JSON.LitJson
             {
                 using(reader){}
             }
+            lexer.Clear();
 
             reader = null;
         }

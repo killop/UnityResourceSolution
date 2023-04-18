@@ -1,10 +1,9 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
-using System.Collections;
+using System.Collections.Generic;
 
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
 {
@@ -13,27 +12,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
     {
         private readonly AsymmetricKeyParameter key;
 
-		public AsymmetricKeyEntry(
-            AsymmetricKeyParameter key)
-			: base(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable())
+		public AsymmetricKeyEntry(AsymmetricKeyParameter key)
+			: base(new Dictionary<DerObjectIdentifier, Asn1Encodable>())
         {
             this.key = key;
         }
 
-#if !(SILVERLIGHT || PORTABLE || NETFX_CORE)
-        [Obsolete]
-        public AsymmetricKeyEntry(
-            AsymmetricKeyParameter key,
-            Hashtable attributes)
-			: base(attributes)
-        {
-            this.key = key;
-        }
-#endif
-
-        public AsymmetricKeyEntry(
-            AsymmetricKeyParameter  key,
-            IDictionary             attributes)
+        public AsymmetricKeyEntry(AsymmetricKeyParameter key,
+			IDictionary<DerObjectIdentifier, Asn1Encodable> attributes)
 			: base(attributes)
         {
             this.key = key;

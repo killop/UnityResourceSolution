@@ -1,7 +1,5 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
-
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cmp;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Crmf;
@@ -10,15 +8,15 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cmp
 {
-    public class RevocationDetailsBuilder
+    public sealed class RevocationDetailsBuilder
     {
-        private readonly CertTemplateBuilder _templateBuilder = new CertTemplateBuilder();
+        private readonly CertTemplateBuilder m_templateBuilder = new CertTemplateBuilder();
 
         public RevocationDetailsBuilder SetPublicKey(SubjectPublicKeyInfo publicKey)
         {
             if (publicKey != null)
             {
-                _templateBuilder.SetPublicKey(publicKey);
+                m_templateBuilder.SetPublicKey(publicKey);
             }
 
             return this;
@@ -28,7 +26,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cmp
         {
             if (issuer != null)
             {
-                _templateBuilder.SetIssuer(issuer);
+                m_templateBuilder.SetIssuer(issuer);
             }
 
             return this;
@@ -38,7 +36,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cmp
         {
             if (serialNumber != null)
             {
-                _templateBuilder.SetSerialNumber(new DerInteger(serialNumber));
+                m_templateBuilder.SetSerialNumber(new DerInteger(serialNumber));
             }
 
             return this;
@@ -48,7 +46,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cmp
         {
             if (subject != null)
             {
-                _templateBuilder.SetSubject(subject);
+                m_templateBuilder.SetSubject(subject);
             }
 
             return this;
@@ -56,7 +54,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cmp
 
         public RevocationDetails Build()
         {
-            return new RevocationDetails(new RevDetails(_templateBuilder.Build()));
+            return new RevocationDetails(new RevDetails(m_templateBuilder.Build()));
         }
     }
 }

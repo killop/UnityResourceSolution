@@ -22,7 +22,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 		: Asn1Encodable
 	{
 		private readonly ResponderID		ocspResponderID;
-		private readonly DerGeneralizedTime	producedAt;
+		private readonly Asn1GeneralizedTime producedAt;
 
 		public static OcspIdentifier GetInstance(
 			object obj)
@@ -35,7 +35,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 
 			throw new ArgumentException(
 				"Unknown object in 'OcspIdentifier' factory: "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
 				"obj");
 		}
 
@@ -48,21 +48,30 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 				throw new ArgumentException("Bad sequence size: " + seq.Count, "seq");
 
 			this.ocspResponderID = ResponderID.GetInstance(seq[0].ToAsn1Object());
-			this.producedAt = (DerGeneralizedTime) seq[1].ToAsn1Object();
+			this.producedAt = (Asn1GeneralizedTime)seq[1].ToAsn1Object();
 		}
 
-		public OcspIdentifier(
-			ResponderID	ocspResponderID,
-			DateTime	producedAt)
+		public OcspIdentifier(ResponderID ocspResponderID, DateTime producedAt)
 		{
 			if (ocspResponderID == null)
-				throw new ArgumentNullException();
+				throw new ArgumentNullException(nameof(ocspResponderID));
 
 			this.ocspResponderID = ocspResponderID;
-			this.producedAt = new DerGeneralizedTime(producedAt);
+			this.producedAt = new Asn1GeneralizedTime(producedAt);
 		}
 
-		public ResponderID OcspResponderID
+        public OcspIdentifier(ResponderID ocspResponderID, Asn1GeneralizedTime producedAt)
+        {
+            if (ocspResponderID == null)
+                throw new ArgumentNullException(nameof(ocspResponderID));
+            if (producedAt == null)
+                throw new ArgumentNullException(nameof(producedAt));
+
+            this.ocspResponderID = ocspResponderID;
+            this.producedAt = producedAt;
+        }
+
+        public ResponderID OcspResponderID
 		{
 			get { return ocspResponderID; }
 		}

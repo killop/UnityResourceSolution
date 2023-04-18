@@ -44,7 +44,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
                 return new DistributionPoint((Asn1Sequence) obj);
             }
 
-            throw new ArgumentException("Invalid DistributionPoint: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("Invalid DistributionPoint: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
 		private DistributionPoint(
@@ -108,43 +108,34 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 
 		public override string ToString()
 		{
-			string sep = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine;
 			StringBuilder buf = new StringBuilder();
-			buf.Append("DistributionPoint: [");
-			buf.Append(sep);
+			buf.AppendLine("DistributionPoint: [");
 			if (distributionPoint != null)
 			{
-				appendObject(buf, sep, "distributionPoint", distributionPoint.ToString());
+                AppendObject(buf, "distributionPoint", distributionPoint.ToString());
 			}
 			if (reasons != null)
 			{
-				appendObject(buf, sep, "reasons", reasons.ToString());
+                AppendObject(buf, "reasons", reasons.ToString());
 			}
 			if (cRLIssuer != null)
 			{
-				appendObject(buf, sep, "cRLIssuer", cRLIssuer.ToString());
+                AppendObject(buf, "cRLIssuer", cRLIssuer.ToString());
 			}
-			buf.Append("]");
-			buf.Append(sep);
+			buf.AppendLine("]");
 			return buf.ToString();
 		}
 
-		private void appendObject(
-			StringBuilder	buf,
-			string			sep,
-			string			name,
-			string			val)
+		private void AppendObject(StringBuilder buf, string name, string val)
 		{
 			string indent = "    ";
-
 			buf.Append(indent);
 			buf.Append(name);
-			buf.Append(":");
-			buf.Append(sep);
+			buf.AppendLine(":");
 			buf.Append(indent);
 			buf.Append(indent);
 			buf.Append(val);
-			buf.Append(sep);
+            buf.AppendLine();
 		}
 	}
 }

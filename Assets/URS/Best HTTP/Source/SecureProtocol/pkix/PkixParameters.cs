@@ -1,12 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Date;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 {
@@ -14,7 +12,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 	/// Summary description for PkixParameters.
 	/// </summary>
 	public class PkixParameters
-//		: ICertPathParameters
 	{
 		/**
 		* This is the default PKIX validity model. Actually there are two variants
@@ -41,25 +38,29 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*/
 		public const int ChainValidityModel = 1;
 
-		private ISet trustAnchors;
-		private DateTimeObject date;
-		private IList certPathCheckers;
+		private HashSet<TrustAnchor> trustAnchors;
+		private DateTime? date;
+		private List<PkixCertPathChecker> m_checkers;
 		private bool revocationEnabled = true;
-		private ISet initialPolicies;
+		private HashSet<string> initialPolicies;
 		//private bool checkOnlyEECertificateCrl = false;
 		private bool explicitPolicyRequired = false;
 		private bool anyPolicyInhibited = false;
 		private bool policyMappingInhibited = false;
 		private bool policyQualifiersRejected = true;
-		private IX509Selector certSelector;
-		private IList stores;
-		private IX509Selector selector;
+
+		private List<IStore<X509V2AttributeCertificate>> m_storesAttrCert;
+		private List<IStore<X509Certificate>> m_storesCert;
+		private List<IStore<X509Crl>> m_storesCrl;
+
+		private ISelector<X509V2AttributeCertificate> m_targetConstraintsAttrCert;
+		private ISelector<X509Certificate> m_targetConstraintsCert;
+
 		private bool additionalLocationsEnabled;
-		private IList additionalStores;
-		private ISet trustedACIssuers;
-		private ISet necessaryACAttributes;
-		private ISet prohibitedACAttributes;
-		private ISet attrCertCheckers;
+		private ISet<TrustAnchor> trustedACIssuers;
+		private ISet<string> necessaryACAttributes;
+		private ISet<string> prohibitedACAttributes;
+		private ISet<PkixAttrCertChecker> attrCertCheckers;
 		private int validityModel = PkixValidityModel;
 		private bool useDeltas = false;
 
@@ -81,19 +82,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		 *                if any of the elements in the Set are not of type
 		 *                <code>java.security.cert.TrustAnchor</code>
 		 */
-		public PkixParameters(
-			ISet trustAnchors)
+		public PkixParameters(ISet<TrustAnchor> trustAnchors)
 		{
 			SetTrustAnchors(trustAnchors);
 
-			this.initialPolicies = new HashSet();
-			this.certPathCheckers = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
-            this.stores = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
-			this.additionalStores = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
-			this.trustedACIssuers = new HashSet();
-			this.necessaryACAttributes = new HashSet();
-			this.prohibitedACAttributes = new HashSet();
-			this.attrCertCheckers = new HashSet();
+			this.initialPolicies = new HashSet<string>();
+			this.m_checkers = new List<PkixCertPathChecker>();
+			this.m_storesAttrCert = new List<IStore<X509V2AttributeCertificate>>();
+			this.m_storesCert = new List<IStore<X509Certificate>>();
+			this.m_storesCrl = new List<IStore<X509Crl>>();
+			this.trustedACIssuers = new HashSet<TrustAnchor>();
+			this.necessaryACAttributes = new HashSet<string>();
+			this.prohibitedACAttributes = new HashSet<string>();
+			this.attrCertCheckers = new HashSet<PkixAttrCertChecker>();
 		}
 
 //		// TODO implement for other keystores (see Java build)?
@@ -174,30 +175,29 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		//	set { this.checkOnlyEECertificateCrl = value; }
 		//}
 
-		public virtual DateTimeObject Date
+		public virtual DateTime? Date
 		{
 			get { return this.date; }
 			set { this.date = value; }
 		}
 
 		// Returns a Set of the most-trusted CAs.
-		public virtual ISet GetTrustAnchors()
+		public virtual ISet<TrustAnchor> GetTrustAnchors()
 		{
-			return new HashSet(this.trustAnchors);
+			return new HashSet<TrustAnchor>(this.trustAnchors);
 		}
 
 		// Sets the set of most-trusted CAs.
 		// Set is copied to protect against subsequent modifications.
-		public virtual void SetTrustAnchors(
-			ISet tas)
+		public virtual void SetTrustAnchors(ISet<TrustAnchor> tas)
 		{
 			if (tas == null)
 				throw new ArgumentNullException("value");
-			if (tas.IsEmpty)
+			if (tas.Count < 1)
 				throw new ArgumentException("non-empty set required", "value");
 
 			// Explicit copy to enforce type-safety
-			this.trustAnchors = new HashSet();
+			this.trustAnchors = new HashSet<TrustAnchor>();
 			foreach (TrustAnchor ta in tas)
 			{
 				if (ta != null)
@@ -205,6 +205,55 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 					trustAnchors.Add(ta);
 				}
 			}
+		}
+
+		/**
+		* Returns the required constraints on the target certificate or attribute
+		* certificate. The constraints are returned as an instance of
+		* <code>IX509Selector</code>. If <code>null</code>, no constraints are
+		* defined.
+		*
+		* <p>
+		* The target certificate in a PKIX path may be a certificate or an
+		* attribute certificate.
+		* </p><p>
+		* Note that the <code>IX509Selector</code> returned is cloned to protect
+		* against subsequent modifications.
+		* </p>
+		* @return a <code>IX509Selector</code> specifying the constraints on the
+		*         target certificate or attribute certificate (or <code>null</code>)
+		* @see #setTargetConstraints
+		* @see X509CertStoreSelector
+		* @see X509AttributeCertStoreSelector
+		*/
+		public virtual ISelector<X509V2AttributeCertificate> GetTargetConstraintsAttrCert()
+		{
+			return (ISelector<X509V2AttributeCertificate>)m_targetConstraintsAttrCert?.Clone();
+		}
+
+		/**
+		* Sets the required constraints on the target certificate or attribute
+		* certificate. The constraints are specified as an instance of
+		* <code>IX509Selector</code>. If <code>null</code>, no constraints are
+		* defined.
+		* <p>
+		* The target certificate in a PKIX path may be a certificate or an
+		* attribute certificate.
+		* </p><p>
+		* Note that the <code>IX509Selector</code> specified is cloned to protect
+		* against subsequent modifications.
+		* </p>
+		*
+		* @param selector a <code>IX509Selector</code> specifying the constraints on
+		*            the target certificate or attribute certificate (or
+		*            <code>null</code>)
+		* @see #getTargetConstraints
+		* @see X509CertStoreSelector
+		* @see X509AttributeCertStoreSelector
+		*/
+		public virtual void SetTargetConstraintsAttrCert(ISelector<X509V2AttributeCertificate> targetConstraintsAttrCert)
+		{
+			this.m_targetConstraintsAttrCert = (ISelector<X509V2AttributeCertificate>)targetConstraintsAttrCert?.Clone();
 		}
 
 		/**
@@ -220,14 +269,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*
 		* @see #setTargetCertConstraints(CertSelector)
 		*/
-		public virtual X509CertStoreSelector GetTargetCertConstraints()
+		public virtual ISelector<X509Certificate> GetTargetConstraintsCert()
 		{
-			if (certSelector == null)
-			{
-				return null;
-			}
-
-			return (X509CertStoreSelector)certSelector.Clone();
+			return (ISelector<X509Certificate>)m_targetConstraintsCert?.Clone();
 		}
 
 		/**
@@ -244,17 +288,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		 *
 		 * @see #getTargetCertConstraints()
 		 */
-		public virtual void SetTargetCertConstraints(
-			IX509Selector selector)
+		public virtual void SetTargetConstraintsCert(ISelector<X509Certificate> targetConstraintsCert)
 		{
-			if (selector == null)
-			{
-				certSelector = null;
-			}
-			else
-			{
-				certSelector = (IX509Selector)selector.Clone();
-			}
+			m_targetConstraintsCert = (ISelector<X509Certificate>)targetConstraintsCert?.Clone();
 		}
 
 		/**
@@ -270,17 +306,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*
 		* @see #setInitialPolicies(java.util.Set)
 		*/
-		public virtual ISet GetInitialPolicies()
+		public virtual ISet<string> GetInitialPolicies()
 		{
-			ISet returnSet = initialPolicies;
-
 			// TODO Can it really be null?
 			if (initialPolicies == null)
-			{
-				returnSet = new HashSet();
-			}
+				return new HashSet<string>();
 
-			return new HashSet(returnSet);
+			return new HashSet<string>(initialPolicies);
 		}
 
 		/**
@@ -304,10 +336,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*
 		* @see #getInitialPolicies()
 		*/
-		public virtual void SetInitialPolicies(
-			ISet initialPolicies)
+		public virtual void SetInitialPolicies(ISet<string> initialPolicies)
 		{
-			this.initialPolicies = new HashSet();
+			this.initialPolicies = new HashSet<string>();
 			if (initialPolicies != null)
 			{
 				foreach (string obj in initialPolicies)
@@ -355,14 +386,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*                <code>java.security.cert.PKIXCertPathChecker</code>
 		* @see #getCertPathCheckers()
 		*/
-		public virtual void SetCertPathCheckers(IList checkers)
+		public virtual void SetCertPathCheckers(IList<PkixCertPathChecker> checkers)
 		{
-            certPathCheckers = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+			m_checkers = new List<PkixCertPathChecker>();
+
 			if (checkers != null)
 			{
-				foreach (PkixCertPathChecker obj in checkers)
+				foreach (var checker in checkers)
 				{
-					certPathCheckers.Add(obj.Clone());
+					m_checkers.Add((PkixCertPathChecker)checker.Clone());
 				}
 			}
 		}
@@ -376,14 +408,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		 *
 		 * @see #setCertPathCheckers(java.util.List)
 		 */
-		public virtual IList GetCertPathCheckers()
+		public virtual IList<PkixCertPathChecker> GetCertPathCheckers()
 		{
-			IList checkers = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
-			foreach (PkixCertPathChecker obj in certPathCheckers)
-			{
-				checkers.Add(obj.Clone());
+			var result = new List<PkixCertPathChecker>(m_checkers.Count);
+			foreach (var checker in m_checkers)
+            {
+				result.Add((PkixCertPathChecker)checker.Clone());
 			}
-			return checkers;
+			return result;
 		}
 
 		/**
@@ -397,12 +429,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		 * @param checker a <code>PKIXCertPathChecker</code> to add to the list of
 		 * checks. If <code>null</code>, the checker is ignored (not added to list).
 		 */
-		public virtual void AddCertPathChecker(
-			PkixCertPathChecker checker)
+		public virtual void AddCertPathChecker(PkixCertPathChecker checker)
 		{
 			if (checker != null)
 			{
-				certPathCheckers.Add(checker.Clone());
+				m_checkers.Add((PkixCertPathChecker)checker.Clone());
 			}
 		}
 
@@ -449,8 +480,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		* @param params Parameters to set. If this are
 		*            <code>ExtendedPkixParameters</code> they are copied to.
 		*/
-		protected virtual void SetParams(
-			PkixParameters parameters)
+		protected virtual void SetParams(PkixParameters parameters)
 		{
 			Date = parameters.Date;
 			SetCertPathCheckers(parameters.GetCertPathCheckers());
@@ -460,20 +490,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			IsRevocationEnabled = parameters.IsRevocationEnabled;
 			SetInitialPolicies(parameters.GetInitialPolicies());
 			IsPolicyQualifiersRejected = parameters.IsPolicyQualifiersRejected;
-			SetTargetCertConstraints(parameters.GetTargetCertConstraints());
 			SetTrustAnchors(parameters.GetTrustAnchors());
+
+			m_storesAttrCert = new List<IStore<X509V2AttributeCertificate>>(parameters.m_storesAttrCert);
+			m_storesCert = new List<IStore<X509Certificate>>(parameters.m_storesCert);
+			m_storesCrl = new List<IStore<X509Crl>>(parameters.m_storesCrl);
+
+			SetTargetConstraintsAttrCert(parameters.GetTargetConstraintsAttrCert());
+			SetTargetConstraintsCert(parameters.GetTargetConstraintsCert());
 
 			validityModel = parameters.validityModel;
 			useDeltas = parameters.useDeltas;
 			additionalLocationsEnabled = parameters.additionalLocationsEnabled;
-			selector = parameters.selector == null ? null
-				: (IX509Selector) parameters.selector.Clone();
-			stores = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(parameters.stores);
-            additionalStores = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(parameters.additionalStores);
-			trustedACIssuers = new HashSet(parameters.trustedACIssuers);
-			prohibitedACAttributes = new HashSet(parameters.prohibitedACAttributes);
-			necessaryACAttributes = new HashSet(parameters.necessaryACAttributes);
-			attrCertCheckers = new HashSet(parameters.attrCertCheckers);
+			trustedACIssuers = new HashSet<TrustAnchor>(parameters.trustedACIssuers);
+			prohibitedACAttributes = new HashSet<string>(parameters.prohibitedACAttributes);
+			necessaryACAttributes = new HashSet<string>(parameters.necessaryACAttributes);
+			attrCertCheckers = new HashSet<PkixAttrCertChecker>(parameters.attrCertCheckers);
 		}
 
 		/**
@@ -497,115 +529,79 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			set { validityModel = value; }
 		}
 
-		/**
-		* Sets the Bouncy Castle Stores for finding CRLs, certificates, attribute
-		* certificates or cross certificates.
-		* <p>
-		* The <code>IList</code> is cloned.
-		* </p>
-		*
-		* @param stores A list of stores to use.
-		* @see #getStores
-		* @throws ClassCastException if an element of <code>stores</code> is not
-		*             a {@link Store}.
-		*/
-		public virtual void SetStores(
-			IList stores)
+		public virtual IList<IStore<X509V2AttributeCertificate>> GetStoresAttrCert()
 		{
-			if (stores == null)
+			return new List<IStore<X509V2AttributeCertificate>>(m_storesAttrCert);
+		}
+
+		public virtual IList<IStore<X509Certificate>> GetStoresCert()
+		{
+			return new List<IStore<X509Certificate>>(m_storesCert);
+		}
+
+		public virtual IList<IStore<X509Crl>> GetStoresCrl()
+		{
+			return new List<IStore<X509Crl>>(m_storesCrl);
+		}
+
+		public virtual void SetAttrStoresCert(IList<IStore<X509V2AttributeCertificate>> storesAttrCert)
+		{
+			if (storesAttrCert == null)
 			{
-                this.stores = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+				m_storesAttrCert = new List<IStore<X509V2AttributeCertificate>>();
 			}
 			else
 			{
-				foreach (object obj in stores)
-				{
-					if (!(obj is IX509Store))
-					{
-						throw new InvalidCastException(
-							"All elements of list must be of type " + typeof(IX509Store).FullName);
-					}
-				}
-                this.stores = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(stores);
+				m_storesAttrCert = new List<IStore<X509V2AttributeCertificate>>(storesAttrCert);
 			}
 		}
 
-		/**
-		* Adds a Bouncy Castle {@link Store} to find CRLs, certificates, attribute
-		* certificates or cross certificates.
-		* <p>
-		* This method should be used to add local stores, like collection based
-		* X.509 stores, if available. Local stores should be considered first,
-		* before trying to use additional (remote) locations, because they do not
-		* need possible additional network traffic.
-		* </p><p>
-		* If <code>store</code> is <code>null</code> it is ignored.
-		* </p>
-		*
-		* @param store The store to add.
-		* @see #getStores
-		*/
-		public virtual void AddStore(
-			IX509Store store)
+		public virtual void SetStoresCert(IList<IStore<X509Certificate>> storesCert)
 		{
-			if (store != null)
+			if (storesCert == null)
 			{
-				stores.Add(store);
+				m_storesCert = new List<IStore<X509Certificate>>();
 			}
-		}
-
-		/**
-		* Adds an additional Bouncy Castle {@link Store} to find CRLs, certificates,
-		* attribute certificates or cross certificates.
-		* <p>
-		* You should not use this method. This method is used for adding additional
-		* X.509 stores, which are used to add (remote) locations, e.g. LDAP, found
-		* during X.509 object processing, e.g. in certificates or CRLs. This method
-		* is used in PKIX certification path processing.
-		* </p><p>
-		* If <code>store</code> is <code>null</code> it is ignored.
-		* </p>
-		*
-		* @param store The store to add.
-		* @see #getStores()
-		*/
-		public virtual void AddAdditionalStore(
-			IX509Store store)
-		{
-			if (store != null)
+			else
 			{
-				additionalStores.Add(store);
+				m_storesCert = new List<IStore<X509Certificate>>(storesCert);
 			}
 		}
 
-		/**
-		* Returns an <code>IList</code> of additional Bouncy Castle
-		* <code>Store</code>s used for finding CRLs, certificates, attribute
-		* certificates or cross certificates.
-		*
-		* @return an immutable <code>IList</code> of additional Bouncy Castle
-		*         <code>Store</code>s. Never <code>null</code>.
-		*
-		* @see #addAddionalStore(Store)
-		*/
-		public virtual IList GetAdditionalStores()
+		public virtual void SetStoresCrl(IList<IStore<X509Crl>> storesCrl)
 		{
-            return BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(additionalStores);
+			if (storesCrl == null)
+			{
+				m_storesCrl = new List<IStore<X509Crl>>();
+			}
+			else
+			{
+				m_storesCrl = new List<IStore<X509Crl>>(storesCrl);
+			}
 		}
 
-		/**
-		* Returns an <code>IList</code> of Bouncy Castle
-		* <code>Store</code>s used for finding CRLs, certificates, attribute
-		* certificates or cross certificates.
-		*
-		* @return an immutable <code>IList</code> of Bouncy Castle
-		*         <code>Store</code>s. Never <code>null</code>.
-		*
-		* @see #setStores(IList)
-		*/
-		public virtual IList GetStores()
+		public virtual void AddStoreAttrCert(IStore<X509V2AttributeCertificate> storeAttrCert)
 		{
-            return BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(stores);
+			if (storeAttrCert != null)
+			{
+				m_storesAttrCert.Add(storeAttrCert);
+			}
+		}
+
+		public virtual void AddStoreCert(IStore<X509Certificate> storeCert)
+		{
+			if (storeCert != null)
+			{
+				m_storesCert.Add(storeCert);
+			}
+		}
+
+		public virtual void AddStoreCrl(IStore<X509Crl> storeCrl)
+		{
+			if (storeCrl != null)
+			{
+				m_storesCrl.Add(storeCrl);
+			}
 		}
 
 		/**
@@ -632,69 +628,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		}
 
 		/**
-		* Returns the required constraints on the target certificate or attribute
-		* certificate. The constraints are returned as an instance of
-		* <code>IX509Selector</code>. If <code>null</code>, no constraints are
-		* defined.
-		*
-		* <p>
-		* The target certificate in a PKIX path may be a certificate or an
-		* attribute certificate.
-		* </p><p>
-		* Note that the <code>IX509Selector</code> returned is cloned to protect
-		* against subsequent modifications.
-		* </p>
-		* @return a <code>IX509Selector</code> specifying the constraints on the
-		*         target certificate or attribute certificate (or <code>null</code>)
-		* @see #setTargetConstraints
-		* @see X509CertStoreSelector
-		* @see X509AttributeCertStoreSelector
-		*/
-		public virtual IX509Selector GetTargetConstraints()
-		{
-			if (selector != null)
-			{
-				return (IX509Selector) selector.Clone();
-			}
-			else
-			{
-				return null;
-			}
-		}
-
-		/**
-		* Sets the required constraints on the target certificate or attribute
-		* certificate. The constraints are specified as an instance of
-		* <code>IX509Selector</code>. If <code>null</code>, no constraints are
-		* defined.
-		* <p>
-		* The target certificate in a PKIX path may be a certificate or an
-		* attribute certificate.
-		* </p><p>
-		* Note that the <code>IX509Selector</code> specified is cloned to protect
-		* against subsequent modifications.
-		* </p>
-		*
-		* @param selector a <code>IX509Selector</code> specifying the constraints on
-		*            the target certificate or attribute certificate (or
-		*            <code>null</code>)
-		* @see #getTargetConstraints
-		* @see X509CertStoreSelector
-		* @see X509AttributeCertStoreSelector
-		*/
-		public virtual void SetTargetConstraints(IX509Selector selector)
-		{
-			if (selector != null)
-			{
-				this.selector = (IX509Selector) selector.Clone();
-			}
-			else
-			{
-				this.selector = null;
-			}
-		}
-
-		/**
 		* Returns the trusted attribute certificate issuers. If attribute
 		* certificates is verified the trusted AC issuers must be set.
 		* <p>
@@ -705,9 +638,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*
 		* @return Returns an immutable set of the trusted AC issuers.
 		*/
-		public virtual ISet GetTrustedACIssuers()
+		public virtual ISet<TrustAnchor> GetTrustedACIssuers()
 		{
-			return new HashSet(trustedACIssuers);
+			return new HashSet<TrustAnchor>(trustedACIssuers);
 		}
 
 		/**
@@ -725,24 +658,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		* @throws ClassCastException if an element of <code>stores</code> is not
 		*             a <code>TrustAnchor</code>.
 		*/
-		public virtual void SetTrustedACIssuers(
-			ISet trustedACIssuers)
+		public virtual void SetTrustedACIssuers(ISet<TrustAnchor> trustedACIssuers)
 		{
 			if (trustedACIssuers == null)
 			{
-				this.trustedACIssuers = new HashSet();
+				this.trustedACIssuers = new HashSet<TrustAnchor>();
 			}
 			else
 			{
-				foreach (object obj in trustedACIssuers)
-				{
-					if (!(obj is TrustAnchor))
-					{
-						throw new InvalidCastException("All elements of set must be "
-							+ "of type " + typeof(TrustAnchor).FullName + ".");
-					}
-				}
-				this.trustedACIssuers = new HashSet(trustedACIssuers);
+				this.trustedACIssuers = new HashSet<TrustAnchor>(trustedACIssuers);
 			}
 		}
 
@@ -756,9 +680,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*
 		* @return Returns the necessary AC attributes.
 		*/
-		public virtual ISet GetNecessaryACAttributes()
+		public virtual ISet<string> GetNecessaryACAttributes()
 		{
-			return new HashSet(necessaryACAttributes);
+			return new HashSet<string>(necessaryACAttributes);
 		}
 
 		/**
@@ -775,24 +699,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*             <code>necessaryACAttributes</code> is not a
 		*             <code>String</code>.
 		*/
-		public virtual void SetNecessaryACAttributes(
-			ISet necessaryACAttributes)
+		public virtual void SetNecessaryACAttributes(ISet<string> necessaryACAttributes)
 		{
 			if (necessaryACAttributes == null)
 			{
-				this.necessaryACAttributes = new HashSet();
+				this.necessaryACAttributes = new HashSet<string>();
 			}
 			else
 			{
-				foreach (object obj in necessaryACAttributes)
-				{
-					if (!(obj is string))
-					{
-						throw new InvalidCastException("All elements of set must be "
-							+ "of type string.");
-					}
-				}
-				this.necessaryACAttributes = new HashSet(necessaryACAttributes);
+				this.necessaryACAttributes = new HashSet<string>(necessaryACAttributes);
 			}
 		}
 
@@ -805,9 +720,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*
 		* @return Returns the prohibited AC attributes. Is never <code>null</code>.
 		*/
-		public virtual ISet GetProhibitedACAttributes()
+		public virtual ISet<string> GetProhibitedACAttributes()
 		{
-			return new HashSet(prohibitedACAttributes);
+			return new HashSet<string>(prohibitedACAttributes);
 		}
 
 		/**
@@ -824,24 +739,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		*             <code>prohibitedACAttributes</code> is not a
 		*             <code>String</code>.
 		*/
-		public virtual void SetProhibitedACAttributes(
-			ISet prohibitedACAttributes)
+		public virtual void SetProhibitedACAttributes(ISet<string> prohibitedACAttributes)
 		{
 			if (prohibitedACAttributes == null)
 			{
-				this.prohibitedACAttributes = new HashSet();
+				this.prohibitedACAttributes = new HashSet<string>();
 			}
 			else
 			{
-				foreach (object obj in prohibitedACAttributes)
-				{
-					if (!(obj is String))
-					{
-						throw new InvalidCastException("All elements of set must be "
-							+ "of type string.");
-					}
-				}
-				this.prohibitedACAttributes = new HashSet(prohibitedACAttributes);
+				this.prohibitedACAttributes = new HashSet<string>(prohibitedACAttributes);
 			}
 		}
 
@@ -852,9 +758,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		* @return Returns the attribute certificate checker. Is never
 		*         <code>null</code>.
 		*/
-		public virtual ISet GetAttrCertCheckers()
+		public virtual ISet<PkixAttrCertChecker> GetAttrCertCheckers()
 		{
-			return new HashSet(attrCertCheckers);
+			return new HashSet<PkixAttrCertChecker>(attrCertCheckers);
 		}
 
 		/**
@@ -871,24 +777,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		* @throws ClassCastException if an element of <code>attrCertCheckers</code>
 		*             is not a <code>PKIXAttrCertChecker</code>.
 		*/
-		public virtual void SetAttrCertCheckers(
-			ISet attrCertCheckers)
+		public virtual void SetAttrCertCheckers(ISet<PkixAttrCertChecker> attrCertCheckers)
 		{
 			if (attrCertCheckers == null)
 			{
-				this.attrCertCheckers = new HashSet();
+				this.attrCertCheckers = new HashSet<PkixAttrCertChecker>();
 			}
 			else
 			{
-				foreach (object obj in attrCertCheckers)
-				{
-					if (!(obj is PkixAttrCertChecker))
-					{
-						throw new InvalidCastException("All elements of set must be "
-							+ "of type " + typeof(PkixAttrCertChecker).FullName + ".");
-					}
-				}
-				this.attrCertCheckers = new HashSet(attrCertCheckers);
+				this.attrCertCheckers = new HashSet<PkixAttrCertChecker>(attrCertCheckers);
 			}
 		}
 	}

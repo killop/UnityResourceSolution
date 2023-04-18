@@ -19,10 +19,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
      * SHA-512 1024   64    512
      * </pre>
      */
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.NullChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.ArrayBoundsChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.DivideByZeroChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppEagerStaticClassConstructionAttribute]
     public class Sha384Digest
 		: LongDigest
     {
@@ -70,6 +66,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             return DigestLength;
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int DoFinal(Span<byte> output)
+        {
+            Finish();
+
+            Pack.UInt64_To_BE(H1, output);
+            Pack.UInt64_To_BE(H2, output[8..]);
+            Pack.UInt64_To_BE(H3, output[16..]);
+            Pack.UInt64_To_BE(H4, output[24..]);
+            Pack.UInt64_To_BE(H5, output[32..]);
+            Pack.UInt64_To_BE(H6, output[40..]);
+
+            Reset();
+
+            return DigestLength;
+        }
+#endif
+
         /**
         * reset the chaining variables
         */
@@ -78,9 +92,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             base.Reset();
 
             /* SHA-384 initial hash value
-                * The first 64 bits of the fractional parts of the square roots
-                * of the 9th through 16th prime numbers
-                */
+             * The first 64 bits of the fractional parts of the square roots
+             * of the 9th through 16th prime numbers
+              */
             H1 = 0xcbbb9d5dc1059ed8;
             H2 = 0x629a292a367cd507;
             H3 = 0x9159015a3070dd17;
@@ -102,7 +116,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 
 			CopyIn(d);
 		}
-
     }
 }
 #pragma warning restore

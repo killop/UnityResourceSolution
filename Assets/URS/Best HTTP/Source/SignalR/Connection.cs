@@ -1,4 +1,4 @@
-﻿#if !BESTHTTP_DISABLE_SIGNALR
+#if !BESTHTTP_DISABLE_SIGNALR
 
 using System;
 using System.Text;
@@ -13,6 +13,7 @@ using BestHTTP.SignalR.Authentication;
 
 using PlatformSupport.Collections.ObjectModel;
 using BestHTTP.Connections;
+using BestHTTP.PlatformSupport.Text;
 
 #if !NETFX_CORE
 using PlatformSupport.Collections.Specialized;
@@ -367,7 +368,7 @@ namespace BestHTTP.SignalR
                 if (!string.IsNullOrEmpty(BuiltQueryParams))
                     return BuiltQueryParams;
 
-                StringBuilder sb = new StringBuilder(AdditionalQueryParams.Count * 4);
+                StringBuilder sb = StringBuilderPool.Get(AdditionalQueryParams.Count * 4); //new StringBuilder(AdditionalQueryParams.Count * 4);
 
                 foreach (var kvp in AdditionalQueryParams)
                 {
@@ -381,7 +382,7 @@ namespace BestHTTP.SignalR
                     }
                 }
 
-                return BuiltQueryParams = sb.ToString();
+                return BuiltQueryParams = StringBuilderPool.ReleaseAndGrab(sb);
             }
         }
 

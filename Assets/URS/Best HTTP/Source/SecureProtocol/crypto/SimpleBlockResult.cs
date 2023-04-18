@@ -51,6 +51,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 
             return result.Length;
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int Collect(Span<byte> destination)
+        {
+            result.CopyTo(destination);
+
+            return result.Length;
+        }
+#endif
     }
 }
 #pragma warning restore

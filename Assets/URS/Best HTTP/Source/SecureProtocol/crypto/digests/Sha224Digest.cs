@@ -74,9 +74,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			return DigestLength;
 		}
 
-		internal override void ProcessWord(
-            byte[]  input,
-            int     inOff)
+		internal override void ProcessWord(byte[] input, int inOff)
         {
 			X[xOff] = Pack.BE_To_UInt32(input, inOff);
 
@@ -86,7 +84,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             }
         }
 
-		internal override void ProcessLength(
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        internal override void ProcessWord(ReadOnlySpan<byte> word)
+        {
+            X[xOff] = Pack.BE_To_UInt32(word);
+
+            if (++xOff == 16)
+            {
+                ProcessBlock();
+            }
+        }
+#endif
+
+        internal override void ProcessLength(
             long bitLength)
         {
             if (xOff > 14)
@@ -98,9 +108,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             X[15] = (uint)((ulong)bitLength);
         }
 
-        public override int DoFinal(
-            byte[]	output,
-            int		outOff)
+        public override int DoFinal(byte[] output, int outOff)
         {
             Finish();
 
@@ -117,7 +125,26 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			return DigestLength;
         }
 
-		/**
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int DoFinal(Span<byte> output)
+        {
+            Finish();
+
+            Pack.UInt32_To_BE(H1, output);
+            Pack.UInt32_To_BE(H2, output[4..]);
+            Pack.UInt32_To_BE(H3, output[8..]);
+            Pack.UInt32_To_BE(H4, output[12..]);
+            Pack.UInt32_To_BE(H5, output[16..]);
+            Pack.UInt32_To_BE(H6, output[20..]);
+            Pack.UInt32_To_BE(H7, output[24..]);
+
+            Reset();
+
+            return DigestLength;
+        }
+#endif
+
+        /**
          * reset the chaining variables
          */
         public override void Reset()
@@ -286,7 +313,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 
 			CopyIn(d);
 		}
-
     }
 }
 #pragma warning restore

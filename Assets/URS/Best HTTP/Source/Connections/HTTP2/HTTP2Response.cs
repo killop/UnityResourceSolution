@@ -13,7 +13,12 @@ namespace BestHTTP.Connections.HTTP2
     {
         // For progress report
         public long ExpectedContentLength { get; private set; }
-        public bool IsCompressed { get; private set; }
+        public bool HasContentEncoding { get => !string.IsNullOrEmpty(this.contentEncoding); }
+
+        private string contentEncoding = null;
+
+        bool isPrepared;
+        private Decompression.IDecompressor decompressor;
 
         public HTTP2Response(HTTPRequest request, bool isFromCache)
             : base(request, isFromCache)
@@ -38,9 +43,9 @@ namespace BestHTTP.Connections.HTTP2
                 }
                 else
                 {
-                    if (!this.IsCompressed && header.Key.Equals("content-encoding", StringComparison.OrdinalIgnoreCase))
+                    if (!this.HasContentEncoding && header.Key.Equals("content-encoding", StringComparison.OrdinalIgnoreCase))
                     {
-                        this.IsCompressed = true;
+                        this.contentEncoding = header.Value;
                     }
                     else if (base.baseRequest.OnDownloadProgress != null && header.Key.Equals("content-length", StringComparison.OrdinalIgnoreCase))
                     {
@@ -72,13 +77,20 @@ namespace BestHTTP.Connections.HTTP2
 
         internal void AddData(Stream stream)
         {
-            if (this.IsCompressed)
+            if (this.HasContentEncoding)
             {
-                using (var decoderStream = new Decompression.Zlib.GZipStream(stream, Decompression.Zlib.CompressionMode.Decompress))
+                Stream decoderStream = Decompression.DecompressorFactory.GetDecoderStream(stream, this.contentEncoding);
+
+                if (decoderStream == null)
+                {
+                    base.Data = new byte[stream.Length];
+                    stream.Read(base.Data, 0, (int)stream.Length);
+                }
+                else
                 {
                     using (var ms = new BufferPoolMemoryStream((int)stream.Length))
                     {
-                        var buf = BufferPool.Get(8 * 1024, true);
+                        var buf = BufferPool.Get(HTTPResponse.MinReadBufferSize, true);
                         int byteCount = 0;
 
                         while ((byteCount = decoderStream.Read(buf, 0, buf.Length)) > 0)
@@ -88,18 +100,18 @@ namespace BestHTTP.Connections.HTTP2
 
                         base.Data = ms.ToArray();
                     }
+
+                    decoderStream.Dispose();
                 }
             }
             else
             {
-                base.Data = BufferPool.Get(stream.Length, false);
+                base.Data = new byte[stream.Length];
                 stream.Read(base.Data, 0, (int)stream.Length);
             }
         }
 
-        bool isPrepared;
-        private Decompression.GZipDecompressor decompressor;
-        
+       
         internal void ProcessData(byte[] payload, int payloadLength)
         {
             if (!this.isPrepared)
@@ -108,10 +120,10 @@ namespace BestHTTP.Connections.HTTP2
                 base.BeginReceiveStreamFragments();
             }
 
-            if (this.IsCompressed)
+            if (this.HasContentEncoding)
             {
                 if (this.decompressor == null)
-                    this.decompressor = new Decompression.GZipDecompressor(0);
+                    this.decompressor = Decompression.DecompressorFactory.GetDecompressor(this.contentEncoding, this.Context);
                 var result = this.decompressor.Decompress(payload, 0, payloadLength, true, true);
 
                 base.FeedStreamFragment(result.Data, 0, result.Length);

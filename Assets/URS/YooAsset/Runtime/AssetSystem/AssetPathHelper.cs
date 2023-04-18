@@ -29,22 +29,13 @@ namespace YooAsset
 		{
 			return StringUtility.Format("{0}/{1}", UnityEngine.Application.streamingAssetsPath, path);
 		}
-        public static string sStreamingSandboxDirectory = null;
-
-        public static string GetStreamingSandboxDirectory()
+        public static string GetBuildInChannelFilePath()
         {
-            if (sStreamingSandboxDirectory == null)
-            {
-                sStreamingSandboxDirectory= StringUtility.Format("{0}/{1}", UnityEngine.Application.streamingAssetsPath,"sandbox");
-            }
-            return sStreamingSandboxDirectory;
+            return MakeStreamingLoadPath(URSRuntimeSetting.instance.ChannelFileName);
         }
-        /// <summary>
-        /// 获取基于流文件夹的加载路径
-        /// </summary>
-        public static string MakeStreamingSandboxLoadPath(string path)
+        public static string MakeURSBuildInResourcePath(string path)
         {
-            return StringUtility.Format("{0}/{1}", GetStreamingSandboxDirectory(), path);
+            return StringUtility.Format("{0}/{1}", GetURSBuildInResourceFolder(), path);
         }
         /// <summary>
         /// 获取基于沙盒文件夹的加载路径
@@ -117,10 +108,53 @@ namespace YooAsset
 #endif
 		}
 
-		/// <summary>
-		/// 合并资源路径
-		/// </summary>
-		internal static string CombineAssetPath(string root, string location)
+
+        public static string sPersistentDownloadFolder = null;
+        public static string GetPersistentDownloadFolder()
+        {
+            if (sPersistentDownloadFolder == null)
+            {
+                sPersistentDownloadFolder = $"{AssetPathHelper.GetPersistentRootPath()}/download";
+            }
+            return sPersistentDownloadFolder;
+        }
+
+        public static string sPersistentReadOnlyFolder = null;
+        public static string GetPersistentReadonlyFolder()
+        {
+            if (sPersistentReadOnlyFolder == null)
+            {
+                sPersistentReadOnlyFolder = $"{AssetPathHelper.GetPersistentRootPath()}/readonly";
+            }
+            return sPersistentReadOnlyFolder;
+        }
+
+        public static string sURSBuildInResourceFolder = null;
+        public static string GetURSBuildInResourceFolder()
+        {
+            if (sURSBuildInResourceFolder == null)
+            {
+                sURSBuildInResourceFolder = $"{UnityEngine.Application.streamingAssetsPath}/{GetURSBuildInResourceFolderName()}";
+            }
+            return sURSBuildInResourceFolder;
+        }
+        public static string GetURSBuildInResourceFolderName()
+        {
+            return "urs_buildin_resources";
+        }
+        public static string sDownloadTempFolder = null;
+        public static string GetDownloadTempFolder()
+        {
+            if (sDownloadTempFolder == null)
+            {
+                sDownloadTempFolder = $"{AssetPathHelper.GetPersistentRootPath()}/download_temp";
+            }
+            return sDownloadTempFolder;
+        }
+        /// <summary>
+        /// 合并资源路径
+        /// </summary>
+        internal static string CombineAssetPath(string root, string location)
 		{
 			if (string.IsNullOrEmpty(root))
 				return location;

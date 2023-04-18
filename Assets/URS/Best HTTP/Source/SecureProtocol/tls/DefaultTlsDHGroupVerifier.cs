@@ -1,11 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
@@ -14,7 +13,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
     {
         public static readonly int DefaultMinimumPrimeBits = 2048;
 
-        private static readonly IList DefaultGroups = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+        private static readonly List<DHGroup> DefaultGroups = new List<DHGroup>();
 
         private static void AddDefaultGroup(DHGroup dhGroup)
         {
@@ -43,7 +42,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         }
 
         // IList is (DHGroup)
-        protected readonly IList m_groups;
+        protected readonly IList<DHGroup> m_groups;
         protected readonly int m_minimumPrimeBits;
 
         /// <summary>Accept named groups and various standard DH groups with 'P' at least
@@ -63,11 +62,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         /// <summary>Accept named groups and a custom set of group parameters, subject to a minimum bitlength for 'P'.
         /// </summary>
-        /// <param name="groups">a <see cref="IList">list</see> of acceptable <see cref="DHGroup"/>s.</param>
+        /// <param name="groups">a <see cref="IList{T}">list</see> of acceptable <see cref="DHGroup"/>s.</param>
         /// <param name="minimumPrimeBits">the minimum bitlength of 'P'.</param>
-        public DefaultTlsDHGroupVerifier(IList groups, int minimumPrimeBits)
+        public DefaultTlsDHGroupVerifier(IList<DHGroup> groups, int minimumPrimeBits)
         {
-            this.m_groups = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(groups);
+            this.m_groups = new List<DHGroup>(groups);
             this.m_minimumPrimeBits = minimumPrimeBits;
         }
 

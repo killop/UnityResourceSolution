@@ -21,17 +21,29 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto
             get { return m_mac; }
         }
 
-        public override void WriteByte(byte b)
+        public override void Write(byte[] buffer, int offset, int count)
         {
-            m_mac.Update(new byte[]{ b }, 0, 1);
+            Streams.ValidateBufferArguments(buffer, offset, count);
+
+            if (count > 0)
+            {
+                m_mac.Update(buffer, offset, count);
+            }
         }
 
-        public override void Write(byte[] buf, int off, int len)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override void Write(ReadOnlySpan<byte> buffer)
         {
-            if (len > 0)
+            if (!buffer.IsEmpty)
             {
-                m_mac.Update(buf, off, len);
+                m_mac.Update(buffer);
             }
+        }
+#endif
+
+        public override void WriteByte(byte value)
+        {
+            m_mac.Update(new byte[]{ value }, 0, 1);
         }
     }
 }

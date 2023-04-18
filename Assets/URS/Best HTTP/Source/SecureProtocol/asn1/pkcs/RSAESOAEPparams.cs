@@ -31,7 +31,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
 				return new RsaesOaepParameters((Asn1Sequence)obj);
 			}
 
-			throw new ArgumentException("Unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("Unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		/**

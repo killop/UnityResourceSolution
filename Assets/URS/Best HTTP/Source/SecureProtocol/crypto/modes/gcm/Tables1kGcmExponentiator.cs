@@ -1,9 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using System.Collections.Generic;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes.Gcm
 {
@@ -12,34 +10,37 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes.Gcm
     {
         // A lookup table of the power-of-two powers of 'x'
         // - lookupPowX2[i] = x^(2^i)
-        private IList lookupPowX2;
+        private IList<GcmUtilities.FieldElement> lookupPowX2;
 
         public void Init(byte[] x)
         {
-            ulong[] y = GcmUtilities.AsUlongs(x);
-            if (lookupPowX2 != null && Arrays.AreEqual(y, (ulong[])lookupPowX2[0]))
+            GcmUtilities.FieldElement y;
+            GcmUtilities.AsFieldElement(x, out y);
+            if (lookupPowX2 != null && y.Equals(lookupPowX2[0]))
                 return;
 
-            lookupPowX2 = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(8);
+            lookupPowX2 = new List<GcmUtilities.FieldElement>(8);
             lookupPowX2.Add(y);
         }
 
         public void ExponentiateX(long pow, byte[] output)
         {
-            ulong[] y = GcmUtilities.OneAsUlongs();
+            GcmUtilities.FieldElement y;
+            GcmUtilities.One(out y);
             int bit = 0;
             while (pow > 0)
             {
                 if ((pow & 1L) != 0)
                 {
                     EnsureAvailable(bit);
-                    GcmUtilities.Multiply(y, (ulong[])lookupPowX2[bit]);
+                    GcmUtilities.FieldElement powX2 = (GcmUtilities.FieldElement)lookupPowX2[bit];
+                    GcmUtilities.Multiply(ref y, ref powX2);
                 }
                 ++bit;
                 pow >>= 1;
             }
 
-            GcmUtilities.AsBytes(y, output);
+            GcmUtilities.AsBytes(ref y, output);
         }
 
         private void EnsureAvailable(int bit)
@@ -47,12 +48,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes.Gcm
             int count = lookupPowX2.Count;
             if (count <= bit)
             {
-                ulong[] tmp = (ulong[])lookupPowX2[count - 1];
+                GcmUtilities.FieldElement powX2 = (GcmUtilities.FieldElement)lookupPowX2[count - 1];
                 do
                 {
-                    tmp = Arrays.Clone(tmp);
-                    GcmUtilities.Square(tmp, tmp);
-                    lookupPowX2.Add(tmp);
+                    GcmUtilities.Square(ref powX2);
+                    lookupPowX2.Add(powX2);
                 }
                 while (++count <= bit);
             }

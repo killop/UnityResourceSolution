@@ -1,10 +1,8 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.Text;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
@@ -98,18 +96,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
             //return "AuthorityInformationAccess: Oid(" + this.descriptions[0].AccessMethod.Id + ")";
 
             StringBuilder buf = new StringBuilder();
-            string sep = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine;
-
-            buf.Append("AuthorityInformationAccess:");
-            buf.Append(sep);
-
+            buf.AppendLine("AuthorityInformationAccess:");
             foreach (AccessDescription description in descriptions)
             {
-                buf.Append("    ");
-                buf.Append(description);
-                buf.Append(sep);
+                buf.Append("    ")
+                   .Append(description)
+                   .AppendLine();
             }
-
             return buf.ToString();
         }
     }

@@ -36,11 +36,12 @@ namespace YooAsset
 		private enum ESteps
 		{
 			None,
-			LoadAppFileManifest,
-			CheckAppFileManifest,
-            LoadAppBundleManifest,
-            CheckAppBundleManifest,
-            InitSandbox,
+            CheckAppFootPrint,
+            LoadBuildInFileManifest,
+			CheckBuildInFileManifest,
+            LoadBuildInBundleManifest,
+            CheckBuildInBundleManifest,
+            InitPersistentFolders,
             Done,
 		}
 
@@ -56,23 +57,44 @@ namespace YooAsset
 		}
 		internal override void Start()
 		{
-			_steps = ESteps.LoadAppFileManifest;
+			_steps = ESteps.CheckAppFootPrint;
 		}
 		internal override void Update()
 		{
 			if (_steps == ESteps.None || _steps == ESteps.Done)
 				return;
-
-			if (_steps == ESteps.LoadAppFileManifest)
+            if (_steps == ESteps.CheckAppFootPrint)
+            {
+                // 每次启动时比对APP版本号是否一致	
+                AppFootPrint fp = AppFootPrint.Load();
+                if (fp == null)
+                {
+                    AppFootPrint.Create();
+                }
+                else
+                {
+                    if (fp.IsDirty())
+                    {
+                        if (_impl.ClearCacheWhenDirty)
+                        {
+                            Logger.Warning("Clear cache files.");
+                            URSFileSystem.DeletePersistentRootFolder();
+                            AppFootPrint.Create();
+                        }
+                    }
+                }
+                _steps = ESteps.LoadBuildInFileManifest;
+            }
+            if (_steps == ESteps.LoadBuildInFileManifest)
 			{
-				string filePath = AssetPathHelper.MakeStreamingSandboxLoadPath(URSRuntimeSetting.instance.FileManifestFileName);
+				string filePath = AssetPathHelper.MakeURSBuildInResourcePath(URSRuntimeSetting.instance.FileManifestFileName);
 				_downloadURL = AssetPathHelper.ConvertToWWWPath(filePath);
 				_fileManifestDownloader = new UnityWebRequester();
 				_fileManifestDownloader.SendRequest(_downloadURL);
-				_steps = ESteps.CheckAppFileManifest;
+				_steps = ESteps.CheckBuildInFileManifest;
 			}
 
-			if (_steps == ESteps.CheckAppFileManifest)
+			if (_steps == ESteps.CheckBuildInFileManifest)
 			{
 				if (_fileManifestDownloader.IsDone() == false)
 					return;
@@ -85,24 +107,24 @@ namespace YooAsset
                 }
                 else
                 {
-                    _impl.AppFileManifest = FileManifest.Deserialize(_fileManifestDownloader.GetText());
+                   URSFileSystem.BuildInFolder.FileManifest = FileManifest.Deserialize(_fileManifestDownloader.GetText());
                 }
 
 				// 解析APP里的补丁清单
 				
 				_fileManifestDownloader.Dispose();
-                _steps = ESteps.LoadAppBundleManifest;
+                _steps = ESteps.LoadBuildInBundleManifest;
 				
 			}
-            if (_steps == ESteps.LoadAppBundleManifest)
+            if (_steps == ESteps.LoadBuildInBundleManifest)
             {
-                string filePath = AssetPathHelper.MakeStreamingSandboxLoadPath(URSRuntimeSetting.instance.BundleManifestFileName);
+                string filePath = AssetPathHelper.MakeURSBuildInResourcePath(URSRuntimeSetting.instance.BundleManifestFileRelativePath);
                 _downloadURL = AssetPathHelper.ConvertToWWWPath(filePath);
                 _BunleManifestDownloader = new UnityWebRequester();
                 _BunleManifestDownloader.SendRequest(_downloadURL);
-                _steps = ESteps.CheckAppBundleManifest;
+                _steps = ESteps.CheckBuildInBundleManifest;
             }
-            if (_steps == ESteps.CheckAppBundleManifest)
+            if (_steps == ESteps.CheckBuildInBundleManifest)
             {
                 if (_BunleManifestDownloader.IsDone() == false)
                     return;
@@ -113,16 +135,15 @@ namespace YooAsset
                 }
                 else
                 {
-                    _impl.AppBundleManifest = BundleManifest.Deserialize(_BunleManifestDownloader.GetText());
-
+                    URSFileSystem.BuildInFolder.BundleManifest = BundleManifest.Deserialize(_BunleManifestDownloader.GetText());
                 }
                 _BunleManifestDownloader.Dispose();
-                _steps = ESteps.InitSandbox;
+                _steps = ESteps.InitPersistentFolders;
                
             }
-            if(_steps == ESteps.InitSandbox)
+            if(_steps == ESteps.InitPersistentFolders)
             {
-                SandboxFileSystem.InitSandboxFileAndBundle();
+                URSFileSystem.InitPersistentFolders();
                 _steps = ESteps.Done;
                 Status = EOperationStatus.Succeed;
             }
@@ -138,23 +159,17 @@ namespace YooAsset
 		private enum ESteps
 		{
 			None,
-			LoadAppId,
-			CheckAppId,
-            LoadChannelRouter,
-            CheckChannelRouter,
-
-            LoadFilesVersionIndex,
-            CheckFilesVersionIndex,
+		
 
 
             CheckAppFootPrint,
 
-			LoadAppFileManifest,
-			CheckAppFileManifest,
-            LoadAppBundleManifest,
-            CheckAppBundleManifest,
+			LoadBuildInFileManifest,
+			CheckBuildInFileManifest,
+            LoadBuildInBundleManifest,
+            CheckBuildInBundleManifest,
 
-            InitSandbox,
+            InitPersistentFolders,
 
             Done,
 		}
@@ -163,9 +178,7 @@ namespace YooAsset
 		private ESteps _steps = ESteps.None;
 
 
-        private UnityWebRequester _appIdDownloader;
-        private UnityWebRequester _remoteAppToChannelRouterFileDownloader;
-        private UnityWebRequester _remoteFilesVersionIndexDownloader;
+        
         private UnityWebRequester _appFileManifestDownloader;
         private UnityWebRequester _appBundleManifestDownloader;
 
@@ -174,112 +187,17 @@ namespace YooAsset
 		internal HostPlayModeInitializationOperation(HostPlayModeImpl impl)
 		{
 			_impl = impl;
+            URSFileSystem.InitRemoteFolder(impl);
 		}
 		internal override void Start()
 		{
-			_steps = ESteps.LoadAppId;
+			_steps = ESteps.CheckAppFootPrint;
 		}
 		internal override void Update()
 		{
 			if (_steps == ESteps.None || _steps == ESteps.Done)
 				return;
-            if (_steps == ESteps.LoadAppId)
-            {
-                
-                _impl.AppId = null;
-                string filePath = AssetPathHelper.MakeStreamingSandboxLoadPath(URSRuntimeSetting.instance.AppIdFileName);
-                // 加载APP内的补丁清单
-                Logger.Log($"Load application file manifest.{filePath}");
-                var downloadURL = AssetPathHelper.ConvertToWWWPath(filePath);
-                _appIdDownloader = new UnityWebRequester();
-                _appIdDownloader.SendRequest(downloadURL);
-                _steps = ESteps.CheckAppId;
-            }
-            if (_steps == ESteps.CheckAppId)
-            {
-
-                if (_appIdDownloader.IsDone() == false)
-                    return;
-
-                if (_appIdDownloader.HasError())
-                {
-                    Error = _appIdDownloader.GetError();
-                    Logger.Warning($"can not Load _appId.error {Error}");
-                }
-                else
-                {
-                    // 解析补丁清单
-                    string appid = _appIdDownloader.GetText();
-                    _impl.AppId = appid;
-                }
-                //_impl.LocalPatchManifest = _impl.AppPatchManifest;
-                _appIdDownloader.Dispose();
-                _steps = ESteps.LoadChannelRouter;
-            }
-            if (_steps == ESteps.LoadChannelRouter)
-            {
-                // 加载APP内的补丁清单
-                string filePath =_impl.RemoteAppToChannelRouterFileUrl;
-                var downloadURL = (filePath);
-                _remoteAppToChannelRouterFileDownloader = new UnityWebRequester();
-                _remoteAppToChannelRouterFileDownloader.SendRequest(downloadURL);
-                _steps = ESteps.CheckChannelRouter;
-            }
-            if (_steps == ESteps.CheckChannelRouter)
-            {
-
-                if (_remoteAppToChannelRouterFileDownloader.IsDone() == false)
-                    return;
-
-                if (_remoteAppToChannelRouterFileDownloader.HasError())
-                {
-                    Error = _remoteAppToChannelRouterFileDownloader.GetError();
-                    Logger.Warning($"can not Load _remoteAppToChannelRouterFile.error {Error}");
-                }
-                else
-                {
-                    // 解析补丁清单
-                    string jsonText = _remoteAppToChannelRouterFileDownloader.GetText();
-                    var  router  = AppToChannelRouter.Deserialize(jsonText);
-                    var item = router.GetChanel(_impl.AppId);
-                    _impl.InitVersion(item);
-                }
-                //_impl.LocalPatchManifest = _impl.AppPatchManifest;
-                _remoteAppToChannelRouterFileDownloader.Dispose();
-                _steps = ESteps.LoadFilesVersionIndex;
-            }
-            if (_steps == ESteps.LoadFilesVersionIndex)
-            {
-                // 加载APP内的补丁清单
-                string filePath = _impl.GetRemoteFilesVersionIndexUrl();
-                var downloadURL = filePath;
-                _remoteFilesVersionIndexDownloader = new UnityWebRequester();
-                _remoteFilesVersionIndexDownloader.SendRequest(downloadURL);
-                _steps = ESteps.CheckFilesVersionIndex;
-            }
-            if (_steps == ESteps.CheckFilesVersionIndex)
-            {
-
-                if (_remoteFilesVersionIndexDownloader.IsDone() == false)
-                    return;
-
-                if (_remoteFilesVersionIndexDownloader.HasError())
-                {
-                    // Error = _appIdDownloader.GetError();
-                    Logger.Warning($"can not Load _remoteFilesVersionIndex .error {Error}");
-                }
-                else
-                {
-                    // 解析补丁清单
-                    string jsonText = _remoteFilesVersionIndexDownloader.GetText();
-                    var versionIndex = JsonUtility.FromJson<URSFilesVersionIndex>(jsonText);
-                    versionIndex.AfterSerialize();
-                    _impl.InitFilesVersion(versionIndex);
-                }
-                //_impl.LocalPatchManifest = _impl.AppPatchManifest;
-                _remoteFilesVersionIndexDownloader.Dispose();
-                _steps = ESteps.CheckAppFootPrint;
-            }
+            
             if (_steps == ESteps.CheckAppFootPrint)
 			{
                 // 每次启动时比对APP版本号是否一致	
@@ -295,26 +213,26 @@ namespace YooAsset
                         if (_impl.ClearCacheWhenDirty)
                         {
                             Logger.Warning("Clear cache files.");
-                            SandboxFileSystem.DeleteSandboxFolder();
+                            URSFileSystem.DeletePersistentRootFolder();
                             AppFootPrint.Create();
                         }
                     }
 				}
-				_steps = ESteps.LoadAppFileManifest;
+				_steps = ESteps.LoadBuildInFileManifest;
 			}
 
-			if (_steps == ESteps.LoadAppFileManifest)
+			if (_steps == ESteps.LoadBuildInFileManifest)
 			{
 				// 加载APP内的补丁清单
 				Logger.Log($"Load application file manifest.");
-				string filePath = AssetPathHelper.MakeStreamingSandboxLoadPath(URSRuntimeSetting.instance.FileManifestFileName);
+				string filePath = AssetPathHelper.MakeURSBuildInResourcePath(URSRuntimeSetting.instance.FileManifestFileName);
 				_downloadURL = AssetPathHelper.ConvertToWWWPath(filePath);
 				_appFileManifestDownloader = new UnityWebRequester();
 				_appFileManifestDownloader.SendRequest(_downloadURL);
-				_steps = ESteps.CheckAppFileManifest;
+				_steps = ESteps.CheckBuildInFileManifest;
 			}
 
-			if (_steps == ESteps.CheckAppFileManifest)
+			if (_steps == ESteps.CheckBuildInFileManifest)
 			{
 				if (_appFileManifestDownloader.IsDone() == false)
 					return;
@@ -328,23 +246,23 @@ namespace YooAsset
                 {
                     // 解析补丁清单
                     string jsonData = _appFileManifestDownloader.GetText();
-                    _impl.AppFileManifest = FileManifest.Deserialize(jsonData);
+                    URSFileSystem.BuildInFolder.FileManifest = FileManifest.Deserialize(jsonData);
                 }
 				//_impl.LocalPatchManifest = _impl.AppPatchManifest;
 				_appFileManifestDownloader.Dispose();
-				_steps = ESteps.LoadAppBundleManifest;
+				_steps = ESteps.LoadBuildInBundleManifest;
 			}
-            if (_steps == ESteps.LoadAppBundleManifest)
+            if (_steps == ESteps.LoadBuildInBundleManifest)
             {
                 // 加载APP内的补丁清单
                 Logger.Log($"Load application bundle manifest.");
-                string filePath = AssetPathHelper.MakeStreamingSandboxLoadPath(URSRuntimeSetting.instance.BundleManifestFileName);
+                string filePath = AssetPathHelper.MakeURSBuildInResourcePath(URSRuntimeSetting.instance.BundleManifestFileRelativePath);
                 _downloadURL = AssetPathHelper.ConvertToWWWPath(filePath);
                 _appBundleManifestDownloader = new UnityWebRequester();
                 _appBundleManifestDownloader.SendRequest(_downloadURL);
-                _steps = ESteps.CheckAppBundleManifest;
+                _steps = ESteps.CheckBuildInBundleManifest;
             }
-            if (_steps == ESteps.CheckAppBundleManifest)
+            if (_steps == ESteps.CheckBuildInBundleManifest)
             {
                 if (_appBundleManifestDownloader.IsDone() == false)
                     return;
@@ -357,17 +275,17 @@ namespace YooAsset
                 else
                 {
                     string jsonData = _appBundleManifestDownloader.GetText();
-                    _impl.AppBundleManifest = BundleManifest.Deserialize(jsonData);
+                    URSFileSystem.BuildInFolder.BundleManifest = BundleManifest.Deserialize(jsonData);
                 }
                 // 解析补丁清单
                 //_impl.LocalPatchManifest = _impl.AppPatchManifest;
                 _appBundleManifestDownloader.Dispose();
-                _steps = ESteps.InitSandbox;
+                _steps = ESteps.InitPersistentFolders;
             }
-            if (_steps == ESteps.InitSandbox)
+            if (_steps == ESteps.InitPersistentFolders)
 			{
 
-                SandboxFileSystem.InitSandboxFileAndBundle();
+                URSFileSystem.InitPersistentFolders();
                 _steps = ESteps.Done;
                 Status = EOperationStatus.Succeed;
             }

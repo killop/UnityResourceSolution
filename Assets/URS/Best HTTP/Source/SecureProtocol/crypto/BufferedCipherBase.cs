@@ -34,7 +34,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 			return outBytes.Length;
 		}
 
-		public virtual byte[] ProcessBytes(
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public abstract int ProcessByte(byte input, Span<byte> output);
+#endif
+
+        public virtual byte[] ProcessBytes(
 			byte[] input)
 		{
 			return ProcessBytes(input, 0, input.Length);
@@ -65,6 +69,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 			outBytes.CopyTo(output, outOff);
 			return outBytes.Length;
 		}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public abstract int ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output);
+#endif
 
 		public abstract byte[] DoFinal();
 
@@ -109,6 +117,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 			len += DoFinal(output, outOff + len);
 			return len;
 		}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public abstract int DoFinal(Span<byte> output);
+
+		public virtual int DoFinal(ReadOnlySpan<byte> input, Span<byte> output)
+		{
+			int len = ProcessBytes(input, output);
+			len += DoFinal(output[len..]);
+			return len;
+		}
+#endif
 
 		public abstract void Reset();
 	}

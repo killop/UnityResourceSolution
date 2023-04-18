@@ -26,24 +26,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 			this.engine = new CbcBlockCipher(engine);
 		}
 
-        public virtual void Init(
-			bool				forWrapping,
-			ICipherParameters	param)
+        public virtual void Init(bool forWrapping, ICipherParameters param)
 		{
 			this.forWrapping = forWrapping;
 
-			if (param is ParametersWithRandom)
+			if (param is ParametersWithRandom withRandom)
 			{
-				ParametersWithRandom p = (ParametersWithRandom)param;
-
-                this.rand = p.Random;
-                this.param = p.Parameters as ParametersWithIV;
+                this.rand = withRandom.Random;
+                this.param = withRandom.Parameters as ParametersWithIV;
 			}
 			else
 			{
 				if (forWrapping)
 				{
-					rand = new SecureRandom();
+					rand = CryptoServicesRegistrar.GetSecureRandom();
 				}
 
                 this.param = param as ParametersWithIV;
@@ -55,7 +51,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 
         public virtual string AlgorithmName
 		{
-			get { return engine.GetUnderlyingCipher().AlgorithmName + "/RFC3211Wrap"; }
+			get { return engine.UnderlyingCipher.AlgorithmName + "/RFC3211Wrap"; }
 		}
 
         public virtual byte[] Wrap(

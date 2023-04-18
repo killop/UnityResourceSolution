@@ -10,12 +10,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
         : Asn1Encodable
     {
         private Asn1OctetString		keyIdentifier;
-        private DerGeneralizedTime	date;
+        private Asn1GeneralizedTime date;
         private OtherKeyAttribute	other;
 
 		public KekIdentifier(
             byte[]              keyIdentifier,
-            DerGeneralizedTime  date,
+            Asn1GeneralizedTime date,
             OtherKeyAttribute   other)
         {
             this.keyIdentifier = new DerOctetString(keyIdentifier);
@@ -33,9 +33,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
             case 1:
 				break;
             case 2:
-				if (seq[1] is DerGeneralizedTime)
+				if (seq[1] is Asn1GeneralizedTime)
 				{
-					date = (DerGeneralizedTime) seq[1];
+					date = (Asn1GeneralizedTime) seq[1];
 				}
 				else
 				{
@@ -43,7 +43,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 				}
 				break;
             case 3:
-				date  = (DerGeneralizedTime) seq[1];
+				date  = (Asn1GeneralizedTime) seq[1];
 				other = OtherKeyAttribute.GetInstance(seq[2]);
 				break;
             default:
@@ -82,7 +82,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			if (obj is Asn1Sequence)
                 return new KekIdentifier((Asn1Sequence)obj);
 
-            throw new ArgumentException("Invalid KekIdentifier: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("Invalid KekIdentifier: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
 		public Asn1OctetString KeyIdentifier
@@ -90,7 +90,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			get { return keyIdentifier; }
 		}
 
-		public DerGeneralizedTime Date
+		public Asn1GeneralizedTime Date
 		{
 			get { return date; }
 		}

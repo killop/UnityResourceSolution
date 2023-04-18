@@ -56,7 +56,8 @@ namespace BestHTTP.Extensions
 
         public override string ToString()
         {
-            var sb = new System.Text.StringBuilder("[");
+            var sb = PlatformSupport.Text.StringBuilderPool.Get(2);
+            sb.Append("[");
 
             int idx = this.startIdx;
             while (idx != this.endIdx)

@@ -17,8 +17,8 @@ namespace YooAsset
 			}
 		}
 
-		public BundledAssetProvider(string assetPath, System.Type assetType)
-			: base(assetPath, assetType)
+		public BundledAssetProvider(string assetPath, System.Type assetType, bool requireLocalSecurity, bool skipDownloadFolder = true)
+			: base(assetPath, assetType, requireLocalSecurity, skipDownloadFolder)
 		{
 		}
 		public override void Update()

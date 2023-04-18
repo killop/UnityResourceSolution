@@ -1,11 +1,11 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 {
@@ -22,25 +22,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
     public class X931Signer
         :   ISigner
     {
-
-        public const int TRAILER_IMPLICIT = 0xBC;
-
-        public const int TRAILER_RIPEMD160 = 0x31CC;
-
-        public const int TRAILER_RIPEMD128 = 0x32CC;
-
-        public const int TRAILER_SHA1 = 0x33CC;
-
-        public const int TRAILER_SHA256 = 0x34CC;
-
-        public const int TRAILER_SHA512 = 0x35CC;
-
-        public const int TRAILER_SHA384 = 0x36CC;
-
-        public const int TRAILER_WHIRLPOOL = 0x37CC;
-
-        public const int TRAILER_SHA224 = 0x38CC;
-
         private IDigest                     digest;
         private IAsymmetricBlockCipher      cipher;
         private RsaKeyParameters            kParam;
@@ -104,46 +85,34 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             Reset();
         }
 
-        /// <summary> clear possible sensitive data</summary>
-        private void ClearBlock(byte[] block)
-        {
-            Array.Clear(block, 0, block.Length);
-        }
-
-        /**
-         * update the internal digest with the byte b
-         */
         public virtual void Update(byte b)
         {
             digest.Update(b);
         }
 
-        /**
-         * update the internal digest with the byte array in
-         */
-        public virtual void BlockUpdate(byte[] input, int off, int len)
+        public virtual void BlockUpdate(byte[] input, int inOff, int inLen)
         {
-            digest.BlockUpdate(input, off, len);
+            digest.BlockUpdate(input, inOff, inLen);
         }
 
-        /**
-         * reset the internal state
-         */
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            digest.BlockUpdate(input);
+        }
+#endif
+
         public virtual void Reset()
         {
             digest.Reset();
         }
 
-        /**
-         * generate a signature for the loaded message using the key we were
-         * initialised with.
-         */
         public virtual byte[] GenerateSignature()
         {
             CreateSignatureBlock();
 
             BigInteger t = new BigInteger(1, cipher.ProcessBlock(block, 0, block.Length));
-            ClearBlock(block);
+            Arrays.Fill(block, 0x00);
 
             t = t.Min(kParam.Modulus.Subtract(t));
 
@@ -178,10 +147,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             block[delta - 1] = (byte)0xba;
         }
 
-        /**
-         * return true if the signature represents a ISO9796-2 signature
-         * for the passed in message.
-         */
         public virtual bool VerifySignature(byte[] signature)
         {
             try
@@ -215,12 +180,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 
             CreateSignatureBlock();
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            int fBlockSize = block.Length;
+            Span<byte> fBlock = fBlockSize <= 512
+                ? stackalloc byte[fBlockSize]
+                : new byte[fBlockSize];
+            BigIntegers.AsUnsignedByteArray(f, fBlock);
+#else
             byte[] fBlock = BigIntegers.AsUnsignedByteArray(block.Length, f);
+#endif
 
             bool rv = Arrays.ConstantTimeAreEqual(block, fBlock);
 
-            ClearBlock(block);
-            ClearBlock(fBlock);
+            Arrays.Fill(block, 0x00);
+            Arrays.Fill<byte>(fBlock, 0x00);
 
             return rv;
         }

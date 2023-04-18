@@ -49,7 +49,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			IWrapper keyWrapper = Helper.CreateWrapper(rfc3211WrapperName);
 
 			// Note: In Java build, the IV is automatically generated in JCE layer
-			int ivLength = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(rfc3211WrapperName, "DESEDE") ? 8 : 16;
+			int ivLength = Org.BouncyCastle.Utilities.Platform.StartsWith(rfc3211WrapperName, "DESEDE") ? 8 : 16;
 			byte[] iv = new byte[ivLength];
 			random.NextBytes(iv);
 

@@ -2,7 +2,6 @@
 #pragma warning disable
 using System;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 
@@ -24,9 +23,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
             return new IssuerAndSerialNumber(Asn1Sequence.GetInstance(obj));
         }
 
-
-        public IssuerAndSerialNumber(
-            Asn1Sequence seq)
+        private IssuerAndSerialNumber(Asn1Sequence seq)
         {
             this.name = X509Name.GetInstance(seq[0]);
             this.serialNumber = (DerInteger) seq[1];

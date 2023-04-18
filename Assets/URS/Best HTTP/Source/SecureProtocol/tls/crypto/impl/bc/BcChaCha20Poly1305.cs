@@ -32,7 +32,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             {
                 int ciphertextLength = inputLength;
 
-                m_cipher.ProcessBytes(input, inputOffset, inputLength, output, outputOffset);
+                m_cipher.DoFinal(input, inputOffset, inputLength, output, outputOffset);
                 int outputLength = inputLength;
 
                 if (ciphertextLength != outputLength)
@@ -65,7 +65,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
                 if (badMac)
                     throw new TlsFatalAlert(AlertDescription.bad_record_mac);
 
-                m_cipher.ProcessBytes(input, inputOffset, ciphertextLength, output, outputOffset);
+                m_cipher.DoFinal(input, inputOffset, ciphertextLength, output, outputOffset);
                 int outputLength = ciphertextLength;
 
                 if (ciphertextLength != outputLength)
@@ -98,18 +98,39 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             }
         }
 
+        public void Reset()
+        {
+            m_cipher.Reset();
+            m_mac.Reset();
+        }
+
         public void SetKey(byte[] key, int keyOff, int keyLen)
         {
             KeyParameter cipherKey = new KeyParameter(key, keyOff, keyLen);
             m_cipher.Init(m_isEncrypting, new ParametersWithIV(cipherKey, Zeroes, 0, 12));
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void SetKey(ReadOnlySpan<byte> key)
+        {
+            KeyParameter cipherKey = new KeyParameter(key);
+            m_cipher.Init(m_isEncrypting, new ParametersWithIV(cipherKey, Zeroes.AsSpan(0, 12)));
+        }
+#endif
+
         private void InitMac()
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            Span<byte> firstBlock = stackalloc byte[64];
+            m_cipher.ProcessBytes(firstBlock, firstBlock);
+            m_mac.Init(new KeyParameter(firstBlock[..32]));
+            firstBlock.Fill(0x00);
+#else
             byte[] firstBlock = new byte[64];
             m_cipher.ProcessBytes(firstBlock, 0, 64, firstBlock, 0);
             m_mac.Init(new KeyParameter(firstBlock, 0, 32));
             Array.Clear(firstBlock, 0, firstBlock.Length);
+#endif
         }
 
         private void UpdateMac(byte[] buf, int off, int len)

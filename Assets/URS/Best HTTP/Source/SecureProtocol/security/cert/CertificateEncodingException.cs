@@ -1,17 +1,33 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.Runtime.Serialization;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates
 {
-#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || PORTABLE || NETFX_CORE)
     [Serializable]
-#endif
-    public class CertificateEncodingException : CertificateException
+    public class CertificateEncodingException
+		: CertificateException
 	{
-		public CertificateEncodingException() : base() { }
-		public CertificateEncodingException(string msg) : base(msg) { }
-		public CertificateEncodingException(string msg, Exception e) : base(msg, e) { }
+		public CertificateEncodingException()
+			: base()
+		{
+		}
+
+		public CertificateEncodingException(string message)
+			: base(message)
+		{
+		}
+
+		public CertificateEncodingException(string message, Exception innerException)
+			: base(message, innerException)
+		{
+		}
+
+		protected CertificateEncodingException(SerializationInfo info, StreamingContext context)
+			: base(info, context)
+		{
+		}
 	}
 }
 #pragma warning restore

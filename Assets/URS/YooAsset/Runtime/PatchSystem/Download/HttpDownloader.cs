@@ -106,7 +106,7 @@ namespace YooAsset
 				_downloadError = _threadError;
 				if (_threadResult)
 				{
-                    SandboxFileSystem.RegisterVerifyFile(_hardiskFileSearchResult.FileMeta);
+                   URSFileSystem.DownloadFolderRegisterVerifyFile(_hardiskFileSearchResult.FileMeta);
 					_steps = ESteps.Succeed;
 				}
 				else
@@ -208,7 +208,7 @@ namespace YooAsset
 				}
 
 				// 验证下载文件完整性
-				bool verfiyResult = SandboxFileSystem.CheckContentIntegrity(savePath, _hardiskFileSearchResult.SizeBytes, _hardiskFileSearchResult.Hash);
+				bool verfiyResult = URSFileSystem.DownloadFolderCheckContentIntegrity(savePath, _hardiskFileSearchResult.SizeBytes, _hardiskFileSearchResult.Hash);
 				if(verfiyResult)
 				{
 					_threadResult = true;

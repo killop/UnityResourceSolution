@@ -1,11 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
@@ -15,14 +14,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 	public class DefaultAuthenticatedAttributeTableGenerator
 		: CmsAttributeTableGenerator
 	{
-		private readonly IDictionary table;
+		private readonly IDictionary<DerObjectIdentifier, object> m_table;
 
 		/**
 		 * Initialise to use all defaults
 		 */
 		public DefaultAuthenticatedAttributeTableGenerator()
 		{
-			table = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+			m_table = new Dictionary<DerObjectIdentifier, object>();
 		}
 
 		/**
@@ -35,11 +34,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		{
 			if (attributeTable != null)
 			{
-				table = attributeTable.ToDictionary();
+				m_table = attributeTable.ToDictionary();
 			}
 			else
 			{
-				table = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+				m_table = new Dictionary<DerObjectIdentifier, object>();
 			}
 		}
 
@@ -53,12 +52,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		 *
 		 * @return a filled in IDictionary of attributes.
 		 */
-		protected virtual IDictionary CreateStandardAttributeTable(
-			IDictionary parameters)
+		protected virtual IDictionary<DerObjectIdentifier, object> CreateStandardAttributeTable(
+			IDictionary<CmsAttributeTableParameter, object> parameters)
 		{
-            IDictionary std = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable(table);
+            var std = new Dictionary<DerObjectIdentifier, object>(m_table);
 
-			if (!std.Contains(CmsAttributes.ContentType))
+			if (!std.ContainsKey(CmsAttributes.ContentType))
             {
                 DerObjectIdentifier contentType = (DerObjectIdentifier)
                     parameters[CmsAttributeTableParameter.ContentType];
@@ -67,7 +66,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
                 std[attr.AttrType] = attr;
             }
 
-			if (!std.Contains(CmsAttributes.MessageDigest))
+			if (!std.ContainsKey(CmsAttributes.MessageDigest))
             {
                 byte[] messageDigest = (byte[])parameters[CmsAttributeTableParameter.Digest];
                 Asn1.Cms.Attribute attr = new Asn1.Cms.Attribute(CmsAttributes.MessageDigest,
@@ -78,14 +77,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
             return std;
 		}
 
-        /**
+		/**
 		 * @param parameters source parameters
 		 * @return the populated attribute table
 		 */
-		public virtual AttributeTable GetAttributes(
-			IDictionary parameters)
+		public virtual AttributeTable GetAttributes(IDictionary<CmsAttributeTableParameter, object> parameters)
 		{
-            IDictionary table = CreateStandardAttributeTable(parameters);
+            var table = CreateStandardAttributeTable(parameters);
 			return new AttributeTable(table);
 		}
 	}

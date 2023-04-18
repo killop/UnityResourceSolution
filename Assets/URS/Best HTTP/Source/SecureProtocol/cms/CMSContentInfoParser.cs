@@ -44,7 +44,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		*/
 		public void Close()
 		{
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(this.data);
+            data.Dispose();
 		}
 	}
 }

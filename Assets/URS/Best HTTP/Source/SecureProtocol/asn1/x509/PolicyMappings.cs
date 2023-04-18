@@ -1,6 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System.Collections;
+using System.Collections.Generic;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 {
@@ -31,14 +31,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 			this.seq = seq;
 		}
 
-#if !(SILVERLIGHT || PORTABLE || NETFX_CORE)
-        public PolicyMappings(
-            Hashtable mappings)
-            : this((IDictionary)mappings)
-        {
-        }
-#endif
-
         /**
 		 * Creates a new <code>PolicyMappings</code> instance.
 		 *
@@ -46,14 +38,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 		 * <code>string</code> oids
 		 * to other <code>string</code> oids.
 		 */
-		public PolicyMappings(
-			IDictionary mappings)
+		public PolicyMappings(IDictionary<string, string> mappings)
 		{
 			Asn1EncodableVector v = new Asn1EncodableVector();
 
-			foreach (string idp in mappings.Keys)
+			foreach (var entry in mappings)
 			{
-				string sdp = (string) mappings[idp];
+				string idp = entry.Key;
+				string sdp = entry.Value;
 
 				v.Add(
 					new DerSequence(

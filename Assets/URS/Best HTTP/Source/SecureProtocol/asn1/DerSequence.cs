@@ -1,10 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-using System.IO;
-
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
@@ -18,10 +14,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             return elementVector.Count < 1 ? Empty : new DerSequence(elementVector);
 		}
 
-		/**
+        /**
 		 * create an empty sequence
 		 */
-		public DerSequence()
+        public DerSequence()
 			: base()
 		{
 		}
@@ -34,7 +30,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 		{
 		}
 
-		public DerSequence(params Asn1Encodable[] elements)
+        /**
+		 * create a sequence containing two objects
+		 */
+        public DerSequence(Asn1Encodable element1, Asn1Encodable element2)
+            : base(element1, element2)
+        {
+        }
+
+        public DerSequence(params Asn1Encodable[] elements)
             : base(elements)
 		{
 		}
@@ -47,44 +51,42 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 		{
 		}
 
-        internal override int EncodedLength(bool withID)
+        internal DerSequence(Asn1Encodable[] elements, bool clone)
+            : base(elements, clone)
         {
-            throw BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException("DerSequence.EncodedLength");
         }
 
-        /*
-		 * A note on the implementation:
-		 * <p>
-		 * As Der requires the constructed, definite-length model to
-		 * be used for structured types, this varies slightly from the
-		 * ASN.1 descriptions given. Rather than just outputing Sequence,
-		 * we also have to specify Constructed, and the objects length.
-		 */
-        internal override void Encode(Asn1OutputStream asn1Out, bool withID)
+        internal override IAsn1Encoding GetEncoding(int encoding)
         {
-            if (Count < 1)
-            {
-                asn1Out.WriteEncodingDL(withID, Asn1Tags.Constructed | Asn1Tags.Sequence, Asn1OctetString.EmptyOctets);
-                return;
-            }
+            return new ConstructedDLEncoding(Asn1Tags.Universal, Asn1Tags.Sequence,
+                Asn1OutputStream.GetContentsEncodings(Asn1OutputStream.EncodingDer, elements));
+        }
 
-            // TODO Intermediate buffer could be avoided if we could calculate expected length
-            MemoryStream bOut = new MemoryStream();
-            Asn1OutputStream dOut = Asn1OutputStream.Create(bOut, Der);
-            dOut.WriteElements(elements);
-            dOut.Flush();
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
+        {
+            return new ConstructedDLEncoding(tagClass, tagNo,
+                Asn1OutputStream.GetContentsEncodings(Asn1OutputStream.EncodingDer, elements));
+        }
 
-#if PORTABLE || NETFX_CORE
-            byte[] bytes = bOut.ToArray();
-            int length = bytes.Length;
-#else
-            byte[] bytes = bOut.GetBuffer();
-            int length = (int)bOut.Position;
-#endif
+        internal override DerBitString ToAsn1BitString()
+        {
+            return new DerBitString(BerBitString.FlattenBitStrings(GetConstructedBitStrings()), false);
+        }
 
-            asn1Out.WriteEncodingDL(withID, Asn1Tags.Constructed | Asn1Tags.Sequence, bytes, 0, length);
+        internal override DerExternal ToAsn1External()
+        {
+            return new DerExternal(this);
+        }
 
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(dOut);
+        internal override Asn1OctetString ToAsn1OctetString()
+        {
+            return new DerOctetString(BerOctetString.FlattenOctetStrings(GetConstructedOctetStrings()));
+        }
+
+        internal override Asn1Set ToAsn1Set()
+        {
+            // NOTE: DLSet is intentional, we don't want sorting
+            return new DLSet(false, elements);
         }
     }
 }

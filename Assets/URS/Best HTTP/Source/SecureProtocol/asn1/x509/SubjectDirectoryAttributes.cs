@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
@@ -30,7 +30,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 	public class SubjectDirectoryAttributes
 		: Asn1Encodable
 	{
-		private readonly IList attributes;
+		private readonly IList<AttributeX509> m_attributes;
 
 		public static SubjectDirectoryAttributes GetInstance(
 			object obj)
@@ -45,7 +45,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 				return new SubjectDirectoryAttributes((Asn1Sequence) obj);
 			}
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		/**
@@ -72,22 +72,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 		private SubjectDirectoryAttributes(
 			Asn1Sequence seq)
 		{
-            this.attributes = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+            m_attributes = new List<AttributeX509>();
+
             foreach (object o in seq)
 			{
 				Asn1Sequence s = Asn1Sequence.GetInstance(o);
-				attributes.Add(AttributeX509.GetInstance(s));
+				m_attributes.Add(AttributeX509.GetInstance(s));
 			}
 		}
-
-#if !(SILVERLIGHT || PORTABLE || NETFX_CORE)
-        [Obsolete]
-        public SubjectDirectoryAttributes(
-            ArrayList attributes)
-            : this((IList)attributes)
-        {
-        }
-#endif
 
         /**
 		 * Constructor from an ArrayList of attributes.
@@ -97,11 +89,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 		 * @param attributes The attributes.
 		 *
 		 */
-		public SubjectDirectoryAttributes(
-			IList attributes)
+		public SubjectDirectoryAttributes(IList<AttributeX509> attributes)
 		{
-            this.attributes = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(attributes);
-        }
+			m_attributes = new List<AttributeX509>(attributes);
+		}
 
 		/**
 		 * Produce an object suitable for an Asn1OutputStream.
@@ -125,10 +116,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 		 */
 		public override Asn1Object ToAsn1Object()
 		{
-            AttributeX509[] v = new AttributeX509[attributes.Count];
-            for (int i = 0; i < attributes.Count; ++i)
+            AttributeX509[] v = new AttributeX509[m_attributes.Count];
+            for (int i = 0; i < m_attributes.Count; ++i)
             {
-                v[i] = (AttributeX509)attributes[i];
+                v[i] = m_attributes[i];
             }
             return new DerSequence(v);
 		}
@@ -136,9 +127,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
         /**
 		 * @return Returns the attributes.
 		 */
-		public IEnumerable Attributes
+		public IEnumerable<AttributeX509> Attributes
 		{
-			get { return new EnumerableProxy(attributes); }
+			get { return CollectionUtilities.Proxy(m_attributes); }
 		}
 	}
 }

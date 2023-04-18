@@ -16,23 +16,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 	public class Pkcs5Scheme2Utf8PbeKey
 		: CmsPbeKey
 	{
-
-		public Pkcs5Scheme2Utf8PbeKey(
-			string	password,
-			byte[]	salt,
-			int		iterationCount)
-			: this(password.ToCharArray(), salt, iterationCount)
-		{
-		}
-
-
-		public Pkcs5Scheme2Utf8PbeKey(
-			string				password,
-			AlgorithmIdentifier keyDerivationAlgorithm)
-			: this(password.ToCharArray(), keyDerivationAlgorithm)
-		{
-		}
-
 		public Pkcs5Scheme2Utf8PbeKey(
 			char[]	password,
 			byte[]	salt,

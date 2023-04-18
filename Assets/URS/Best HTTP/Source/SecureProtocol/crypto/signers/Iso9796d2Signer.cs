@@ -1,10 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
@@ -22,23 +19,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
         {
             return recoveredMessage;
         }
-
-
-        public const int TrailerImplicit = 0xBC;
-
-        public const int TrailerRipeMD160 = 0x31CC;
-
-        public const int TrailerRipeMD128 = 0x32CC;
-
-        public const int TrailerSha1 = 0x33CC;
-
-        public const int TrailerSha256 = 0x34CC;
-
-        public const int TrailerSha512 = 0x35CC;
-
-        public const int TrailerSha384 = 0x36CC;
-
-        public const int TrailerWhirlpool = 0x37CC;
 
         private IDigest digest;
         private IAsymmetricBlockCipher cipher;
@@ -240,9 +220,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             recoveredMessage.CopyTo(mBuf, 0);
         }
 
-        /// <summary> update the internal digest with the byte b</summary>
-        public virtual void Update(
-            byte input)
+        public virtual void Update(byte input)
         {
             digest.Update(input);
 
@@ -254,26 +232,42 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             messageLength++;
         }
 
-        /// <summary> update the internal digest with the byte array in</summary>
-        public virtual void BlockUpdate(
-            byte[]	input,
-            int		inOff,
-            int		length)
+        public virtual void BlockUpdate(byte[] input, int inOff, int inLen)
         {
-            while (length > 0 && messageLength < mBuf.Length)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            BlockUpdate(input.AsSpan(inOff, inLen));
+#else
+            while (inLen > 0 && messageLength < mBuf.Length)
             {
-                //for (int i = 0; i < length && (i + messageLength) < mBuf.Length; i++)
-                //{
-                //    mBuf[messageLength + i] = input[inOff + i];
-                //}
                 this.Update(input[inOff]);
                 inOff++;
-                length--;
+                inLen--;
             }
 
-            digest.BlockUpdate(input, inOff, length);
-            messageLength += length;
+            if (inLen > 0)
+            {
+                digest.BlockUpdate(input, inOff, inLen);
+                messageLength += inLen;
+            }
+#endif
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            while (!input.IsEmpty && messageLength < mBuf.Length)
+            {
+                this.Update(input[0]);
+                input = input[1..];
+            }
+
+            if (!input.IsEmpty)
+            {
+                digest.BlockUpdate(input);
+                messageLength += input.Length;
+            }
+        }
+#endif
 
         /// <summary> reset the internal state</summary>
         public virtual void Reset()

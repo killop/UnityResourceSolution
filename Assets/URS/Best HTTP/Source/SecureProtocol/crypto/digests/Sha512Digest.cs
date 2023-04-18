@@ -69,6 +69,26 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int DoFinal(Span<byte> output)
+        {
+            Finish();
+
+            Pack.UInt64_To_BE(H1, output);
+            Pack.UInt64_To_BE(H2, output[8..]);
+            Pack.UInt64_To_BE(H3, output[16..]);
+            Pack.UInt64_To_BE(H4, output[24..]);
+            Pack.UInt64_To_BE(H5, output[32..]);
+            Pack.UInt64_To_BE(H6, output[40..]);
+            Pack.UInt64_To_BE(H7, output[48..]);
+            Pack.UInt64_To_BE(H8, output[56..]);
+
+            Reset();
+
+            return DigestLength;
+        }
+#endif
+
         /**
         * reset the chaining variables
         */
@@ -101,7 +121,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 
 			CopyIn(d);
 		}
-
     }
 }
 #pragma warning restore

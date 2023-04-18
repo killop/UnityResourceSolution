@@ -1,38 +1,48 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
-
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Encoders;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 {
-
 	public class PemReader
+		: IDisposable
 	{		
 		private readonly TextReader reader;
 		private readonly MemoryStream buffer;
 		private readonly StreamWriter textBuffer;
-		private readonly IList pushback = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+		private readonly List<int> pushback = new List<int>();
 		int c = 0;
-
-		
 
 		public PemReader(TextReader reader)
 		{
-			if (reader == null)
-				throw new ArgumentNullException("reader");
-
-
-			buffer = new MemoryStream();
-			textBuffer = new StreamWriter(buffer);
-
-			this.reader = reader;
+			this.reader = reader ?? throw new ArgumentNullException(nameof(reader));
+            this.buffer = new MemoryStream();
+            this.textBuffer = new StreamWriter(buffer);
 		}
 
-		public TextReader Reader
+        #region IDisposable
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                reader.Dispose();
+            }
+        }
+
+        #endregion
+
+        public TextReader Reader
 		{
 			get { return reader; }
 		}
@@ -49,7 +59,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 			// Look for BEGIN
 			//
 
-			for (; ; )
+			for (;;)
 			{
 
 				// Seek a leading dash, ignore anything up to that point.
@@ -109,7 +119,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 			// Look for a colon for up to 64 characters, as an indication there might be a header.
 			//
 
-			IList headers = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+			var headers = new List<PemHeader>();
 
 			while (seekColon(64))
             {
@@ -229,7 +239,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 		{
 			c = 0;
 			bool colonFound = false;
-			IList read = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+			var read = new List<int>();
 
 			for (; upTo>=0 && c >=0; upTo--)
             {
@@ -294,7 +304,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 		/// <param name="value">expected string</param>
 		/// <returns>false if not consumed</returns>
 
-		private bool expect(String value)
+		private bool expect(string value)
         {
 			for (int t=0; t<value.Length; t++)
             {
@@ -310,7 +320,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 
 			return true;
         }
-		
 
 		/// <summary>
 		/// Consume until dash.
@@ -340,8 +349,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 			return c > -1;
 		}
 
-
-
 		private void PushBack(int value)
         {
 			if (pushback.Count == 0)
@@ -353,22 +360,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
             }
         }
 
-
 		private int Read()
         {
-			if (pushback.Count>0)
+			if (pushback.Count > 0)
             {
-				int i = (int)pushback[0];
+				int i = pushback[0];
 				pushback.RemoveAt(0);
 				return i;
             }
 
 			return reader.Read();
         }
-
-
-
-
 	}
 }
 #pragma warning restore

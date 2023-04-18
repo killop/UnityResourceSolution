@@ -117,7 +117,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         public override ECFieldElement Invert()
         {
-            //return new SecP256R1FieldElement(ToBigInteger().ModInverse(Q));
             uint[] z = Nat256.Create();
             SecP256R1Field.Inv(x, z);
             return new SecP256R1FieldElement(z);
@@ -135,32 +134,33 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
             if (Nat256.IsZero(x1) || Nat256.IsOne(x1))
                 return this;
 
+            uint[] tt0 = Nat256.CreateExt();
             uint[] t1 = Nat256.Create();
             uint[] t2 = Nat256.Create();
 
-            SecP256R1Field.Square(x1, t1);
-            SecP256R1Field.Multiply(t1, x1, t1);
+            SecP256R1Field.Square(x1, t1, tt0);
+            SecP256R1Field.Multiply(t1, x1, t1, tt0);
 
-            SecP256R1Field.SquareN(t1, 2, t2);
-            SecP256R1Field.Multiply(t2, t1, t2);
+            SecP256R1Field.SquareN(t1, 2, t2, tt0);
+            SecP256R1Field.Multiply(t2, t1, t2, tt0);
 
-            SecP256R1Field.SquareN(t2, 4, t1);
-            SecP256R1Field.Multiply(t1, t2, t1);
+            SecP256R1Field.SquareN(t2, 4, t1, tt0);
+            SecP256R1Field.Multiply(t1, t2, t1, tt0);
 
-            SecP256R1Field.SquareN(t1, 8, t2);
-            SecP256R1Field.Multiply(t2, t1, t2);
+            SecP256R1Field.SquareN(t1, 8, t2, tt0);
+            SecP256R1Field.Multiply(t2, t1, t2, tt0);
 
-            SecP256R1Field.SquareN(t2, 16, t1);
-            SecP256R1Field.Multiply(t1, t2, t1);
+            SecP256R1Field.SquareN(t2, 16, t1, tt0);
+            SecP256R1Field.Multiply(t1, t2, t1, tt0);
 
-            SecP256R1Field.SquareN(t1, 32, t1);
-            SecP256R1Field.Multiply(t1, x1, t1);
+            SecP256R1Field.SquareN(t1, 32, t1, tt0);
+            SecP256R1Field.Multiply(t1, x1, t1, tt0);
 
-            SecP256R1Field.SquareN(t1, 96, t1);
-            SecP256R1Field.Multiply(t1, x1, t1);
+            SecP256R1Field.SquareN(t1, 96, t1, tt0);
+            SecP256R1Field.Multiply(t1, x1, t1, tt0);
 
-            SecP256R1Field.SquareN(t1, 94, t1);
-            SecP256R1Field.Multiply(t1, t1, t2);
+            SecP256R1Field.SquareN(t1, 94, t1, tt0);
+            SecP256R1Field.Multiply(t1, t1, t2, tt0);
 
             return Nat256.Eq(x1, t2) ? new SecP256R1FieldElement(t1) : null;
         }

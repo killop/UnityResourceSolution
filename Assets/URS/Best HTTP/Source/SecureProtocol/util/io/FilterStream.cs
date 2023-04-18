@@ -1,14 +1,18 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
+using System;
 using System.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO
 {
-    public class FilterStream : Stream
+    public class FilterStream
+        : Stream
     {
+        protected readonly Stream s;
+
         public FilterStream(Stream s)
         {
-            this.s = s;
+            this.s = s ?? throw new ArgumentNullException(nameof(s));
         }
         public override bool CanRead
         {
@@ -22,6 +26,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO
         {
             get { return s.CanWrite; }
         }
+#if NETCOREAPP2_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER || (UNITY_2021_2_OR_NEWER && (NET_STANDARD_2_0 || NET_STANDARD_2_1))
+        public override void CopyTo(Stream destination, int bufferSize)
+        {
+            s.CopyTo(destination, bufferSize);
+        }
+#endif
+        public override void Flush()
+        {
+            s.Flush();
+        }
         public override long Length
         {
             get { return s.Length; }
@@ -31,25 +45,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO
             get { return s.Position; }
             set { s.Position = value; }
         }
-#if PORTABLE || NETFX_CORE
-        protected override void Dispose(bool disposing)
+        public override int Read(byte[] buffer, int offset, int count)
         {
-            if (disposing)
-            {
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(s);
-            }
-            base.Dispose(disposing);
+            return s.Read(buffer, offset, count);
         }
-#else
-        public override void Close()
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int Read(Span<byte> buffer)
         {
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(s);
-            base.Close();
+            return s.Read(buffer);
         }
 #endif
-        public override void Flush()
+        public override int ReadByte()
         {
-            s.Flush();
+            return s.ReadByte();
         }
         public override long Seek(long offset, SeekOrigin origin)
         {
@@ -59,23 +67,33 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO
         {
             s.SetLength(value);
         }
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            return s.Read(buffer, offset, count);
-        }
-        public override int ReadByte()
-        {
-            return s.ReadByte();
-        }
         public override void Write(byte[] buffer, int offset, int count)
         {
             s.Write(buffer, offset, count);
         }
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            s.Write(buffer);
+        }
+#endif
         public override void WriteByte(byte value)
         {
             s.WriteByte(value);
         }
-        protected readonly Stream s;
+        protected void Detach(bool disposing)
+        {
+            base.Dispose(disposing);
+        }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                s.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
     }
 }
 #pragma warning restore

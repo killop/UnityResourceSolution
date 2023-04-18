@@ -1,9 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
 {
@@ -49,7 +46,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
         private SignedData(
             Asn1Sequence seq)
         {
-            IEnumerator e = seq.GetEnumerator();
+            var e = seq.GetEnumerator();
 
             e.MoveNext();
             version = (DerInteger) e.Current;
@@ -62,26 +59,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
 
             while (e.MoveNext())
             {
-                Asn1Object o = (Asn1Object) e.Current;
+                Asn1Object o = e.Current.ToAsn1Object();
 
                 //
                 // an interesting feature of SignedData is that there appear to be varying implementations...
                 // for the moment we ignore anything which doesn't fit.
                 //
-                if (o is Asn1TaggedObject)
+                if (o is Asn1TaggedObject tagged)
                 {
-                    Asn1TaggedObject tagged = (Asn1TaggedObject)o;
-
                     switch (tagged.TagNo)
                     {
-                        case 0:
-                            certificates = Asn1Set.GetInstance(tagged, false);
-                            break;
-                        case 1:
-                            crls = Asn1Set.GetInstance(tagged, false);
-                            break;
-                        default:
-                            throw new ArgumentException("unknown tag value " + tagged.TagNo);
+                    case 0:
+                        certificates = Asn1Set.GetInstance(tagged, false);
+                        break;
+                    case 1:
+                        crls = Asn1Set.GetInstance(tagged, false);
+                        break;
+                    default:
+                        throw new ArgumentException("unknown tag value " + tagged.TagNo);
                     }
                 }
                 else

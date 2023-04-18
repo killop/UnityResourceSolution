@@ -1,17 +1,19 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
+#pragma warning disable
 using System;
 using System.IO;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls;
+using BestHTTP.PlatformSupport.Memory;
 
 namespace BestHTTP.Connections.TLS.Crypto.Impl
 {
     /// <summary>A generic TLS 1.2 AEAD cipher.</summary>
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.NullChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.ArrayBoundsChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.DivideByZeroChecks, false)]
+    
+    
+    
     [BestHTTP.PlatformSupport.IL2CPP.Il2CppEagerStaticClassConstructionAttribute]
     public sealed class FastTlsAeadCipher
         : TlsCipher
@@ -81,6 +83,33 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
             }
 
             int keyBlockSize = (2 * keySize) + (2 * m_fixed_iv_length);
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            Span<byte> keyBlock = keyBlockSize <= 512
+                ? stackalloc byte[keyBlockSize]
+                : new byte[keyBlockSize];
+            TlsImplUtilities.CalculateKeyBlock(cryptoParams, keyBlock);
+
+            if (isServer)
+            {
+                decryptCipher.SetKey(keyBlock[..keySize]); keyBlock = keyBlock[keySize..];
+                encryptCipher.SetKey(keyBlock[..keySize]); keyBlock = keyBlock[keySize..];
+
+                keyBlock[..m_fixed_iv_length].CopyTo(m_decryptNonce); keyBlock = keyBlock[m_fixed_iv_length..];
+                keyBlock[..m_fixed_iv_length].CopyTo(m_encryptNonce); keyBlock = keyBlock[m_fixed_iv_length..];
+            }
+            else
+            {
+                encryptCipher.SetKey(keyBlock[..keySize]); keyBlock = keyBlock[keySize..];
+                decryptCipher.SetKey(keyBlock[..keySize]); keyBlock = keyBlock[keySize..];
+
+                keyBlock[..m_fixed_iv_length].CopyTo(m_encryptNonce); keyBlock = keyBlock[m_fixed_iv_length..];
+                keyBlock[..m_fixed_iv_length].CopyTo(m_decryptNonce); keyBlock = keyBlock[m_fixed_iv_length..];
+            }
+
+            if (!keyBlock.IsEmpty)
+                throw new TlsFatalAlert(AlertDescription.internal_error);
+#else
             byte[] keyBlock = TlsImplUtilities.CalculateKeyBlock(cryptoParams, keyBlockSize);
             int pos = 0;
 
@@ -101,8 +130,9 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
                 Array.Copy(keyBlock, pos, m_decryptNonce, 0, m_fixed_iv_length); pos += m_fixed_iv_length;
             }
 
-            if (keyBlockSize != pos)
+            if (pos != keyBlockSize)
                 throw new TlsFatalAlert(AlertDescription.internal_error);
+#endif
 
             int nonceLength = m_fixed_iv_length + m_record_iv_length;
 
@@ -142,6 +172,10 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
         public TlsEncodeResult EncodePlaintext(long seqNo, short contentType, ProtocolVersion recordVersion,
             int headerAllocation, byte[] plaintext, int plaintextOffset, int plaintextLength)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return EncodePlaintext(seqNo, contentType, recordVersion, headerAllocation,
+                plaintext.AsSpan(plaintextOffset, plaintextLength));
+#else
             byte[] nonce = new byte[m_encryptNonce.Length + m_record_iv_length];
 
             switch (m_nonceMode)
@@ -168,7 +202,7 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
             int encryptionLength = m_encryptCipher.GetOutputSize(plaintextLength + extraLength);
             int ciphertextLength = m_record_iv_length + encryptionLength;
 
-            byte[] output = new byte[headerAllocation + ciphertextLength];
+            byte[] output = BufferPool.Get(headerAllocation + ciphertextLength, true); //new byte[headerAllocation + ciphertextLength];
             int outputPos = headerAllocation;
 
             if (m_record_iv_length != 0)
@@ -184,15 +218,89 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
 
             try
             {
-                m_encryptCipher.Init(nonce, m_macSize, additionalData);
-
                 Array.Copy(plaintext, plaintextOffset, output, outputPos, plaintextLength);
                 if (m_isTlsV13)
                 {
                     output[outputPos + plaintextLength] = (byte)contentType;
                 }
 
+                m_encryptCipher.Init(nonce, m_macSize, additionalData);
                 outputPos += m_encryptCipher.DoFinal(output, outputPos, plaintextLength + extraLength, output,
+                    outputPos);
+            }
+            catch (IOException e)
+            {
+                throw e;
+            }
+            catch (Exception e)
+            {
+                throw new TlsFatalAlert(AlertDescription.internal_error, e);
+            }
+
+            if (outputPos != headerAllocation + ciphertextLength)
+            {
+                // NOTE: The additional data mechanism for AEAD ciphers requires exact output size prediction.
+                throw new TlsFatalAlert(AlertDescription.internal_error);
+            }
+
+            return new TlsEncodeResult(output, 0, outputPos, recordType, true);
+#endif
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public TlsEncodeResult EncodePlaintext(long seqNo, short contentType, ProtocolVersion recordVersion,
+            int headerAllocation, ReadOnlySpan<byte> plaintext)
+        {
+            byte[] nonce = new byte[m_encryptNonce.Length + m_record_iv_length];
+
+            switch (m_nonceMode)
+            {
+            case NONCE_RFC5288:
+                Array.Copy(m_encryptNonce, 0, nonce, 0, m_encryptNonce.Length);
+                // RFC 5288/6655: The nonce_explicit MAY be the 64-bit sequence number.
+                TlsUtilities.WriteUint64(seqNo, nonce, m_encryptNonce.Length);
+                break;
+            case NONCE_RFC7905:
+                TlsUtilities.WriteUint64(seqNo, nonce, nonce.Length - 8);
+                for (int i = 0; i < m_encryptNonce.Length; ++i)
+                {
+                    nonce[i] ^= m_encryptNonce[i];
+                }
+                break;
+            default:
+                throw new TlsFatalAlert(AlertDescription.internal_error);
+            }
+
+            int extraLength = m_isTlsV13 ? 1 : 0;
+
+            // TODO[tls13] If we support adding padding to TLSInnerPlaintext, this will need review
+            int encryptionLength = m_encryptCipher.GetOutputSize(plaintext.Length + extraLength);
+            int ciphertextLength = m_record_iv_length + encryptionLength;
+
+            byte[] output = new byte[headerAllocation + ciphertextLength];
+            int outputPos = headerAllocation;
+
+            if (m_record_iv_length != 0)
+            {
+                Array.Copy(nonce, nonce.Length - m_record_iv_length, output, outputPos, m_record_iv_length);
+                outputPos += m_record_iv_length;
+            }
+
+            short recordType = m_isTlsV13 ? ContentType.application_data : contentType;
+
+            byte[] additionalData = GetAdditionalData(seqNo, recordType, recordVersion, ciphertextLength,
+                plaintext.Length);
+
+            try
+            {
+                plaintext.CopyTo(output.AsSpan(outputPos));
+                if (m_isTlsV13)
+                {
+                    output[outputPos + plaintext.Length] = (byte)contentType;
+                }
+
+                m_encryptCipher.Init(nonce, m_macSize, additionalData);
+                outputPos += m_encryptCipher.DoFinal(output, outputPos, plaintext.Length + extraLength, output,
                     outputPos);
             }
             catch (IOException e)
@@ -212,31 +320,28 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
 
             return new TlsEncodeResult(output, 0, output.Length, recordType);
         }
+#endif
 
-        byte[] decode_nonce = null;
         public TlsDecodeResult DecodeCiphertext(long seqNo, short recordType, ProtocolVersion recordVersion,
             byte[] ciphertext, int ciphertextOffset, int ciphertextLength)
         {
             if (GetPlaintextLimit(ciphertextLength) < 0)
                 throw new TlsFatalAlert(AlertDescription.decode_error);
 
-            if (decode_nonce == null || decode_nonce.Length != m_decryptNonce.Length + m_record_iv_length)
-                decode_nonce = new byte[m_decryptNonce.Length + m_record_iv_length];
-            else
-                Array.Clear(decode_nonce, 0, decode_nonce.Length);
+            byte[] nonce = new byte[m_decryptNonce.Length + m_record_iv_length];
 
             switch (m_nonceMode)
             {
                 case NONCE_RFC5288:
-                    Array.Copy(m_decryptNonce, 0, decode_nonce, 0, m_decryptNonce.Length);
-                    Array.Copy(ciphertext, ciphertextOffset, decode_nonce, decode_nonce.Length - m_record_iv_length,
+                    Array.Copy(m_decryptNonce, 0, nonce, 0, m_decryptNonce.Length);
+                    Array.Copy(ciphertext, ciphertextOffset, nonce, nonce.Length - m_record_iv_length,
                         m_record_iv_length);
                     break;
                 case NONCE_RFC7905:
-                    TlsUtilities.WriteUint64(seqNo, decode_nonce, decode_nonce.Length - 8);
+                    TlsUtilities.WriteUint64(seqNo, nonce, nonce.Length - 8);
                     for (int i = 0; i < m_decryptNonce.Length; ++i)
                     {
-                        decode_nonce[i] ^= m_decryptNonce[i];
+                        nonce[i] ^= m_decryptNonce[i];
                     }
                     break;
                 default:
@@ -253,7 +358,7 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
             int outputPos;
             try
             {
-                m_decryptCipher.Init(decode_nonce, m_macSize, additionalData);
+                m_decryptCipher.Init(nonce, m_macSize, additionalData);
                 outputPos = m_decryptCipher.DoFinal(ciphertext, encryptionOffset, encryptionLength, ciphertext,
                     encryptionOffset);
             }
@@ -310,7 +415,6 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
             get { return m_isTlsV13; }
         }
 
-        byte[] additional_data = null;
         private byte[] GetAdditionalData(long seqNo, short recordType, ProtocolVersion recordVersion,
             int ciphertextLength, int plaintextLength)
         {
@@ -319,10 +423,7 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
                 /*
                  * TLSCiphertext.opaque_type || TLSCiphertext.legacy_record_version || TLSCiphertext.length
                  */
-                if (additional_data == null || additional_data.Length != 5)
-                    additional_data = new byte[5];
-                else
-                    Array.Clear(additional_data, 0, additional_data.Length);
+                byte[] additional_data = new byte[5];
 
                 TlsUtilities.WriteUint8(recordType, additional_data, 0);
                 TlsUtilities.WriteVersion(recordVersion, additional_data, 1);
@@ -334,10 +435,7 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
                 /*
                  * seq_num + TLSCompressed.type + TLSCompressed.version + TLSCompressed.length
                  */
-                if (additional_data == null || additional_data.Length != 13)
-                    additional_data = new byte[13];
-                else
-                    Array.Clear(additional_data, 0, additional_data.Length);
+                byte[] additional_data = new byte[13];
 
                 TlsUtilities.WriteUint64(seqNo, additional_data, 0);
                 TlsUtilities.WriteUint8(recordType, additional_data, 8);
@@ -397,4 +495,5 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
         }
     }
 }
+#pragma warning restore
 #endif

@@ -121,15 +121,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
                                                };
 
         internal static readonly StaticTree static_l_desc =
-            new StaticTree(static_ltree, ZTree.extra_lbits,
+            new StaticTree(static_ltree, Tree.extra_lbits,
             LITERALS+1, L_CODES, MAX_BITS);
 
         internal static readonly StaticTree static_d_desc =
-            new StaticTree(static_dtree, ZTree.extra_dbits,
+            new StaticTree(static_dtree, Tree.extra_dbits,
             0,  D_CODES, MAX_BITS);
 
         internal static readonly StaticTree static_bl_desc =
-            new StaticTree(null, ZTree.extra_blbits,
+            new StaticTree(null, Tree.extra_blbits,
             0, BL_CODES, MAX_BL_BITS);
 
         internal short[] static_tree;     // static tree or null

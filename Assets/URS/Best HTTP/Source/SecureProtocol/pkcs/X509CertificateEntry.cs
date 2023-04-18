@@ -1,9 +1,8 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
-using System.Collections;
+using System.Collections.Generic;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
@@ -13,27 +12,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
     {
         private readonly X509Certificate cert;
 
-		public X509CertificateEntry(
-            X509Certificate cert)
-			: base(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable())
+		public X509CertificateEntry(X509Certificate cert)
+			: base(new Dictionary<DerObjectIdentifier, Asn1Encodable>())
         {
             this.cert = cert;
         }
 
-#if !(SILVERLIGHT || PORTABLE || NETFX_CORE)
-        [Obsolete]
-        public X509CertificateEntry(
-            X509Certificate	cert,
-            Hashtable		attributes)
-			: base(attributes)
-        {
-            this.cert = cert;
-        }
-#endif
-
-        public X509CertificateEntry(
-            X509Certificate cert,
-            IDictionary     attributes)
+        public X509CertificateEntry(X509Certificate cert, IDictionary<DerObjectIdentifier, Asn1Encodable> attributes)
 			: base(attributes)
         {
             this.cert = cert;

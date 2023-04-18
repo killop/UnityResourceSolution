@@ -43,7 +43,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Crmf
             if (obj is Asn1Sequence)
                 return new PopoSigningKeyInput((Asn1Sequence)obj);
 
-            throw new ArgumentException("Invalid object: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("Invalid object: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
         /** Creates a new PopoSigningKeyInput with sender name as authInfo. */

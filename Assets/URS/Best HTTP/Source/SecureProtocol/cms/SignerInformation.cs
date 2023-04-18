@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -258,10 +258,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			Asn1.Cms.AttributeTable unsignedAttributeTable = UnsignedAttributes;
 			if (unsignedAttributeTable == null)
 			{
-                return new SignerInformationStore(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(0));
+                return new SignerInformationStore(new List<SignerInformation>(0));
 			}
 
-            IList counterSignatures = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+            var counterSignatures = new List<SignerInformation>();
 
 			/*
 			The UnsignedAttributes syntax is defined as a SET OF Attributes.  The
@@ -435,10 +435,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 					if (isCounterSignature)
 						throw new CmsException("[For counter signatures,] the signedAttributes field MUST NOT contain a content-type attribute");
 
-					if (!(validContentType is DerObjectIdentifier))
+					if (!(validContentType is DerObjectIdentifier signedContentType))
 						throw new CmsException("content-type attribute value not of ASN.1 type 'OBJECT IDENTIFIER'");
-
-					DerObjectIdentifier signedContentType = (DerObjectIdentifier)validContentType;
 
 					if (!signedContentType.Equals(contentType))
 						throw new CmsException("content-type attribute value does not match eContentType");
@@ -456,12 +454,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 				}
 				else
 				{
-					if (!(validMessageDigest is Asn1OctetString))
-					{
+					if (!(validMessageDigest is Asn1OctetString signedMessageDigest))
 						throw new CmsException("message-digest attribute value not of ASN.1 type 'OCTET STRING'");
-					}
-
-					Asn1OctetString signedMessageDigest = (Asn1OctetString)validMessageDigest;
 
 					if (!Arrays.AreEqual(resultDigest, signedMessageDigest.GetOctets()))
 						throw new CmsException("message-digest attribute value does not match calculated value");
@@ -659,7 +653,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			Asn1.Cms.Time signingTime = GetSigningTime();
 			if (signingTime != null)
 			{
-				cert.CheckValidity(signingTime.Date);
+				cert.CheckValidity(signingTime.ToDateTime());
 			}
 
 			return DoVerify(cert.GetPublicKey());

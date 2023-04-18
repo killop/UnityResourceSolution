@@ -29,19 +29,9 @@ namespace BestHTTP.WebSocket.Frames
         public WebSocketFrameTypes Type { get; private set; }
 
         /// <summary>
-        /// Indicates if there are any mask sent to decode the data.
-        /// </summary>
-        public bool HasMask { get; private set; }
-
-        /// <summary>
-        /// The length of the Data.
-        /// </summary>
-        public UInt64 Length { get; private set; }
-
-        /// <summary>
         /// The decoded array of bytes.
         /// </summary>
-        public byte[] Data { get; private set; }
+        public BufferSegment Data { get; private set; }
 
         /// <summary>
         /// Textual representation of the received Data.
@@ -66,13 +56,14 @@ namespace BestHTTP.WebSocket.Frames
             byte maskAndLength = ReadByte(stream);
 
             // The second byte is the Mask Bit and the length of the payload data
-            HasMask = (maskAndLength & 0x80) != 0;
+            if ((maskAndLength & 0x80) != 0)
+                throw new NotImplementedException($"Payload from the server is masked!");
 
             // if 0-125, that is the payload length.
-            Length = (UInt64)(maskAndLength & 127);
+            var length = (UInt64)(maskAndLength & 127);
 
             // If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length.
-            if (Length == 126)
+            if (length == 126)
             {
                 byte[] rawLen = BufferPool.Get(2, true);
 
@@ -81,11 +72,11 @@ namespace BestHTTP.WebSocket.Frames
                 if (BitConverter.IsLittleEndian)
                     Array.Reverse(rawLen, 0, 2);
 
-                Length = (UInt64)BitConverter.ToUInt16(rawLen, 0);
+                length = (UInt64)BitConverter.ToUInt16(rawLen, 0);
 
                 BufferPool.Release(rawLen);
             }
-            else if (Length == 127)
+            else if (length == 127)
             {
                 // If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the
                 // most significant bit MUST be 0) are the payload length.
@@ -97,74 +88,39 @@ namespace BestHTTP.WebSocket.Frames
                 if (BitConverter.IsLittleEndian)
                     Array.Reverse(rawLen, 0, 8);
 
-                Length = (UInt64)BitConverter.ToUInt64(rawLen, 0);
+                length = (UInt64)BitConverter.ToUInt64(rawLen, 0);
 
                 BufferPool.Release(rawLen);
             }
 
-            // The sent byte array as a mask to decode the data.
-            byte[] mask = null;
-
-            // Read the Mask, if has any
-            if (HasMask)
+            if (length == 0L)
             {
-                mask = BufferPool.Get(4, true);
-                if (stream.Read(mask, 0, 4) < mask.Length)
-                    throw ExceptionHelper.ServerClosedTCPStream();
+                Data = BufferSegment.Empty;
+                return;
             }
 
-            if (Type == WebSocketFrameTypes.Text || Type == WebSocketFrameTypes.Continuation)
-                Data = BufferPool.Get((long)Length, true);
-            else
-                if (Length == 0)
-                    Data = BufferPool.NoData;
-                else
-                    Data = new byte[Length];
-            //Data = Type == WebSocketFrameTypes.Text ? VariableSizedBufferPool.Get((long)Length, true) : new byte[Length];
-
-            if (Length == 0L)
-                return;
+            var buffer = BufferPool.Get((long)length, true);
 
             uint readLength = 0;
 
-            do
+            try
             {
-                int read = stream.Read(Data, (int)readLength, (int)(Length - readLength));
-
-                if (read <= 0)
-                    throw ExceptionHelper.ServerClosedTCPStream();
-
-                readLength += (uint)read;
-            } while (readLength < Length);
-
-            if (HasMask)
-            {
-                fixed (byte* pData = Data, pmask = mask)
+                do
                 {
-                    // Here, instead of byte by byte, we reinterpret cast the data as uints and apply the masking so.
-                    // This way, we can mask 4 bytes in one cycle, instead of just 1
-                    ulong localLength = this.Length / 4;
-                    if (localLength > 0)
-                    {
-                        uint* upData = (uint*)pData;
-                        uint umask = *(uint*)pmask;
+                    int read = stream.Read(buffer, (int)readLength, (int)(length - readLength));
 
-                        unchecked
-                        {
-                            for (ulong i = 0; i < localLength; ++i)
-                                upData[i] = upData[i] ^ umask;
-                        }
-                    }
+                    if (read <= 0)
+                        throw ExceptionHelper.ServerClosedTCPStream();
 
-                    // Because data might not be exactly dividable by 4, we have to mask the remaining 0..3 too.
-                    ulong from = localLength * 4;
-                    localLength = from + this.Length % 4;
-                    for (ulong i = from; i < localLength; ++i)
-                        pData[i] = (byte)(pData[i] ^ pmask[i % 4]);
-                }
-
-                BufferPool.Release(mask);
+                    readLength += (uint)read;
+                } while (readLength < length);
             }
+            catch
+            {
+                BufferPool.Release(buffer);
+                throw;
+            }
+            this.Data = new BufferSegment(buffer, 0, (int)length);
         }
 
         private byte ReadByte(Stream stream)
@@ -192,16 +148,17 @@ namespace BestHTTP.WebSocket.Frames
 
             UInt64 finalLength = 0;
             for (int i = 0; i < fragments.Count; ++i)
-                finalLength += fragments[i].Length;
+                finalLength += (UInt64)fragments[i].Data.Count;
 
-            byte[] buffer = fragments[0].Type == WebSocketFrameTypes.Text ? BufferPool.Get((long)finalLength, true) : new byte[finalLength];
+            byte[] buffer = BufferPool.Get((long)finalLength, true);
             UInt64 pos = 0;
             for (int i = 0; i < fragments.Count; ++i)
             {
-                Array.Copy(fragments[i].Data, 0, buffer, (int)pos, (int)fragments[i].Length);
+                if (fragments[i].Data.Count > 0)
+                    Array.Copy(fragments[i].Data.Data, fragments[i].Data.Offset, buffer, (int)pos, (int)fragments[i].Data.Count);
                 fragments[i].ReleaseData();
 
-                pos += fragments[i].Length;
+                pos += (UInt64)fragments[i].Data.Count;
             }
 
             // All fragments of a message are of the same type, as set by the first fragment's opcode.
@@ -210,8 +167,7 @@ namespace BestHTTP.WebSocket.Frames
             // Reserver flags may be contained only in the first fragment
 
             this.Header = fragments[0].Header;
-            this.Length = finalLength;
-            this.Data = buffer;
+            this.Data = new BufferSegment(buffer, 0, (int)finalLength);
         }
 
         /// <summary>
@@ -225,30 +181,36 @@ namespace BestHTTP.WebSocket.Frames
                     var ext = webSocket.Extensions[i];
                     if (ext != null)
                     {
-                        var newData = ext.Decode(this.Header, this.Data, (int)this.Length);
+                        var newData = ext.Decode(this.Header, this.Data);
                         if (this.Data != newData)
                         {
                             this.ReleaseData();
                             this.Data = newData;
-                            this.Length = (ulong)newData.Length;
                         }
                     }
                 }
 
-            if (this.Type == WebSocketFrameTypes.Text && this.Data != null)
+            if (this.Type == WebSocketFrameTypes.Text)
             {
-                this.DataAsText = System.Text.Encoding.UTF8.GetString(this.Data, 0, (int)this.Length);
-                this.ReleaseData();
+                if (this.Data != BufferSegment.Empty)
+                {
+                    this.DataAsText = System.Text.Encoding.UTF8.GetString(this.Data.Data, this.Data.Offset, this.Data.Count);
+                    this.ReleaseData();
+                }
+                else
+                    HTTPManager.Logger.Warning("WebSocketFrameReader", "Empty Text frame received!");
             }
         }
 
         public void ReleaseData()
         {
-            if (this.Data != null)
-            {
-                BufferPool.Release(this.Data);
-                this.Data = null;
-            }
+            BufferPool.Release(this.Data);
+            this.Data = BufferSegment.Empty;
+        }
+
+        public override string ToString()
+        {
+            return string.Format("[{0} Header: {1:X2}, IsFinal: {2}, Data: {3}]", this.Type.ToString(), this.Header, this.IsFinal, this.Data);
         }
 
 #endregion

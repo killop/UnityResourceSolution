@@ -3,17 +3,19 @@
 using System;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.IO;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Agreement.Kdf
 {
     /**
     * RFC 2631 Diffie-hellman KEK derivation function.
     */
-    public class DHKekGenerator
+    public sealed class DHKekGenerator
         : IDerivationFunction
     {
-        private readonly IDigest digest;
+        private readonly IDigest m_digest;
 
         private DerObjectIdentifier	algorithm;
         private int					keySize;
@@ -22,10 +24,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Agreement.Kdf
 
         public DHKekGenerator(IDigest digest)
         {
-            this.digest = digest;
+            m_digest = digest;
         }
 
-        public virtual void Init(IDerivationParameters param)
+        public void Init(IDerivationParameters param)
         {
             DHKdfParameters parameters = (DHKdfParameters)param;
 
@@ -35,20 +37,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Agreement.Kdf
             this.partyAInfo = parameters.GetExtraInfo(); // TODO Clone?
         }
 
-        public virtual IDigest Digest
-        {
-            get { return digest; }
-        }
+        public IDigest Digest => m_digest;
 
-        public virtual int GenerateBytes(byte[]	outBytes, int outOff, int len)
+        public int GenerateBytes(byte[]	outBytes, int outOff, int length)
         {
-            if ((outBytes.Length - len) < outOff)
-            {
-                throw new DataLengthException("output buffer too small");
-            }
+            Check.OutputLength(outBytes, outOff, length, "output buffer too small");
 
-            long oBytes = len;
-            int outLen = digest.GetDigestSize();
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return GenerateBytes(outBytes.AsSpan(outOff, length));
+#else
+            long oBytes = length;
+            int digestSize = m_digest.GetDigestSize();
 
             //
             // this is at odds with the standard implementation, the
@@ -57,24 +56,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Agreement.Kdf
             // array with a long index at the moment...
             //
             if (oBytes > ((2L << 32) - 1))
-            {
                 throw new ArgumentException("Output length too large");
-            }
 
-            int cThreshold = (int)((oBytes + outLen - 1) / outLen);
+            int cThreshold = (int)((oBytes + digestSize - 1) / digestSize);
 
-            byte[] dig = new byte[digest.GetDigestSize()];
+            byte[] dig = new byte[digestSize];
 
             uint counter = 1;
 
             for (int i = 0; i < cThreshold; i++)
             {
-                digest.BlockUpdate(z, 0, z.Length);
-
                 // KeySpecificInfo
-                DerSequence keyInfo = new DerSequence(
-                    algorithm,
-                    new DerOctetString(Pack.UInt32_To_BE(counter)));
+                DerSequence keyInfo = new DerSequence(algorithm, new DerOctetString(Pack.UInt32_To_BE(counter)));
 
                 // OtherInfo
                 Asn1EncodableVector v1 = new Asn1EncodableVector(keyInfo);
@@ -88,28 +81,93 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Agreement.Kdf
 
                 byte[] other = new DerSequence(v1).GetDerEncoded();
 
-                digest.BlockUpdate(other, 0, other.Length);
+                m_digest.BlockUpdate(z, 0, z.Length);
+                m_digest.BlockUpdate(other, 0, other.Length);
+                m_digest.DoFinal(dig, 0);
 
-                digest.DoFinal(dig, 0);
-
-                if (len > outLen)
+                if (length > digestSize)
                 {
-                    Array.Copy(dig, 0, outBytes, outOff, outLen);
-                    outOff += outLen;
-                    len -= outLen;
+                    Array.Copy(dig, 0, outBytes, outOff, digestSize);
+                    outOff += digestSize;
+                    length -= digestSize;
                 }
                 else
                 {
-                    Array.Copy(dig, 0, outBytes, outOff, len);
+                    Array.Copy(dig, 0, outBytes, outOff, length);
                 }
 
                 counter++;
             }
 
-            digest.Reset();
+            m_digest.Reset();
+
+            return (int)oBytes;
+#endif
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int GenerateBytes(Span<byte> output)
+        {
+            long oBytes = output.Length;
+            int digestSize = m_digest.GetDigestSize();
+
+            //
+            // this is at odds with the standard implementation, the
+            // maximum value should be hBits * (2^32 - 1) where hBits
+            // is the digest output size in bits. We can't have an
+            // array with a long index at the moment...
+            //
+            if (oBytes > ((2L << 32) - 1))
+                throw new ArgumentException("Output length too large");
+
+            int cThreshold = (int)((oBytes + digestSize - 1) / digestSize);
+
+            Span<byte> dig = digestSize <= 128
+                ? stackalloc byte[digestSize]
+                : new byte[digestSize];
+
+            uint counter = 1;
+
+            for (int i = 0; i < cThreshold; i++)
+            {
+                // KeySpecificInfo
+                DerSequence keyInfo = new DerSequence(algorithm, new DerOctetString(Pack.UInt32_To_BE(counter)));
+
+                // OtherInfo
+                Asn1EncodableVector v1 = new Asn1EncodableVector(keyInfo);
+
+                if (partyAInfo != null)
+                {
+                    v1.Add(new DerTaggedObject(true, 0, new DerOctetString(partyAInfo)));
+                }
+
+                v1.Add(new DerTaggedObject(true, 2, new DerOctetString(Pack.UInt32_To_BE((uint)keySize))));
+
+                byte[] other = new DerSequence(v1).GetDerEncoded();
+
+                m_digest.BlockUpdate(z);
+                m_digest.BlockUpdate(other);
+                m_digest.DoFinal(dig);
+
+                int remaining = output.Length;
+                if (remaining > digestSize)
+                {
+                    dig.CopyTo(output);
+                    output = output[digestSize..];
+                }
+                else
+                {
+                    dig[..remaining].CopyTo(output);
+                }
+
+                counter++;
+            }
+
+            m_digest.Reset();
 
             return (int)oBytes;
         }
+#endif
     }
 }
 #pragma warning restore

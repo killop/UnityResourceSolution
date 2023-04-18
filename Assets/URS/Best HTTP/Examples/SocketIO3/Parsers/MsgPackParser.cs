@@ -4,7 +4,6 @@ using System;
 using System.Linq;
 
 using BestHTTP.PlatformSupport.Memory;
-using BestHTTP.SignalRCore.Encoders;
 using BestHTTP.SocketIO3.Events;
 
 using GameDevWare.Serialization;
@@ -15,6 +14,10 @@ namespace BestHTTP.SocketIO3.Parsers
 {
     public sealed class MsgPackParser : IParser
     {
+        // Variables to calculate an average buffer size to start with in CreateOutgoing
+        ulong sumLength;
+        uint count;
+
         /// <summary>
         /// Custom function instead of char.GetNumericValue, as it throws an error under WebGL using the new 4.x runtime.
         /// It will return the value of the char if it's a numeric one, otherwise -1.
@@ -213,12 +216,12 @@ namespace BestHTTP.SocketIO3.Parsers
 
                 default:
                     // Array
-                    SkipArray(reader, false);
+                    SkipArray(reader, false, true);
                     break;
             }
         }
 
-        private object[] ReadParameters(Socket socket, Subscription subscription, IJsonReader reader)
+        private object[] ReadParameters(Socket socket, Subscription subscription, IJsonReader reader, bool isInArray)
         {
             var desc = subscription != null ? subscription.callbacks.FirstOrDefault() : default(CallbackDescriptor);
             int paramCount = desc.ParamTypes != null ? desc.ParamTypes.Length : 0;
@@ -238,6 +241,18 @@ namespace BestHTTP.SocketIO3.Parsers
                         args[i] = socket.Manager;
                     else
                         args[i] = reader.ReadValue(desc.ParamTypes[i]);
+                }
+            }
+            else
+            {
+                if (isInArray)
+                {
+                    if (reader.Token != JsonToken.EndOfArray)
+                        SkipArray(reader, true, false);
+                }
+                else
+                {
+                    SkipObject(reader);
                 }
             }
 
@@ -261,7 +276,7 @@ namespace BestHTTP.SocketIO3.Parsers
 
                 case SocketIOEventTypes.Connect:
                     // No Data | Object
-                    args = ReadParameters(socket, subscription, reader);
+                    args = ReadParameters(socket, subscription, reader, false);
                     //SkipObject(reader);
                     break;
 
@@ -278,9 +293,9 @@ namespace BestHTTP.SocketIO3.Parsers
                             break;
 
                         case JsonToken.BeginObject:
-                            args = ReadParameters(socket, subscription, reader);
-                            if (subscription == null && args == null)
-                                SkipObject(reader);
+                            args = ReadParameters(socket, subscription, reader, false);
+                            //if (subscription == null && args == null)
+                            //    SkipObject(reader);
                             break;
                     }
                     break;
@@ -291,7 +306,7 @@ namespace BestHTTP.SocketIO3.Parsers
 
                     reader.ReadArrayBegin();
 
-                    args = ReadParameters(socket, subscription, reader);
+                    args = ReadParameters(socket, subscription, reader, true);
 
                     reader.ReadArrayEnd();
                     break;
@@ -303,7 +318,7 @@ namespace BestHTTP.SocketIO3.Parsers
 
                     subscription = socket.GetSubscription(eventName);
 
-                    args = ReadParameters(socket, subscription, reader);
+                    args = ReadParameters(socket, subscription, reader, true);
 
                     reader.ReadArrayEnd();
                     break;
@@ -312,7 +327,7 @@ namespace BestHTTP.SocketIO3.Parsers
             return (eventName, args);
         }
 
-        private void SkipArray(IJsonReader reader, bool alreadyStarted)
+        private void SkipArray(IJsonReader reader, bool alreadyStarted, bool readFinalArrayToken)
         {
             if (!alreadyStarted)
                 reader.ReadArrayBegin();
@@ -326,7 +341,9 @@ namespace BestHTTP.SocketIO3.Parsers
                     case JsonToken.BeginArray: arrayBegins++; break;
                     case JsonToken.EndOfArray: arrayBegins--; break;
                 }
-                reader.NextToken();
+
+                if (readFinalArrayToken || arrayBegins >= 1)
+                    reader.NextToken();
             }
         }
 
@@ -358,7 +375,9 @@ namespace BestHTTP.SocketIO3.Parsers
 
         public OutgoingPacket CreateOutgoing(Socket socket, SocketIOEventTypes socketIOEvent, int id, string name, object[] args)
         {
-            var memBuffer = BufferPool.Get(256, true);
+            var memBufferTargetLength = count == 0 ? 256 : Math.Max(256, (sumLength / count) / 2);
+
+            var memBuffer = BufferPool.Get((long)memBufferTargetLength, true);
             var stream = new BestHTTP.Extensions.BufferPoolMemoryStream(memBuffer, 0, memBuffer.Length, true, true, false, true);
 
             var buffer = BufferPool.Get(MsgPackWriter.DEFAULT_BUFFER_SIZE, true);
@@ -437,9 +456,17 @@ namespace BestHTTP.SocketIO3.Parsers
 
                     if (!string.IsNullOrEmpty(name))
                         writer.Write(name);
-                    
-                    foreach (var arg in args)
-                        writer.WriteValue(arg, arg.GetType());
+
+                    if (args != null && args.Length > 0)
+                    {
+                        foreach (var arg in args)
+                        {
+                            if (arg != null)
+                                writer.WriteValue(arg, arg.GetType());
+                            else
+                                writer.WriteNull();
+                        }
+                    }
 
                     writer.WriteArrayEnd();
                     break;
@@ -455,6 +482,16 @@ namespace BestHTTP.SocketIO3.Parsers
             int length = (int)stream.Position;
 
             buffer = stream.GetBuffer();
+
+            sumLength += (ulong)length;
+            count++;
+
+            if(sumLength >= int.MaxValue)
+            {
+                sumLength /= count;
+                count = 1;
+            }
+
             return new OutgoingPacket { PayloadData = new BufferSegment(buffer, 0, length) };
         }
     }

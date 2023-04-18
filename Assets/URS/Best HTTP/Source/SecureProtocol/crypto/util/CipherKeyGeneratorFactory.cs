@@ -13,12 +13,8 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities
 {
-    public class CipherKeyGeneratorFactory
+    public static class CipherKeyGeneratorFactory
     {
-        private CipherKeyGeneratorFactory()
-        {
-        }
-
         /**
          * Create a key generator for the passed in Object Identifier.
          *

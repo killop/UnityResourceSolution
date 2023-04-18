@@ -37,7 +37,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.Qualified
 				return new BiometricData(Asn1Sequence.GetInstance(obj));
             }
 
-			throw new ArgumentException("unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("unknown object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		private BiometricData(

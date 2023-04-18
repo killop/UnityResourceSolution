@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.CryptoPro;
@@ -14,18 +14,16 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Oiw;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
 {
-    public sealed class ParameterUtilities
+    public static class ParameterUtilities
     {
-        private ParameterUtilities()
-        {
-        }
-
-        private static readonly IDictionary algorithms = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
-        private static readonly IDictionary basicIVSizes = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+        private static readonly IDictionary<string, string> Algorithms =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly IDictionary<string, int> BasicIVSizes =
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         static ParameterUtilities()
         {
@@ -122,7 +120,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
             AddAlgorithm("GOST28147",
                 "GOST",
                 "GOST-28147",
-                CryptoProObjectIdentifiers.GostR28147Cbc);
+                CryptoProObjectIdentifiers.GostR28147Gcfb);
             AddAlgorithm("HC128");
             AddAlgorithm("HC256");
             AddAlgorithm("IDEA",
@@ -166,15 +164,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
             // "RIJNDAEL", "SKIPJACK", "TWOFISH"
         }
 
-        private static void AddAlgorithm(
-            string			canonicalName,
-            params object[]	aliases)
+        private static void AddAlgorithm(string canonicalName, params object[] aliases)
         {
-            algorithms[canonicalName] = canonicalName;
+            Algorithms[canonicalName] = canonicalName;
 
             foreach (object alias in aliases)
             {
-                algorithms[alias.ToString()] = canonicalName;
+                Algorithms[alias.ToString()] = canonicalName;
             }
         }
 
@@ -182,26 +178,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
         {
             foreach (string algorithm in algorithms)
             {
-                basicIVSizes.Add(algorithm, size);
+                BasicIVSizes.Add(algorithm, size);
             }
         }
 
-        public static string GetCanonicalAlgorithmName(
-            string algorithm)
+        public static string GetCanonicalAlgorithmName(string algorithm)
         {
-            return (string) algorithms[BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm)];
+            return CollectionUtilities.GetValueOrNull(Algorithms, algorithm);
         }
 
-        public static KeyParameter CreateKeyParameter(
-            DerObjectIdentifier algOid,
-            byte[]				keyBytes)
+        public static KeyParameter CreateKeyParameter(DerObjectIdentifier algOid, byte[] keyBytes)
         {
             return CreateKeyParameter(algOid.Id, keyBytes, 0, keyBytes.Length);
         }
 
-        public static KeyParameter CreateKeyParameter(
-            string	algorithm,
-            byte[]	keyBytes)
+        public static KeyParameter CreateKeyParameter(string algorithm, byte[] keyBytes)
         {
             return CreateKeyParameter(algorithm, keyBytes, 0, keyBytes.Length);
         }
@@ -222,7 +213,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
             int		length)
         {
             if (algorithm == null)
-                throw new ArgumentNullException("algorithm");
+                throw new ArgumentNullException(nameof(algorithm));
 
             string canonical = GetCanonicalAlgorithmName(algorithm);
 
@@ -350,9 +341,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
             return cp;
         }
 
-        private static Asn1OctetString CreateIVOctetString(
-            SecureRandom	random,
-            int				ivLength)
+        private static Asn1OctetString CreateIVOctetString(SecureRandom random, int ivLength)
         {
             return new DerOctetString(CreateIV(random, ivLength));
         }
@@ -362,13 +351,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
             return SecureRandom.GetNextBytes(random, ivLength);
         }
 
-        private static int FindBasicIVSize(
-            string canonicalName)
+        private static int FindBasicIVSize(string canonicalName)
         {
-            if (!basicIVSizes.Contains(canonicalName))
-                return -1;
-
-            return (int)basicIVSizes[canonicalName];
+            return BasicIVSizes.TryGetValue(canonicalName, out int keySize) ? keySize : -1;
         }
     }
 }

@@ -2,39 +2,32 @@
 #pragma warning disable
 using System;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cmp
 {
 	public class PopoDecKeyChallContent
 	    : Asn1Encodable
 	{
-	    private readonly Asn1Sequence content;
+        public static PopoDecKeyChallContent GetInstance(object obj)
+        {
+			if (obj is PopoDecKeyChallContent popoDecKeyChallContent)
+				return popoDecKeyChallContent;
+
+            if (obj != null)
+                return new PopoDecKeyChallContent(Asn1Sequence.GetInstance(obj));
+
+            return null;
+        }
+
+        private readonly Asn1Sequence m_content;
 
 	    private PopoDecKeyChallContent(Asn1Sequence seq)
 	    {
-	        content = seq;
-	    }
-
-	    public static PopoDecKeyChallContent GetInstance(object obj)
-	    {
-	        if (obj is PopoDecKeyChallContent)
-	            return (PopoDecKeyChallContent)obj;
-
-			if (obj is Asn1Sequence)
-	            return new PopoDecKeyChallContent((Asn1Sequence)obj);
-
-            throw new ArgumentException("Invalid object: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+	        m_content = seq;
 	    }
 
 	    public virtual Challenge[] ToChallengeArray()
 	    {
-	        Challenge[] result = new Challenge[content.Count];
-	        for (int i = 0; i != result.Length; ++i)
-	        {
-	            result[i] = Challenge.GetInstance(content[i]);
-	        }
-	        return result;
+			return m_content.MapElements(Challenge.GetInstance);
 	    }
 
 	    /**
@@ -45,7 +38,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cmp
 	     */
 	    public override Asn1Object ToAsn1Object()
 	    {
-	        return content;
+	        return m_content;
 	    }
 	}
 }

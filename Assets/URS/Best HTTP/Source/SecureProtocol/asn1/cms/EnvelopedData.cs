@@ -1,9 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 {
@@ -42,9 +39,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
             this.unprotectedAttrs = Asn1Set.GetInstance(unprotectedAttrs);
         }
 
-
-        public EnvelopedData(
-            Asn1Sequence seq)
+        private EnvelopedData(Asn1Sequence seq)
         {
             int index = 0;
 

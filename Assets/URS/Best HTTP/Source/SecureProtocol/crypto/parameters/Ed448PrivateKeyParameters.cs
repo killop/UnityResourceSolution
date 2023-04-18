@@ -37,6 +37,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
             Array.Copy(buf, off, data, 0, KeySize);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public Ed448PrivateKeyParameters(ReadOnlySpan<byte> buf)
+            : base(true)
+        {
+            if (buf.Length != KeySize)
+                throw new ArgumentException("must have length " + KeySize, nameof(buf));
+
+            buf.CopyTo(data);
+        }
+#endif
+
         public Ed448PrivateKeyParameters(Stream input)
             : base(true)
         {
@@ -49,6 +60,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
             Array.Copy(data, 0, buf, off, KeySize);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void Encode(Span<byte> buf)
+        {
+            data.CopyTo(buf);
+        }
+#endif
+
         public byte[] GetEncoded()
         {
             return Arrays.Clone(data);
@@ -60,20 +78,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
             {
                 if (null == cachedPublicKey)
                 {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+                    Span<byte> publicKey = stackalloc byte[Ed448.PublicKeySize];
+                    Ed448.GeneratePublicKey(data, publicKey);
+                    cachedPublicKey = new Ed448PublicKeyParameters(publicKey);
+#else
                     byte[] publicKey = new byte[Ed448.PublicKeySize];
                     Ed448.GeneratePublicKey(data, 0, publicKey, 0);
                     cachedPublicKey = new Ed448PublicKeyParameters(publicKey, 0);
+#endif
                 }
 
                 return cachedPublicKey;
             }
-        }
-
-
-        public void Sign(Ed448.Algorithm algorithm, Ed448PublicKeyParameters publicKey, byte[] ctx, byte[] msg, int msgOff, int msgLen,
-            byte[] sig, int sigOff)
-        {
-            Sign(algorithm, ctx, msg, msgOff, msgLen, sig, sigOff);
         }
 
         public void Sign(Ed448.Algorithm algorithm, byte[] ctx, byte[] msg, int msgOff, int msgLen,
@@ -109,7 +126,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
         private static byte[] Validate(byte[] buf)
         {
             if (buf.Length != KeySize)
-                throw new ArgumentException("must have length " + KeySize, "buf");
+                throw new ArgumentException("must have length " + KeySize, nameof(buf));
 
             return buf;
         }

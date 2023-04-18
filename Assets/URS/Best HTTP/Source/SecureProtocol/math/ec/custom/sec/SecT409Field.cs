@@ -2,6 +2,10 @@
 #pragma warning disable
 using System;
 using System.Diagnostics;
+#if NETCOREAPP3_0_OR_GREATER
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
+#endif
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.Raw;
 
@@ -193,22 +197,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         public static void Sqrt(ulong[] x, ulong[] z)
         {
-            ulong u0, u1;
-            u0 = Interleave.Unshuffle(x[0]); u1 = Interleave.Unshuffle(x[1]);
-            ulong e0 = (u0 & 0x00000000FFFFFFFFUL) | (u1 << 32);
-            ulong c0 = (u0 >> 32) | (u1 & 0xFFFFFFFF00000000UL);
-
-            u0 = Interleave.Unshuffle(x[2]); u1 = Interleave.Unshuffle(x[3]);
-            ulong e1 = (u0 & 0x00000000FFFFFFFFUL) | (u1 << 32);
-            ulong c1 = (u0 >> 32) | (u1 & 0xFFFFFFFF00000000UL);
-
-            u0 = Interleave.Unshuffle(x[4]); u1 = Interleave.Unshuffle(x[5]);
-            ulong e2 = (u0 & 0x00000000FFFFFFFFUL) | (u1 << 32);
-            ulong c2 = (u0 >> 32) | (u1 & 0xFFFFFFFF00000000UL);
-
-            u0 = Interleave.Unshuffle(x[6]);
-            ulong e3 = (u0 & 0x00000000FFFFFFFFUL);
-            ulong c3 = (u0 >> 32);
+            ulong c0 = Interleave.Unshuffle(x[0], x[1], out ulong e0);
+            ulong c1 = Interleave.Unshuffle(x[2], x[3], out ulong e1);
+            ulong c2 = Interleave.Unshuffle(x[4], x[5], out ulong e2);
+            ulong c3 = Interleave.Unshuffle(x[6]      , out ulong e3);
 
             z[0] = e0 ^ (c0 << 44);
             z[1] = e1 ^ (c1 << 44) ^ (c0 >> 20);
@@ -357,6 +349,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
         {
             Debug.Assert(x >> 59 == 0);
             Debug.Assert(y >> 59 == 0);
+
+#if NETCOREAPP3_0_OR_GREATER
+            if (Pclmulqdq.IsSupported)
+            {
+                var X = Vector128.CreateScalar(x);
+                var Y = Vector128.CreateScalar(y);
+                var Z = Pclmulqdq.CarrylessMultiply(X, Y, 0x00);
+                ulong z0 = Z.GetElement(0);
+                ulong z1 = Z.GetElement(1);
+                z[zOff    ] ^= z0 & M59;
+                z[zOff + 1] ^= (z0 >> 59) ^ (z1 << 5);
+                return;
+            }
+#endif
 
             //u[0] = 0;
             u[1] = y;

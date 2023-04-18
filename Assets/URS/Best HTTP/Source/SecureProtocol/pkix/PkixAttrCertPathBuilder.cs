@@ -1,11 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store;
@@ -20,13 +19,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		* @param params PKIXBuilderParameters object containing all information to
 		*            build the CertPath
 		*/
-		public virtual PkixCertPathBuilderResult Build(
-			PkixBuilderParameters pkixParams)
+		public virtual PkixCertPathBuilderResult Build(PkixBuilderParameters pkixParams)
 		{
 			// search target certificates
 
-			IX509Selector certSelect = pkixParams.GetTargetConstraints();
-			if (!(certSelect is X509AttrCertStoreSelector))
+			if (!(pkixParams.GetTargetConstraintsAttrCert() is X509AttrCertStoreSelector attrCertSelector))
 			{
 				throw new PkixCertPathBuilderException(
 					"TargetConstraints must be an instance of "
@@ -35,11 +32,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 					+ typeof(PkixAttrCertPathBuilder).FullName + " class.");
 			}
 
-			ICollection targets;
+			HashSet<X509V2AttributeCertificate> targets;
 			try
 			{
-				targets = PkixCertPathValidatorUtilities.FindCertificates(
-					(X509AttrCertStoreSelector)certSelect, pkixParams.GetStores());
+				targets = FindAttributeCertificates(attrCertSelector, pkixParams.GetStoresAttrCert());
 			}
 			catch (Exception e)
 			{
@@ -47,26 +43,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			}
 
 			if (targets.Count == 0)
-			{
-				throw new PkixCertPathBuilderException(
-					"No attribute certificate found matching targetConstraints.");
-			}
+				throw new PkixCertPathBuilderException("No attribute certificate found matching targetConstraints.");
 
 			PkixCertPathBuilderResult result = null;
 
 			// check all potential target certificates
-			foreach (IX509AttributeCertificate cert in targets)
+			foreach (var target in targets)
 			{
-				X509CertStoreSelector selector = new X509CertStoreSelector();
-				X509Name[] principals = cert.Issuer.GetPrincipals();
-				ISet issuers = new HashSet();
+				X509CertStoreSelector certSelector = new X509CertStoreSelector();
+				X509Name[] principals = target.Issuer.GetPrincipals();
+				var issuers = new HashSet<X509Certificate>();
 				for (int i = 0; i < principals.Length; i++)
 				{
+					// TODO Replace loop with a single multiprincipal selector (or don't even use selector)
 					try
 					{
-						selector.Subject = principals[i];
+						certSelector.Subject = principals[i];
 
-						issuers.AddAll(PkixCertPathValidatorUtilities.FindCertificates(selector, pkixParams.GetStores()));
+						CollectionUtilities.CollectMatches(issuers, certSelector, pkixParams.GetStoresCert());
 					}
 					catch (Exception e)
 					{
@@ -76,14 +70,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 					}
 				}
 
-				if (issuers.IsEmpty)
+				if (issuers.Count < 1)
 					throw new PkixCertPathBuilderException("Public key certificate for attribute certificate cannot be found.");
 
-                IList certPathList = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+                var certPathList = new List<X509Certificate>();
 
 				foreach (X509Certificate issuer in issuers)
 				{
-					result = Build(cert, issuer, pkixParams, certPathList);
+					result = Build(target, issuer, pkixParams, certPathList);
 
 					if (result != null)
 						break;
@@ -94,17 +88,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			}
 
 			if (result == null && certPathException != null)
-			{
-				throw new PkixCertPathBuilderException(
-					"Possible certificate chain could not be validated.",
+				throw new PkixCertPathBuilderException("Possible certificate chain could not be validated.",
 					certPathException);
-			}
 
 			if (result == null && certPathException == null)
-			{
-				throw new PkixCertPathBuilderException(
-					"Unable to find certificate chain.");
-			}
+				throw new PkixCertPathBuilderException("Unable to find certificate chain.");
 
 			return result;
 		}
@@ -112,10 +100,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		private Exception certPathException;
 
 		private PkixCertPathBuilderResult Build(
-			IX509AttributeCertificate	attrCert,
+			X509V2AttributeCertificate  attrCert,
 			X509Certificate				tbvCert,
 			PkixBuilderParameters		pkixParams,
-			IList						tbvPath)
+			IList<X509Certificate>      tbvPath)
 		{
 			// If tbvCert is readily present in tbvPath, it indicates having run
 			// into a cycle in the
@@ -175,17 +163,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 					}
 
 					// try to get the issuer certificate from one of the stores
-					ISet issuers = new HashSet();
+					ISet<X509Certificate> issuers;
 					try
 					{
-						issuers.AddAll(PkixCertPathValidatorUtilities.FindIssuerCerts(tbvCert, pkixParams));
+						issuers = PkixCertPathValidatorUtilities.FindIssuerCerts(tbvCert, pkixParams);
 					}
 					catch (Exception e)
 					{
 						throw new Exception("Cannot find issuer certificate for certificate in certification path.", e);
 					}
 
-					if (issuers.IsEmpty)
+					if (issuers.Count < 1)
 						throw new Exception("No issuer certificate for certificate in certification path found.");
 
 					foreach (X509Certificate issuer in issuers)
@@ -212,6 +200,27 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			}
 
 			return builderResult;
+		}
+
+		internal static HashSet<X509V2AttributeCertificate> FindAttributeCertificates(
+			ISelector<X509V2AttributeCertificate> attrCertSelector,
+			IList<IStore<X509V2AttributeCertificate>> attrCertStores)
+		{
+			var attrCerts = new HashSet<X509V2AttributeCertificate>();
+
+			foreach (var attrCertStore in attrCertStores)
+			{
+				try
+				{
+					attrCerts.UnionWith(attrCertStore.EnumerateMatches(attrCertSelector));
+				}
+				catch (Exception e)
+				{
+					throw new Exception("Problem while picking certificates from X.509 store.", e);
+				}
+			}
+
+			return attrCerts;
 		}
 	}
 }

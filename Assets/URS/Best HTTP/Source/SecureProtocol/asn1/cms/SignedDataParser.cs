@@ -36,7 +36,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			if (o is Asn1SequenceParser)
 				return new SignedDataParser((Asn1SequenceParser)o);
 
-            throw new IOException("unknown object encountered: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
+            throw new IOException("unknown object encountered: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
 		}
 
 		public SignedDataParser(
@@ -66,12 +66,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			_certsCalled = true;
 			_nextObject = _seq.ReadObject();
 
-			if (_nextObject is Asn1TaggedObjectParser && ((Asn1TaggedObjectParser)_nextObject).TagNo == 0)
+			if (_nextObject is Asn1TaggedObjectParser o)
 			{
-				Asn1SetParser certs = (Asn1SetParser)((Asn1TaggedObjectParser)_nextObject).GetObjectParser(Asn1Tags.Set, false);
-				_nextObject = null;
-
-				return certs;
+				if (o.HasContextTag(0))
+				{
+					Asn1SetParser certs = (Asn1SetParser)o.ParseBaseUniversal(false, Asn1Tags.SetOf);
+					_nextObject = null;
+					return certs;
+				}
 			}
 
 			return null;
@@ -89,16 +91,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 				_nextObject = _seq.ReadObject();
 			}
 
-			if (_nextObject is Asn1TaggedObjectParser && ((Asn1TaggedObjectParser)_nextObject).TagNo == 1)
+			if (_nextObject is Asn1TaggedObjectParser o)
 			{
-				Asn1SetParser crls = (Asn1SetParser)((Asn1TaggedObjectParser)_nextObject).GetObjectParser(Asn1Tags.Set, false);
-				_nextObject = null;
-
-				return crls;
+				if (o.HasContextTag(1))
+				{
+					Asn1SetParser crls = (Asn1SetParser)o.ParseBaseUniversal(false, Asn1Tags.SetOf);
+					_nextObject = null;
+					return crls;
+				}
 			}
 
-			return null;
-		}
+            return null;
+        }
 
 		public Asn1SetParser GetSignerInfos()
 		{

@@ -1,18 +1,12 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-using System.IO;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ntt;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Cms;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.IO;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators;
 
@@ -20,7 +14,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Operators
 {
     public class CmsContentEncryptorBuilder
     {
-        private static readonly IDictionary KeySizes = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+        private static readonly IDictionary<DerObjectIdentifier, int> KeySizes =
+            new Dictionary<DerObjectIdentifier, int>();
 
         static CmsContentEncryptorBuilder()
         {
@@ -35,12 +30,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Operators
 
         private static int GetKeySize(DerObjectIdentifier oid)
         {
-            if (KeySizes.Contains(oid))
-            {
-                return (int)KeySizes[oid];
-            }
-
-            return -1;
+            return KeySizes.TryGetValue(oid, out var keySize) ? keySize : -1;
         }
 
         private readonly DerObjectIdentifier encryptionOID;

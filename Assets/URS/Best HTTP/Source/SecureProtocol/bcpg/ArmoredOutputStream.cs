@@ -1,17 +1,13 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Text;
-
-#if PORTABLE || NETFX_CORE
-using System.Linq;
-#endif
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
@@ -99,32 +95,40 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
 
         private string          type;
 
-        private static readonly string    nl = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine;
+        private static readonly string    NewLine = Environment.NewLine;
         private static readonly string    headerStart = "-----BEGIN PGP ";
         private static readonly string    headerTail = "-----";
         private static readonly string    footerStart = "-----END PGP ";
         private static readonly string    footerTail = "-----";
 
-        private static readonly string Version = "BCPG C# v" + HTTPManager.UserAgent;
+        private static string CreateVersion()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            var title = assembly.GetCustomAttribute<AssemblyTitleAttribute>().Title;
+            var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
+            return title + " v" + version;
+        }
 
-        private readonly IDictionary headers;
+        private static readonly string Version = CreateVersion();
+
+        private readonly IDictionary<string, IList<string>> m_headers;
 
         public ArmoredOutputStream(Stream outStream)
         {
             this.outStream = outStream;
-            this.headers = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable(1);
+            this.m_headers = new Dictionary<string, IList<string>>(1);
             SetHeader(HeaderVersion, Version);
         }
 
-        public ArmoredOutputStream(Stream outStream, IDictionary headers)
+        public ArmoredOutputStream(Stream outStream, IDictionary<string, string> headers)
             : this(outStream)
         {
-            foreach (string header in headers.Keys)
+            foreach (var header in headers)
             {
-                IList headerList = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(1);
-                headerList.Add(headers[header]);
+                var headerList = new List<string>(1);
+                headerList.Add(header.Value);
 
-                this.headers[header] = headerList;
+                m_headers[header.Key] = headerList;
             }
         }
 
@@ -138,22 +142,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
         {
             if (val == null)
             {
-                this.headers.Remove(name);
+                this.m_headers.Remove(name);
+                return;
+            }
+
+            if (m_headers.TryGetValue(name, out var valueList))
+            {
+                valueList.Clear();
             }
             else
             {
-                IList valueList = (IList)headers[name];
-                if (valueList == null)
-                {
-                    valueList = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(1);
-                    this.headers[name] = valueList;
-                }
-                else
-                {
-                    valueList.Clear();
-                }
-                valueList.Add(val);
+                valueList = new List<string>(1);
+                m_headers[name] = valueList;
             }
+
+            valueList.Add(val);
         }
 
         /**
@@ -168,12 +171,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
             if (val == null || name == null)
                 return;
 
-            IList valueList = (IList)headers[name];
-            if (valueList == null)
+            if (!m_headers.TryGetValue(name, out var valueList))
             {
-                valueList = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(1);
-                this.headers[name] = valueList;
+                valueList = new List<string>(1);
+                m_headers[name] = valueList;
             }
+
             valueList.Add(val);
         }
 
@@ -182,13 +185,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
          */
         public void ResetHeaders()
         {
-            IList versions = (IList)headers[HeaderVersion];
+            var versions = CollectionUtilities.GetValueOrNull(m_headers, HeaderVersion);
 
-            headers.Clear();
+            m_headers.Clear();
 
             if (versions != null)
             {
-                headers[HeaderVersion] = versions;
+                m_headers[HeaderVersion] = versions;
             }
         }
 
@@ -228,8 +231,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
                 throw new IOException("unknown hash algorithm tag in beginClearText: " + hashAlgorithm);
             }
 
-            DoWrite("-----BEGIN PGP SIGNED MESSAGE-----" + nl);
-            DoWrite("Hash: " + hash + nl + nl);
+            DoWrite("-----BEGIN PGP SIGNED MESSAGE-----" + NewLine);
+            DoWrite("Hash: " + hash + NewLine + NewLine);
 
             clearText = true;
             newLine = true;
@@ -241,45 +244,44 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
             clearText = false;
         }
 
-        public override void WriteByte(
-            byte b)
+        public override void WriteByte(byte value)
         {
             if (clearText)
             {
-                outStream.WriteByte(b);
+                outStream.WriteByte(value);
 
                 if (newLine)
                 {
-                    if (!(b == '\n' && lastb == '\r'))
+                    if (!(value == '\n' && lastb == '\r'))
                     {
                         newLine = false;
                     }
-                    if (b == '-')
+                    if (value == '-')
                     {
                         outStream.WriteByte((byte)' ');
                         outStream.WriteByte((byte)'-');      // dash escape
                     }
                 }
-                if (b == '\r' || (b == '\n' && lastb != '\r'))
+                if (value == '\r' || (value == '\n' && lastb != '\r'))
                 {
                     newLine = true;
                 }
-                lastb = b;
+                lastb = value;
                 return;
             }
 
             if (start)
             {
-                bool newPacket = (b & 0x40) != 0;
+                bool newPacket = (value & 0x40) != 0;
 
                 int tag;
                 if (newPacket)
                 {
-                    tag = b & 0x3f;
+                    tag = value & 0x3f;
                 }
                 else
                 {
-                    tag = (b & 0x3f) >> 2;
+                    tag = (value & 0x3f) >> 2;
                 }
 
                 switch ((PacketTag)tag)
@@ -298,30 +300,26 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
                     break;
                 }
 
-                DoWrite(headerStart + type + headerTail + nl);
+                DoWrite(headerStart + type + headerTail + NewLine);
 
+                if (m_headers.TryGetValue(HeaderVersion, out var versionHeaders))
                 {
-                    IList versionHeaders = (IList)headers[HeaderVersion];
-                    if (versionHeaders != null)
-                    {
-                        WriteHeaderEntry(HeaderVersion, versionHeaders[0].ToString());
-                    }
+                    WriteHeaderEntry(HeaderVersion, versionHeaders[0]);
                 }
 
-                foreach (DictionaryEntry de in headers)
+                foreach (var de in m_headers)
                 {
-                    string k = (string)de.Key;
+                    string k = de.Key;
                     if (k != HeaderVersion)
                     {
-                        IList values = (IList)de.Value;
-                        foreach (string v in values)
+                        foreach (string v in de.Value)
                         {
                             WriteHeaderEntry(k, v);
                         }
                     }
                 }
 
-                DoWrite(nl);
+                DoWrite(NewLine);
 
                 start = false;
             }
@@ -332,47 +330,32 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
                 bufPtr = 0;
                 if ((++chunkCount & 0xf) == 0)
                 {
-                    DoWrite(nl);
+                    DoWrite(NewLine);
                 }
             }
 
-            crc.Update(b);
-            buf[bufPtr++] = b & 0xff;
+            crc.Update(value);
+            buf[bufPtr++] = value & 0xff;
         }
 
         /**
          * <b>Note</b>: Close() does not close the underlying stream. So it is possible to write
          * multiple objects using armoring to a single stream.
          */
-#if PORTABLE || NETFX_CORE
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                if (type == null)
-                    return;
+                if (type != null)
+                {
+                    DoClose();
 
-                DoClose();
-
-                type = null;
-                start = true;
+                    type = null;
+                    start = true;
+                }
             }
             base.Dispose(disposing);
         }
-#else
-        public override void Close()
-        {
-            if (type == null)
-                return;
-
-            DoClose();
-
-            type = null;
-            start = true;
-
-            base.Close();
-        }
-#endif
 
         private void DoClose()
         {
@@ -381,7 +364,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
                 Encode(outStream, buf, bufPtr);
             }
 
-            DoWrite(nl + '=');
+            DoWrite(NewLine + '=');
 
             int crcV = crc.Value;
 
@@ -391,11 +374,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
 
             Encode(outStream, buf, 3);
 
-            DoWrite(nl);
+            DoWrite(NewLine);
             DoWrite(footerStart);
             DoWrite(type);
             DoWrite(footerTail);
-            DoWrite(nl);
+            DoWrite(NewLine);
 
             outStream.Flush();
         }
@@ -404,7 +387,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
             string name,
             string v)
         {
-            DoWrite(name + ": " + v + nl);
+            DoWrite(name + ": " + v + NewLine);
         }
 
         private void DoWrite(

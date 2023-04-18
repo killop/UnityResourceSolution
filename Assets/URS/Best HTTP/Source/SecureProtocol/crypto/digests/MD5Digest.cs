@@ -57,9 +57,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             return DigestLength;
         }
 
-        internal override void ProcessWord(
-            byte[] input,
-            int inOff)
+        internal override void ProcessWord(byte[] input, int inOff)
         {
             X[xOff] = Pack.LE_To_UInt32(input, inOff);
 
@@ -68,6 +66,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
                 ProcessBlock();
             }
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        internal override void ProcessWord(ReadOnlySpan<byte> word)
+        {
+            X[xOff] = Pack.LE_To_UInt32(word);
+
+            if (++xOff == 16)
+            {
+                ProcessBlock();
+            }
+        }
+#endif
 
         internal override void ProcessLength(
             long bitLength)
@@ -104,6 +114,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 
             return DigestLength;
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int DoFinal(Span<byte> output)
+        {
+            Finish();
+
+            Pack.UInt32_To_LE(H1, output);
+            Pack.UInt32_To_LE(H2, output[4..]);
+            Pack.UInt32_To_LE(H3, output[8..]);
+            Pack.UInt32_To_LE(H4, output[12..]);
+
+            Reset();
+
+            return DigestLength;
+        }
+#endif
 
         /**
         * reset the chaining variables to the IV values.

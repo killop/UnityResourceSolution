@@ -59,7 +59,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
                 return new KeyTransRecipientInfo((Asn1Sequence) obj);
 
 			throw new ArgumentException(
-                "Illegal object in KeyTransRecipientInfo: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+                "Illegal object in KeyTransRecipientInfo: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
 		public DerInteger Version

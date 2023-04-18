@@ -36,7 +36,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 				return new BasicOcspResponse((Asn1Sequence)obj);
 			}
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public BasicOcspResponse(
@@ -64,33 +64,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
             }
         }
 
-
-		public ResponseData GetTbsResponseData()
-        {
-            return tbsResponseData;
-        }
-
 		public ResponseData TbsResponseData
 		{
 			get { return tbsResponseData; }
 		}
 
-
-		public AlgorithmIdentifier GetSignatureAlgorithm()
-        {
-            return signatureAlgorithm;
-        }
-
 		public AlgorithmIdentifier SignatureAlgorithm
 		{
 			get { return signatureAlgorithm; }
 		}
-
-
-		public DerBitString GetSignature()
-        {
-            return signature;
-        }
 
 		public DerBitString Signature
 		{
@@ -100,12 +82,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
         public byte[] GetSignatureOctets()
         {
             return signature.GetOctets();
-        }
-
-
-		public Asn1Sequence GetCerts()
-        {
-            return certs;
         }
 
 		public Asn1Sequence Certs

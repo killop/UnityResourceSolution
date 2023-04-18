@@ -1,5 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
+using System;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 {
@@ -22,6 +23,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
         /// <param name="destination">The byte array to copy the result into.</param>
         /// <param name="offset">The offset into destination to start copying the result at.</param>
         int Collect(byte[] destination, int offset);
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        /// <summary>
+        /// Store the final result of the operation by copying it into the destination span.
+        /// </summary>
+        /// <returns>The number of bytes copied into destination.</returns>
+        /// <param name="destination">The span to copy the result into.</param>
+        int Collect(Span<byte> destination);
+#endif
     }
 }
 #pragma warning restore

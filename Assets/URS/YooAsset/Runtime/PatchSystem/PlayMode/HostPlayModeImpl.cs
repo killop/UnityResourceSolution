@@ -5,53 +5,27 @@ using UnityEngine;
 using URS;
 namespace YooAsset
 {
-    internal class HostPlayModeImpl : IFileSystemServices
+    public class HostPlayModeImpl : IFileSystemServices
     {
         // 补丁清单
         //internal PatchManifest AppPatchManifest;
         //internal PatchManifest LocalPatchManifest;
 
-        internal FileManifest WebFileManifest;
-        internal BundleManifest WebBundleManifest;
+       // internal FileManifest WebFileManifest;
+      //  internal BundleManifest WebBundleManifest;
 
-        internal FileManifest AppFileManifest;
-        internal BundleManifest AppBundleManifest;
-        internal string AppId;
+       // internal FileManifest AppFileManifest;
+       // internal BundleManifest AppBundleManifest;
+        internal string channel;
 
-        public BundleManifest GetJudgedBundleManifest()
-        {
-            if (WebBundleManifest != null)
-            {
-                return WebBundleManifest;
-            }
-            var sanboxBundleManifest = SandboxFileSystem.GetBundleManifest();
-            if (sanboxBundleManifest != null)
-            {
-                return sanboxBundleManifest;
-            }
-            return AppBundleManifest;
-        }
-        public FileManifest GetJudgedFileManifest()
-        {
-            if (WebFileManifest != null)
-            {
-                return WebFileManifest;
-            }
-            var sanboxFileManifest = SandboxFileSystem.GetFileManifest();
-            if (sanboxFileManifest != null)
-            {
-                return sanboxFileManifest;
-            }
-            return AppFileManifest;
-        }
+     
         // 参数相关
         internal bool ClearCacheWhenDirty { private set; get; }
-        internal bool IgnoreResourceVersion { private set; get; }
         internal string RemoteAppToChannelRouterFileUrl { get; set; }
         internal string RemoteVersionsRootUrl { get; set; }
         internal string RemoteVersionRootUrl { get; set; }
         internal string RemoteVersionPatchUrl { get; set; }
-        internal AppToChannelItem AppChannel {get;set;}
+        internal string TargetVersion {get;set;}
         internal URSFilesVersionIndex FilesVersionIndex { get; set; }
 
 
@@ -61,18 +35,21 @@ namespace YooAsset
         public InitializationOperation InitializeAsync()
 		{
 			ClearCacheWhenDirty = true;
-			IgnoreResourceVersion = true;
-            RemoteAppToChannelRouterFileUrl = $"{URSRuntimeSetting.instance.RemoteChannelRootUrl}/{URSRuntimeSetting.instance.RemoteAppToChannelRouterFileName}"; ;
+          
 			var operation = new HostPlayModeInitializationOperation(this);
             OperationSystem.ProcessOperaiton(operation);
 			return operation;
 		}
-
-		public void InitVersion(AppToChannelItem item)
-		{
-            AppChannel= item;
-            RemoteVersionsRootUrl = $"{URSRuntimeSetting.instance.RemoteChannelRootUrl}/{item.ChannelId}/{URS.PlatformMappingService.GetPlatformPathSubFolder()}";
+        public void InitChannel(string channel) 
+        { 
+            this.channel= channel;
+            RemoteVersionsRootUrl = $"{URSRuntimeSetting.instance.RemoteChannelRootUrl}/{this.channel}/{URS.PlatformMappingService.GetPlatformPathSubFolder()}";
             RemoteVersionPatchUrl = $"{RemoteVersionsRootUrl}/{URSRuntimeSetting.instance.PatchDirectory}";
+            RemoteAppToChannelRouterFileUrl = $"{RemoteVersionsRootUrl}/{URSRuntimeSetting.instance.RemoteAppVersionRouterFileName}";
+        }
+		public void InitVersion(string targetVersion)
+		{
+            TargetVersion = targetVersion;
         }
 
 		public string GetRemoteFilesVersionIndexUrl() 
@@ -82,7 +59,7 @@ namespace YooAsset
         public void InitFilesVersion(URSFilesVersionIndex versions)
         {
             FilesVersionIndex = versions;
-            var item = FilesVersionIndex.GetVersion(AppChannel.VersionCode);
+            var item = FilesVersionIndex.GetVersion(TargetVersion);
             RemoteVersionRootUrl = $"{RemoteVersionsRootUrl}/{item.VersionCode}---{item.FilesVersionHash}";
         }
 
@@ -94,9 +71,9 @@ namespace YooAsset
         /// <summary>
         /// 异步更新补丁清单
         /// </summary>
-        public UpdateManifestOperation UpdatePatchManifestAsync(int updateResourceVersion, int timeout)
+        public UpdateManifestOperation UpdatePatchManifestAsync(int timeout)
 		{
-			var operation = new HostPlayModeUpdateManifestOperation(this, updateResourceVersion, timeout);
+			var operation = new HostPlayModeUpdateManifestOperation(this, timeout);
             OperationSystem.ProcessOperaiton(operation);
 			return operation;
 		}
@@ -110,50 +87,39 @@ namespace YooAsset
 		{
 			List<UpdateEntry> downloadList = GetDownloadListByTags(tags);
 			var operation = new RemoteUpdateOperation(downloadList, fileLoadingMaxNumber, failedTryAgain);
-			return operation;
+            Action<AsyncOperationBase> callback = (AsyncOperationBase ab) => {
+                Logger.Log($"下载完毕 {operation.Status}");
+                if (operation.Status == EOperationStatus.Succeed)
+                {
+                    URSFileSystem.PersistentDownloadFolder.FlushFileManifestToHardisk();
+                }
+            };
+            operation.Completed += callback;
+            return operation;
 		}
 		private List<UpdateEntry> GetDownloadListByTags(string[] tags)
 		{
 			List<UpdateEntry> downloadList = new List<UpdateEntry>(1000);
-            if (WebFileManifest != null) 
+            var patchCount = 0;
+            if (URSFileSystem.RemoteFolder.FileManifest != null) 
             {
-                foreach (var kv in WebFileManifest.GetFileMetaMap())
+                foreach (var kv in URSFileSystem.RemoteFolder.FileManifest.GetFileMetaMap())
                 {
                     var remoteFileMeta = kv.Value;
                     if (!remoteFileMeta.HasAnyTag(tags)) continue;
-                    var relativePath = kv.Key;
-
-                    FileMeta sandboxCandicate = null;
-                    // 忽略缓存文件
-                    if (SandboxFileSystem.TryGetHardiskFilePath(relativePath, out var __, out var sandboxFileMeta))
+                    
+                    var searchResult = URSFileSystem.SearchHardiskFile(remoteFileMeta);
+                    
+                    if (searchResult != null && searchResult.UpdateEntry!=null)
                     {
-
-                        if (sandboxFileMeta.Hash == remoteFileMeta.Hash)
-                        {
-                            continue;
+                        if (searchResult.UpdateEntry.IsPatch()){
+                            patchCount++;
                         }
-                        else
-                        {
-                            sandboxCandicate = sandboxFileMeta;
-                        }
+                        downloadList.Add(searchResult.UpdateEntry);
                     }
-                    else
-                    {
-                        //UnityEngine.Debug.LogError("can not find relativePath" + relativePath);
-                    }
-
-                    // 忽略APP资源
-                    // 注意：如果是APP资源并且哈希值相同，则不需要下载
-
-                    if (AppFileManifest != null && AppFileManifest.ContainFile(relativePath, remoteFileMeta.Hash))
-                    {
-                        continue;
-                    }
-                    UpdateEntry updateEntry = GetUpdateEntry(remoteFileMeta, sandboxCandicate);
-                    downloadList.Add(updateEntry);
                 }
             }
-			
+            Debug.Log($"总共需要下载 {downloadList.Count}个 其中patch的数量 {patchCount}");
 			return downloadList;
 		}
 
@@ -171,13 +137,14 @@ namespace YooAsset
 		private List<UpdateEntry> GetDownloadListByPaths(List<string> assetPaths)
 		{
             // 获取资源对象的资源包和所有依赖资源包
-            var bundleManifest = GetJudgedBundleManifest();
+            var bundleManifest = URSFileSystem.RemoteFolder.BundleManifest;
             Dictionary<string, FileMeta> all= new Dictionary<string, FileMeta>();
             //List<FileMeta> dependency = new List<FileMeta>();
             foreach (var assetPath in assetPaths)
 			{
-				var mainFileMeta = bundleManifest.GetBundleFileMeta(assetPath);
-				if (mainFileMeta!=null&& !all.ContainsKey(mainFileMeta.RelativePath))
+                var mainFileMeta = bundleManifest.GetBundleFileMeta(assetPath);
+               
+                if (mainFileMeta!=null&& !all.ContainsKey(mainFileMeta.RelativePath))
 				{
                     all.Add(mainFileMeta.RelativePath,mainFileMeta);
                 }
@@ -201,23 +168,11 @@ namespace YooAsset
             foreach (var kv in all)
             {
                 var remoteFileMeta = kv.Value;
-                FileMeta sanboxCandicate = null;
-                if (SandboxFileSystem.TryGetHardiskFilePath(remoteFileMeta.RelativePath, out var hardiskPath, out var sanboxFileMeta))
+                var searchResult = URSFileSystem.SearchHardiskFile(remoteFileMeta);
+                if (searchResult != null&& searchResult.UpdateEntry!=null)
                 {
-                    if (sanboxFileMeta.Hash == remoteFileMeta.Hash)
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        sanboxCandicate = sanboxFileMeta;
-                    }
+                    results.Add(searchResult.UpdateEntry);
                 }
-                if (AppFileManifest.ContainFile(remoteFileMeta))
-                {
-                    continue;
-                }
-                results.Add(GetUpdateEntry(remoteFileMeta, sanboxCandicate));
             }
             
 			return results;
@@ -232,31 +187,30 @@ namespace YooAsset
         }
         internal string GetRemoteVersionDownloadURL(string fileName)
         {
-            return $"{RemoteVersionRootUrl}/{fileName}";
+            return WWW.UnEscapeURL($"{RemoteVersionRootUrl}/{fileName}");
         }
 
         // 下载相关
-        private HardiskFileSearchResult ConvertToDownloadInfo(FileMeta webFileMeta,FileMeta patchSandboxFileMetaCandidate)
+        public HardiskFileSearchResult ConvertToDownloadInfo(FileMeta webFileMeta,FileMeta patchFileMetaCandidate)
 		{
 			// 注意：资源版本号只用于确定下载路径
 			//string sandboxPath = SandboxFileSystem.MakeSandboxFilePath(fileMeta.RelativePath);
 			//string remoteMainURL = GetPatchDownloadMainURL(fileMeta.RelativePath);
 		///	string remoteFallbackURL = GetPatchDownloadFallbackURL(fileMeta.RelativePath);
-			var result = new HardiskFileSearchResult(webFileMeta, GetUpdateEntry(webFileMeta, patchSandboxFileMetaCandidate));
+			var result = new HardiskFileSearchResult(webFileMeta, GetUpdateEntry(webFileMeta, patchFileMetaCandidate));
 			return result;
 		}
-		private UpdateEntry GetUpdateEntry(FileMeta webFileMeta, FileMeta patchSandboxFileMetaCandidate)
+		private UpdateEntry GetUpdateEntry(FileMeta webFileMeta, FileMeta patchFileMetaCandidate)
 		{
             UpdateEntry result = null;
-            if (patchSandboxFileMetaCandidate == null)
+            if (patchFileMetaCandidate == null)
             {
                 result = new UpdateEntry(webFileMeta, RemoteVersionRootUrl);
                 return result;
             }
             else 
             {
-                var patch = GetPatch(patchSandboxFileMetaCandidate, webFileMeta);
-                Debug.LogError("patch "+(patch==null)+" relative Path "+ webFileMeta.RelativePath);
+                var patch = GetPatch(patchFileMetaCandidate, webFileMeta);
                 if (patch != null)
                 {
                     result = new UpdateEntry(webFileMeta, RemoteVersionRootUrl,patch,RemoteVersionPatchUrl);
@@ -293,7 +247,7 @@ namespace YooAsset
                 Logger.Log($"解压完毕 {operation.Status}");
                 if (operation.Status == EOperationStatus.Succeed)
                 {
-                    SandboxFileSystem.FlushSandboxFileManifestToHardisk();
+                    URSFileSystem.PersistentDownloadFolder.FlushFileManifestToHardisk();
                 }
             };
             operation.Completed += callback;
@@ -302,15 +256,15 @@ namespace YooAsset
         private List<UnzipEntry> GetUnpackListByTags(string[] tags)
         {
             List<UnzipEntry> unzipEntries = new List<UnzipEntry>();
-            if (AppFileManifest != null)
+            if (URSFileSystem.BuildInFolder.FileManifest != null)
             {
                 List<FileMeta> downloadList = new List<FileMeta>();
-                AppFileManifest.GetFileMetaByTag(tags, ref downloadList);
+                URSFileSystem.BuildInFolder.FileManifest.GetFileMetaByTag(tags, ref downloadList);
 
                 for (int i = downloadList.Count - 1; i >= 0; i--)
                 {
                     var streamFileMeta = downloadList[i];
-                    if (!SandboxFileSystem.ContainsFile(streamFileMeta.RelativePath))
+                    if (!URSFileSystem.PersistentDownloadFolder.ContainsFile(streamFileMeta.RelativePath))
                     {
                         unzipEntries.Add(new UnzipEntry(streamFileMeta));
                     }
@@ -341,60 +295,30 @@ namespace YooAsset
         #region IBundleServices接口
         public HardiskFileSearchResult SearchHardiskFile(FileMeta fileMeta)
 		{
-			if (!fileMeta.IsValid())
-				return HardiskFileSearchResult.EMPTY;
-           return this.SearchHardiskFileByPath(fileMeta.RelativePath);
+            return URSFileSystem.SearchHardiskFile(fileMeta);
         }
 
         public  HardiskFileSearchResult SearchHardiskFileByPath(string relativePath)
         {
-            if (WebFileManifest.GetFileMetaMap().TryGetValue(relativePath, out var webFileMeta))
-            {
-                FileMeta patchSandboxFileMetaCandidate = null;
-                // 查询沙盒资源				
-                if (SandboxFileSystem.TryGetHardiskFilePath(relativePath, out var hardiskPath, out var sandboxFileMeta))
-                {
-					if (sandboxFileMeta.Hash == webFileMeta.Hash)
-					{
-						var result = new HardiskFileSearchResult(sandboxFileMeta, hardiskPath, EnumHardiskDirectoryType.Persistent);
-						return result;
-					}
-					else
-					{
-                        patchSandboxFileMetaCandidate = sandboxFileMeta;
-                    }
-                  
-                }
-
-                // 查询APP资源
-                if (AppFileManifest!=null&&AppFileManifest.GetFileMetaMap().TryGetValue(relativePath, out var appFileMeta))
-                {
-                    if (webFileMeta.Hash == appFileMeta.Hash)
-                    {
-                        string appLoadPath = AssetPathHelper.MakeStreamingSandboxLoadPath(relativePath);
-                        var result = new HardiskFileSearchResult(appFileMeta, appLoadPath, EnumHardiskDirectoryType.StreamAsset);
-                        return result;
-                    }
-                }
-
-                // 从服务端下载
-                return ConvertToDownloadInfo(webFileMeta, patchSandboxFileMetaCandidate);
-            }
-            else
-            {
-                Logger.Warning($"Not found bundle in patch manifest : {relativePath}");
-                HardiskFileSearchResult result = new HardiskFileSearchResult(relativePath);
-                return result;
-            }
+            return URSFileSystem.SearchHardiskFileByPath(relativePath);
         }
         public FileMeta GetBundleRelativePath(string assetPath)
 		{
-			return WebBundleManifest.GetBundleFileMeta(assetPath);
+			return URSFileSystem.GetBundleRelativePath(assetPath);
 		}
         public List<FileMeta> GetAllDependencieBundleRelativePaths(string assetPath)
 		{
-			return WebBundleManifest.GetAllDependenciesRelativePath(assetPath);
+            return URSFileSystem.GetAllDependencieBundleRelativePaths(assetPath);
 		}
-		#endregion
-	}
+        public void SearchLocalSecurityBundleHardDiskFileByPath(
+            string relativePath, 
+            out HardiskFileSearchResult mainResult, 
+            out List<HardiskFileSearchResult> dependency,
+            bool skipDownloadFolder = true) 
+        {
+            URSFileSystem.SearchLocalSecurityBundleHardDiskFileByPath(relativePath, out  mainResult, out  dependency, skipDownloadFolder);
+        }
+      
+       #endregion
+    }
 }

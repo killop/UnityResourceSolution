@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
+using BestHTTP.PlatformSupport.Text;
 
 namespace BestHTTP.JSON.LitJson
 {
@@ -86,7 +87,7 @@ namespace BestHTTP.JSON.LitJson
             allow_single_quoted_strings = true;
 
             input_buffer = 0;
-            string_buffer = new StringBuilder (128);
+            string_buffer = StringBuilderPool.Get(128); // new StringBuilder (128);
             state = 1;
             end_of_input = false;
             this.reader = reader;
@@ -907,6 +908,11 @@ namespace BestHTTP.JSON.LitJson
         private void UngetChar ()
         {
             input_buffer = input_char;
+        }
+
+        public void Clear()
+        {
+            StringBuilderPool.Release(this.string_buffer);
         }
     }
 }

@@ -20,24 +20,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO
 			this.tee = tee;
 		}
 
-#if PORTABLE || NETFX_CORE
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(output);
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(tee);
+                output.Dispose();
+                tee.Dispose();
             }
             base.Dispose(disposing);
         }
-#else
-        public override void Close()
-		{
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(output);
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(tee);
-            base.Close();
-		}
-#endif
 
         public override void Write(byte[] buffer, int offset, int count)
 		{
@@ -45,10 +36,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO
 			tee.Write(buffer, offset, count);
 		}
 
-		public override void WriteByte(byte b)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            output.Write(buffer);
+            tee.Write(buffer);
+        }
+#endif
+
+        public override void WriteByte(byte value)
 		{
-			output.WriteByte(b);
-			tee.WriteByte(b);
+			output.WriteByte(value);
+			tee.WriteByte(value);
 		}
 	}
 }

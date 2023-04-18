@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.IO;
 using System.Text;
 
@@ -96,15 +95,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X500.Style
 
         public static string Canonicalize(string s)
         {
-            string value = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToLowerInvariant(s);
+            string value = s.ToLowerInvariant();
 
             if (value.Length > 0 && value[0] == '#')
             {
                 Asn1Object obj = DecodeObject(value);
 
-                if (obj is IAsn1String)
+                if (obj is IAsn1String str)
                 {
-                    value = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToLowerInvariant(((IAsn1String)obj).GetString());
+                    value = str.GetString().ToLowerInvariant();
                 }
             }
 

@@ -25,7 +25,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             this.m_privateKey = privateKey;
         }
 
-        public abstract byte[] GenerateRawSignature(SignatureAndHashAlgorithm algorithm, byte[] hash);
+        public virtual byte[] GenerateRawSignature(SignatureAndHashAlgorithm algorithm, byte[] hash)
+        {
+            throw new NotSupportedException();
+        }
 
         public virtual TlsStreamSigner GetStreamSigner(SignatureAndHashAlgorithm algorithm)
         {

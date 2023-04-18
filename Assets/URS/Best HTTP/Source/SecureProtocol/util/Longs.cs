@@ -1,12 +1,19 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+using System.Buffers.Binary;
+#endif
+#if NETCOREAPP3_0_OR_GREATER
+using System.Numerics;
+using System.Runtime.Intrinsics.X86;
+#endif
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.Raw;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities
 {
-    public abstract class Longs
+    public static class Longs
     {
         public const int NumBits = 64;
         public const int NumBytes = 8;
@@ -17,8 +24,43 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities
             0x3E, 0x33, 0x05, 0x19, 0x24, 0x27, 0x20, 0x2E, 0x3C, 0x2C, 0x2A, 0x14, 0x16, 0x39, 0x10, 0x09,
             0x32, 0x18, 0x23, 0x1F, 0x3B, 0x13, 0x38, 0x0F, 0x31, 0x1E, 0x12, 0x0E, 0x1D, 0x0D, 0x0C, 0x0B };
 
+        public static long HighestOneBit(long i)
+        {
+            return (long)HighestOneBit((ulong)i);
+        }
+
+        [CLSCompliant(false)]
+        public static ulong HighestOneBit(ulong i)
+        {
+            i |= i >>  1;
+            i |= i >>  2;
+            i |= i >>  4;
+            i |= i >>  8;
+            i |= i >> 16;
+            i |= i >> 32;
+            return i - (i >> 1);
+        }
+
+        public static long LowestOneBit(long i)
+        {
+            return i & -i;
+        }
+
+        [CLSCompliant(false)]
+        public static ulong LowestOneBit(ulong i)
+        {
+            return (ulong)LowestOneBit((long)i);
+        }
+
         public static int NumberOfLeadingZeros(long i)
         {
+#if NETCOREAPP3_0_OR_GREATER
+            if (Lzcnt.X64.IsSupported)
+            {
+                return (int)Lzcnt.X64.LeadingZeroCount((ulong)i);
+            }
+#endif
+
             int x = (int)(i >> 32), n = 0;
             if (x == 0)
             {
@@ -30,6 +72,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities
 
         public static int NumberOfTrailingZeros(long i)
         {
+#if NETCOREAPP3_0_OR_GREATER
+            if (Bmi1.X64.IsSupported)
+            {
+                return (int)Bmi1.X64.TrailingZeroCount((ulong)i);
+            }
+#endif
+
             int n = DeBruijnTZ[(uint)((ulong)((i & -i) * 0x045FBAC7992A70DAL) >> 58)];
             long m = (((i & 0xFFFFFFFFL) | (long)((ulong)i >> 32)) - 1L) >> 63;
             return n - (int)m;
@@ -40,6 +89,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities
             return (long)Reverse((ulong)i);
         }
 
+        [CLSCompliant(false)]
         public static ulong Reverse(ulong i)
         {
             i = Bits.BitPermuteStepSimple(i, 0x5555555555555555UL, 1);
@@ -50,35 +100,62 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities
 
         public static long ReverseBytes(long i)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return BinaryPrimitives.ReverseEndianness(i);
+#else
             return (long)ReverseBytes((ulong)i);
+#endif
         }
 
+        [CLSCompliant(false)]
         public static ulong ReverseBytes(ulong i)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return BinaryPrimitives.ReverseEndianness(i);
+#else
             return RotateLeft(i & 0xFF000000FF000000UL,  8) |
                    RotateLeft(i & 0x00FF000000FF0000UL, 24) |
                    RotateLeft(i & 0x0000FF000000FF00UL, 40) |
                    RotateLeft(i & 0x000000FF000000FFUL, 56);
+#endif
         }
 
         public static long RotateLeft(long i, int distance)
         {
-            return (i << distance) ^ (long)((ulong)i >> -distance);
+#if NETCOREAPP3_0_OR_GREATER
+            return (long)BitOperations.RotateLeft((ulong)i, distance);
+#else
+            return (i << distance) | (long)((ulong)i >> -distance);
+#endif
         }
 
+        [CLSCompliant(false)]
         public static ulong RotateLeft(ulong i, int distance)
         {
-            return (i << distance) ^ (i >> -distance);
+#if NETCOREAPP3_0_OR_GREATER
+            return BitOperations.RotateLeft(i, distance);
+#else
+            return (i << distance) | (i >> -distance);
+#endif
         }
 
         public static long RotateRight(long i, int distance)
         {
-            return (long)((ulong)i >> distance) ^ (i << -distance);
+#if NETCOREAPP3_0_OR_GREATER
+            return (long)BitOperations.RotateRight((ulong)i, distance);
+#else
+            return (long)((ulong)i >> distance) | (i << -distance);
+#endif
         }
 
+        [CLSCompliant(false)]
         public static ulong RotateRight(ulong i, int distance)
         {
-            return (i >> distance) ^ (i << -distance);
+#if NETCOREAPP3_0_OR_GREATER
+            return BitOperations.RotateRight(i, distance);
+#else
+            return (i >> distance) | (i << -distance);
+#endif
         }
     }
 }

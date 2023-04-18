@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -10,10 +10,19 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
     public abstract class Asn1Sequence
-        : Asn1Object, IEnumerable
+        : Asn1Object, IEnumerable<Asn1Encodable>
     {
-        // NOTE: Only non-readonly to support LazyDerSequence
-        internal Asn1Encodable[] elements;
+        internal class Meta : Asn1UniversalType
+        {
+            internal static readonly Asn1UniversalType Instance = new Meta();
+
+            private Meta() : base(typeof(Asn1Sequence), Asn1Tags.Sequence) {}
+
+            internal override Asn1Object FromImplicitConstructed(Asn1Sequence sequence)
+            {
+                return sequence;
+            }
+        }
 
         /**
          * return an Asn1Sequence from the given object.
@@ -21,39 +30,33 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
          * @param obj the object we want converted.
          * @exception ArgumentException if the object cannot be converted.
          */
-        public static Asn1Sequence GetInstance(
-            object obj)
+        public static Asn1Sequence GetInstance(object obj)
         {
-            if (obj == null || obj is Asn1Sequence)
+            if (obj == null)
+                return null;
+
+            if (obj is Asn1Sequence asn1Sequence)
+                return asn1Sequence;
+
+            if (obj is IAsn1Convertible asn1Convertible)
             {
-                return (Asn1Sequence)obj;
+                Asn1Object asn1Object = asn1Convertible.ToAsn1Object();
+                if (asn1Object is Asn1Sequence converted)
+                    return converted;
             }
-            else if (obj is Asn1SequenceParser)
-            {
-                return GetInstance(((Asn1SequenceParser)obj).ToAsn1Object());
-            }
-            else if (obj is byte[])
+            else if (obj is byte[] bytes)
             {
                 try
                 {
-                    return GetInstance(FromByteArray((byte[])obj));
+                    return (Asn1Sequence)Meta.Instance.FromByteArray(bytes);
                 }
                 catch (IOException e)
                 {
                     throw new ArgumentException("failed to construct sequence from byte[]: " + e.Message);
                 }
             }
-            else if (obj is Asn1Encodable)
-            {
-                Asn1Object primitive = ((Asn1Encodable)obj).ToAsn1Object();
-                
-                if (primitive is Asn1Sequence)
-                {
-                    return (Asn1Sequence)primitive;
-                }
-            }
 
-            throw new ArgumentException("Unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
         /**
@@ -66,48 +69,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
          * dealing with implicitly tagged sequences you really <b>should</b>
          * be using this method.
          *
-         * @param obj the tagged object.
-         * @param explicitly true if the object is meant to be explicitly tagged,
-         *          false otherwise.
-         * @exception ArgumentException if the tagged object cannot
-         *          be converted.
+         * @param taggedObject the tagged object.
+         * @param declaredExplicit true if the object is meant to be explicitly tagged, false otherwise.
+         * @exception ArgumentException if the tagged object cannot be converted.
          */
-        public static Asn1Sequence GetInstance(
-            Asn1TaggedObject	obj,
-            bool				explicitly)
+        public static Asn1Sequence GetInstance(Asn1TaggedObject taggedObject, bool declaredExplicit)
         {
-            Asn1Object inner = obj.GetObject();
-
-            if (explicitly)
-            {
-                if (!obj.IsExplicit())
-                    throw new ArgumentException("object implicit - explicit expected.");
-
-                return (Asn1Sequence) inner;
-            }
-
-            //
-            // constructed object which appears to be explicitly tagged
-            // when it should be implicit means we have to add the
-            // surrounding sequence.
-            //
-            if (obj.IsExplicit())
-            {
-                if (obj is BerTaggedObject)
-                {
-                    return new BerSequence(inner);
-                }
-
-                return new DerSequence(inner);
-            }
-
-            if (inner is Asn1Sequence)
-            {
-                return (Asn1Sequence) inner;
-            }
-
-            throw new ArgumentException("Unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            return (Asn1Sequence)Meta.Instance.GetContextInstance(taggedObject, declaredExplicit);
         }
+
+        // NOTE: Only non-readonly to support LazyDLSequence
+        internal Asn1Encodable[] elements;
 
         protected internal Asn1Sequence()
         {
@@ -117,9 +89,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
         protected internal Asn1Sequence(Asn1Encodable element)
         {
             if (null == element)
-                throw new ArgumentNullException("element");
+                throw new ArgumentNullException(nameof(element));
 
             this.elements = new Asn1Encodable[]{ element };
+        }
+
+        protected internal Asn1Sequence(Asn1Encodable element1, Asn1Encodable element2)
+        {
+            if (null == element1)
+                throw new ArgumentNullException(nameof(element1));
+            if (null == element2)
+                throw new ArgumentNullException(nameof(element2));
+
+            this.elements = new Asn1Encodable[]{ element1, element2 };
         }
 
         protected internal Asn1Sequence(params Asn1Encodable[] elements)
@@ -130,6 +112,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             this.elements = Asn1EncodableVector.CloneElements(elements);
         }
 
+        internal Asn1Sequence(Asn1Encodable[] elements, bool clone)
+        {
+            this.elements = clone ? Asn1EncodableVector.CloneElements(elements) : elements;
+        }
+
         protected internal Asn1Sequence(Asn1EncodableVector elementVector)
         {
             if (null == elementVector)
@@ -138,9 +125,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             this.elements = elementVector.TakeElements();
         }
 
-        public virtual IEnumerator GetEnumerator()
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            return elements.GetEnumerator();
+            return GetEnumerator();
+        }
+
+        public virtual IEnumerator<Asn1Encodable> GetEnumerator()
+        {
+            IEnumerable<Asn1Encodable> e = elements;
+            return e.GetEnumerator();
         }
 
         private class Asn1SequenceParserImpl
@@ -154,6 +147,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
                 Asn1Sequence outer)
             {
                 this.outer = outer;
+                // NOTE: Call Count here to 'force' a LazyDerSequence
                 this.max = outer.Count;
             }
 
@@ -204,6 +198,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             get { return elements.Length; }
         }
 
+        public virtual T[] MapElements<T>(Func<Asn1Encodable, T> func)
+        {
+            // NOTE: Call Count here to 'force' a LazyDerSequence
+            int count = Count;
+            T[] result = new T[count];
+            for (int i = 0; i < count; ++i)
+            {
+                result[i] = func(elements[i]);
+            }
+            return result;
+        }
+
         public virtual Asn1Encodable[] ToArray()
         {
             return Asn1EncodableVector.CloneElements(elements);
@@ -211,8 +217,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 
         protected override int Asn1GetHashCode()
         {
-            //return Arrays.GetHashCode(elements);
-            int i = elements.Length;
+            // NOTE: Call Count here to 'force' a LazyDerSequence
+            int i = Count;
             int hc = i + 1;
 
             while (--i >= 0)
@@ -230,6 +236,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             if (null == that)
                 return false;
 
+            // NOTE: Call Count here (on both) to 'force' a LazyDerSequence
             int count = this.Count;
             if (that.Count != count)
                 return false;
@@ -239,7 +246,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
                 Asn1Object o1 = this.elements[i].ToAsn1Object();
                 Asn1Object o2 = that.elements[i].ToAsn1Object();
 
-                if (o1 != o2 && !o1.CallAsn1Equals(o2))
+                if (!o1.Equals(o2))
                     return false;
             }
 
@@ -250,6 +257,27 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
         {
             return CollectionUtilities.ToString(elements);
         }
+
+        // TODO[asn1] Preferably return an Asn1BitString[] (doesn't exist yet)
+        internal DerBitString[] GetConstructedBitStrings()
+        {
+            return MapElements(DerBitString.GetInstance);
+        }
+
+        internal Asn1OctetString[] GetConstructedOctetStrings()
+        {
+            return MapElements(Asn1OctetString.GetInstance);
+        }
+
+        // TODO[asn1] Preferably return an Asn1BitString (doesn't exist yet)
+        internal abstract DerBitString ToAsn1BitString();
+
+        // TODO[asn1] Preferably return an Asn1External (doesn't exist yet)
+        internal abstract DerExternal ToAsn1External();
+
+        internal abstract Asn1OctetString ToAsn1OctetString();
+
+        internal abstract Asn1Set ToAsn1Set();
     }
 }
 #pragma warning restore

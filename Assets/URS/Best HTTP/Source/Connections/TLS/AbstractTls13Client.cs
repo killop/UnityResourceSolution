@@ -65,8 +65,8 @@ namespace BestHTTP.Connections.TLS
         // (Abstract)TLSClient facing functions
 
         protected override ProtocolVersion[] GetSupportedVersions() => ProtocolVersion.TLSv13.DownTo(ProtocolVersion.TLSv12);
-        protected override IList GetProtocolNames() => this._protocols;
-        protected override IList GetSniServerNames() => this._sniServerNames;
+        protected override IList<ProtocolName> GetProtocolNames() => this._protocols;
+        protected override IList<ServerName> GetSniServerNames() => this._sniServerNames;
         protected override int[] GetSupportedCipherSuites()
         {
             HTTPManager.Logger.Information(nameof(AbstractTls13Client), $"{nameof(GetSupportedCipherSuites)}", this.Context);
@@ -165,7 +165,7 @@ namespace BestHTTP.Connections.TLS
             base.NotifySessionToResume(session);
         }
 
-        public override void ProcessServerExtensions(IDictionary serverExtensions)
+        public override void ProcessServerExtensions(IDictionary<int, byte[]> serverExtensions)
         {
             HTTPManager.Logger.Information(nameof(AbstractTls13Client), $"{nameof(ProcessServerExtensions)}", this.Context);
 

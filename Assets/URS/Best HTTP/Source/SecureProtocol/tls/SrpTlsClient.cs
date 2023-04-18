@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
@@ -36,7 +36,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         protected override ProtocolVersion[] GetSupportedVersions()
         {
-            return ProtocolVersion.TLSv12.DownTo(ProtocolVersion.TLSv10);
+            return ProtocolVersion.TLSv12.Only();
         }
 
         protected virtual bool RequireSrpServerExtension
@@ -46,16 +46,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         }
 
         /// <exception cref="IOException"/>
-        public override IDictionary GetClientExtensions()
+        public override IDictionary<int, byte[]> GetClientExtensions()
         {
-            IDictionary clientExtensions = TlsExtensionsUtilities.EnsureExtensionsInitialised(
+            var clientExtensions = TlsExtensionsUtilities.EnsureExtensionsInitialised(
                 base.GetClientExtensions());
             TlsSrpUtilities.AddSrpExtension(clientExtensions, m_srpIdentity.GetSrpIdentity());
             return clientExtensions;
         }
 
         /// <exception cref="IOException"/>
-        public override void ProcessServerExtensions(IDictionary serverExtensions)
+        public override void ProcessServerExtensions(IDictionary<int, byte[]> serverExtensions)
         {
             if (!TlsUtilities.HasExpectedEmptyExtensionData(serverExtensions, ExtensionType.srp,
                 AlertDescription.illegal_parameter))

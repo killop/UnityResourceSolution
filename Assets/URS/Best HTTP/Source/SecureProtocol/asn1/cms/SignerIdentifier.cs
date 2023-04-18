@@ -51,7 +51,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
                 return new SignerIdentifier((Asn1Object) o);
 
 			throw new ArgumentException(
-                "Illegal object in SignerIdentifier: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
+                "Illegal object in SignerIdentifier: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
         }
 
 		public bool IsTagged

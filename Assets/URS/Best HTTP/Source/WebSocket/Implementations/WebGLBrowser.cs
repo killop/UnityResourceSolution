@@ -68,6 +68,18 @@ namespace BestHTTP.WebSocket
             WS_Send_Binary(this.ImplementationId, buffer, (int)offset, (int)count);
         }
 
+        public override void SendAsBinary(BufferSegment data)
+        {
+            WS_Send_Binary(this.ImplementationId, data.Data, data.Offset, data.Count);
+            BufferPool.Release(data);
+        }
+
+        public override void SendAsText(BufferSegment data)
+        {
+            WS_Send_String(this.ImplementationId, data.Data, data.Offset, data.Count);
+            BufferPool.Release(data);
+        }
+
         [DllImport("__Internal")]
         static extern uint WS_Create(string url, string protocol, OnWebGLWebSocketOpenDelegate onOpen, OnWebGLWebSocketTextDelegate onText, OnWebGLWebSocketBinaryDelegate onBinary, OnWebGLWebSocketErrorDelegate onError, OnWebGLWebSocketCloseDelegate onClose);
 
@@ -149,6 +161,26 @@ namespace BestHTTP.WebSocket
                         Marshal.Copy(pBuffer, buffer, 0, length);
 
                         ws.OnBinary(ws, buffer);
+                    }
+                    catch (Exception ex)
+                    {
+                        HTTPManager.Logger.Exception("WebSocket", "OnBinary", ex, ws.Context);
+                    }
+                }
+
+                if (ws.OnBinaryNoAlloc != null)
+                {
+                    try
+                    {
+                        byte[] buffer = BufferPool.Get(length, true);
+
+                        // We still have to do a copy here, but at least the buffer will be released back to the pool.
+                        // Copy data from the 'unmanaged' memory to managed memory. Buffer will be reclaimed by the GC.
+                        Marshal.Copy(pBuffer, buffer, 0, length);
+
+                        ws.OnBinaryNoAlloc(ws, new BufferSegment(buffer, 0, length));
+
+                        BufferPool.Release(buffer);
                     }
                     catch (Exception ex)
                     {

@@ -63,19 +63,29 @@ namespace BestHTTP.Connections
             try
             {
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL
-                if (this.connector.Client.Available > 0)
+                TlsStream stream = (this.connector?.Stream as TlsStream);
+                if (stream != null && stream.Protocol != null)
                 {
-                    TlsStream stream = (this.connector.Stream as TlsStream);
-                    if (stream != null)
+                    bool locked = stream.Protocol.TryEnterApplicationDataLock(0);
+                    try
                     {
-                        try
+                        if (locked && this.connector.Client.Available > 0)
                         {
-                            var available = stream.Protocol.TestApplicationData();
-                            return !stream.Protocol.IsClosed;
+                            try
+                            {
+                                var available = stream.Protocol.TestApplicationData();
+                                return !stream.Protocol.IsClosed;
+                            }
+                            catch
+                            {
+                                return false;
+                            }
                         }
-                        catch {
-                            return false;
-                        }
+                    }
+                    finally
+                    {
+                        if (locked)
+                            stream.Protocol.ExitApplicationDataLock();
                     }
                 }
 #endif

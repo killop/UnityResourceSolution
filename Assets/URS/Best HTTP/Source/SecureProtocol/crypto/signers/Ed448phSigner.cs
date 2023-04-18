@@ -57,13 +57,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             prehash.BlockUpdate(buf, off, len);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            prehash.BlockUpdate(input);
+        }
+#endif
+
         public virtual byte[] GenerateSignature()
         {
             if (!forSigning || null == privateKey)
                 throw new InvalidOperationException("Ed448phSigner not initialised for signature generation.");
 
             byte[] msg = new byte[Ed448.PrehashSize];
-            if (Ed448.PrehashSize != prehash.DoFinal(msg, 0, Ed448.PrehashSize))
+            if (Ed448.PrehashSize != prehash.OutputFinal(msg, 0, Ed448.PrehashSize))
                 throw new InvalidOperationException("Prehash digest failed");
 
             byte[] signature = new byte[Ed448PrivateKeyParameters.SignatureSize];

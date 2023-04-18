@@ -3,6 +3,8 @@
 using System;
 using System.Text;
 
+using BestHTTP.PlatformSupport.Text;
+
 using PlatformSupport.Collections.ObjectModel;
 
 #if !NETFX_CORE
@@ -150,9 +152,9 @@ namespace BestHTTP.SocketIO
             if (!string.IsNullOrEmpty(BuiltQueryParams))
                 return BuiltQueryParams;
 
-            StringBuilder sb = new StringBuilder(AdditionalQueryParams.Count * 4);
+            StringBuilder sb = StringBuilderPool.Get(AdditionalQueryParams.Count * 4); //new StringBuilder(AdditionalQueryParams.Count * 4);
 
-            foreach(var kvp in AdditionalQueryParams)
+            foreach (var kvp in AdditionalQueryParams)
             {
                 sb.Append("&");
                 sb.Append(kvp.Key);
@@ -164,7 +166,7 @@ namespace BestHTTP.SocketIO
                 }
             }
 
-            return BuiltQueryParams = sb.ToString();
+            return BuiltQueryParams = StringBuilderPool.ReleaseAndGrab(sb);
         }
 
         /// <summary>

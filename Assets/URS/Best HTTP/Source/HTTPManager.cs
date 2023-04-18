@@ -9,6 +9,8 @@ using BestHTTP.Core;
 using BestHTTP.Extensions;
 using BestHTTP.Logger;
 using BestHTTP.PlatformSupport.Memory;
+using BestHTTP.PlatformSupport.Text;
+using Unity.Profiling;
 
 #if !BESTHTTP_DISABLE_COOKIES
 using BestHTTP.Cookies;
@@ -70,10 +72,12 @@ namespace BestHTTP
 
 #if NETFX_CORE
             IOService = new PlatformSupport.FileSystem.NETFXCOREIOService();
-//#elif UNITY_WEBGL && !UNITY_EDITOR
-//            IOService = new PlatformSupport.FileSystem.WebGLIOService();
 #else
             IOService = new PlatformSupport.FileSystem.DefaultIOService();
+#endif
+
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
+            ProxyDetector = new Proxies.Autodetect.ProxyDetector();
 #endif
         }
 
@@ -158,7 +162,17 @@ namespace BestHTTP
         /// </summary>
         public static System.Func<string> RootCacheFolderProvider { get; set; }
 
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
+
+        public static Proxies.Autodetect.ProxyDetector ProxyDetector {
+            get => _proxyDetector;
+            set {
+                _proxyDetector?.Detach();
+                _proxyDetector = value;
+            }
+        }
+        private static Proxies.Autodetect.ProxyDetector _proxyDetector;
+
         /// <summary>
         /// The global, default proxy for all HTTPRequests. The HTTPRequest's Proxy still can be changed per-request. Default value is null.
         /// </summary>
@@ -258,7 +272,7 @@ namespace BestHTTP
         /// <summary>
         /// User-agent string that will be sent with each requests.
         /// </summary>
-        public static string UserAgent = "BestHTTP/2 v2.6.2";
+        public static string UserAgent = "BestHTTP/2 v2.8.3";
 
         /// <summary>
         /// It's true if the application is quitting and the plugin is shutting down itself.
@@ -404,17 +418,32 @@ namespace BestHTTP
         /// </summary>
         public static void OnUpdate()
         {
-            RequestEventHelper.ProcessQueue();
-            ConnectionEventHelper.ProcessQueue();
-            ProtocolEventHelper.ProcessQueue();
-            PluginEventHelper.ProcessQueue();
+            using (var _ = new ProfilerMarker(nameof(RequestEventHelper)).Auto())
+                RequestEventHelper.ProcessQueue();
 
-            BestHTTP.Extensions.Timer.Process();
+            using (var _ = new ProfilerMarker(nameof(ConnectionEventHelper)).Auto())
+                ConnectionEventHelper.ProcessQueue();
+
+            using (var _ = new ProfilerMarker(nameof(ProtocolEventHelper)).Auto())
+                ProtocolEventHelper.ProcessQueue();
+
+            using (var _ = new ProfilerMarker(nameof(PluginEventHelper)).Auto())
+                PluginEventHelper.ProcessQueue();
+
+            using (var _ = new ProfilerMarker(nameof(Timer)).Auto())
+                BestHTTP.Extensions.Timer.Process();
 
             if (heartbeats != null)
-                heartbeats.Update();
+            {
+                using (var _ = new ProfilerMarker(nameof(HeartbeatManager)).Auto())
+                    heartbeats.Update();
+            }
 
-            BufferPool.Maintain();
+            using (var _ = new ProfilerMarker(nameof(BufferPool)).Auto())
+                BufferPool.Maintain();
+
+            using (var _ = new ProfilerMarker(nameof(StringBuilderPool)).Auto())
+                StringBuilderPool.Maintain();
         }
 
         public static void OnQuit()

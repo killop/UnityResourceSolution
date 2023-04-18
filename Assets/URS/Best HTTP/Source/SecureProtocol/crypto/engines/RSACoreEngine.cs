@@ -5,6 +5,7 @@ using System;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 {
@@ -105,28 +106,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 			return input;
 		}
 
-        public virtual byte[] ConvertOutput(
-			BigInteger result)
+        public virtual byte[] ConvertOutput(BigInteger result)
 		{
             CheckInitialised();
 
-            byte[] output = result.ToByteArrayUnsigned();
-
-			if (forEncryption)
-			{
-				int outSize = GetOutputBlockSize();
-
-				// TODO To avoid this, create version of BigInteger.ToByteArray that
-				// writes to an existing array
-				if (output.Length < outSize) // have ended up with less bytes than normal, lengthen
-				{
-					byte[] tmp = new byte[outSize];
-					output.CopyTo(tmp, tmp.Length - output.Length);
-					output = tmp;
-				}
-			}
-
-			return output;
+			return forEncryption
+				? BigIntegers.AsUnsignedByteArray(GetOutputBlockSize(), result)
+				: BigIntegers.AsUnsignedByteArray(result);
 		}
 
         public virtual BigInteger ProcessBlock(

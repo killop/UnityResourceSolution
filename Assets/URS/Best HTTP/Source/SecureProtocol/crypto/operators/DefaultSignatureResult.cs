@@ -25,6 +25,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators
             signature.CopyTo(sig, sigOff);
             return signature.Length;
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int Collect(Span<byte> destination)
+        {
+            byte[] result = Collect();
+            result.CopyTo(destination);
+            return result.Length;
+        }
+#endif
     }
 }
 #pragma warning restore

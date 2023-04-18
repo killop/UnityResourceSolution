@@ -22,7 +22,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         void SealHashAlgorithms();
 
-        TlsHandshakeHash StopTracking();
+        void StopTracking();
 
         TlsHash ForkPrfHash();
 

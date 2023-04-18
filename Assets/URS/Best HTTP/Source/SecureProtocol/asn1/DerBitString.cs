@@ -2,6 +2,7 @@
 #pragma warning disable
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
@@ -10,9 +11,26 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
 	public class DerBitString
-		: DerStringBase
-	{
-		private static readonly char[] table
+		: DerStringBase, Asn1BitStringParser
+    {
+        internal class Meta : Asn1UniversalType
+        {
+            internal static readonly Asn1UniversalType Instance = new Meta();
+
+            private Meta() : base(typeof(DerBitString), Asn1Tags.BitString) { }
+
+            internal override Asn1Object FromImplicitPrimitive(DerOctetString octetString)
+            {
+                return CreatePrimitive(octetString.GetOctets());
+            }
+
+            internal override Asn1Object FromImplicitConstructed(Asn1Sequence sequence)
+            {
+                return sequence.ToAsn1BitString();
+            }
+        }
+
+        private static readonly char[] table
 			= { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
         /**
@@ -22,23 +40,31 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 		 */
 		public static DerBitString GetInstance(object obj)
 		{
-			if (obj == null || obj is DerBitString)
-			{
-				return (DerBitString) obj;
-			}
-            if (obj is byte[])
+            if (obj == null)
+                return null;
+
+			if (obj is DerBitString derBitString)
+				return derBitString;
+
+            if (obj is IAsn1Convertible asn1Convertible)
+            {
+                Asn1Object asn1Object = asn1Convertible.ToAsn1Object();
+                if (asn1Object is DerBitString converted)
+                    return converted;
+            }
+            else if (obj is byte[] bytes)
             {
                 try
                 {
-                    return (DerBitString)FromByteArray((byte[])obj);
+                    return GetInstance(FromByteArray(bytes));
                 }
-                catch (Exception e)
+                catch (IOException e)
                 {
-                    throw new ArgumentException("encoding error in GetInstance: " + e.ToString());
+                    throw new ArgumentException("failed to construct BIT STRING from byte[]: " + e.Message);
                 }
             }
 
-            throw new ArgumentException("illegal object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
 		}
 
 		/**
@@ -102,7 +128,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
                 return;
             }
 
-            int bits = BigInteger.BitLen(namedBits);
+            int bits = 32 - Integers.NumberOfLeadingZeros(namedBits);
             int bytes = (bits + 7) / 8;
             Debug.Assert(0 < bytes && bytes <= 4);
 
@@ -210,29 +236,37 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             }
 		}
 
-        internal override int EncodedLength(bool withID)
+        internal override IAsn1Encoding GetEncoding(int encoding)
         {
-            return Asn1OutputStream.GetLengthOfEncodingDL(withID, contents.Length);
+            int padBits = contents[0];
+            if (padBits != 0)
+            {
+                int last = contents.Length - 1;
+                byte lastBer = contents[last];
+                byte lastDer = (byte)(lastBer & (0xFF << padBits));
+
+                if (lastBer != lastDer)
+                    return new PrimitiveEncodingSuffixed(Asn1Tags.Universal, Asn1Tags.BitString, contents, lastDer);
+            }
+
+            return new PrimitiveEncoding(Asn1Tags.Universal, Asn1Tags.BitString, contents);
         }
 
-        internal override void Encode(Asn1OutputStream asn1Out, bool withID)
-		{
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
+        {
             int padBits = contents[0];
-            int length = contents.Length;
-            int last = length - 1;
-
-            byte lastOctet = contents[last];
-            byte lastOctetDer = (byte)(contents[last] & (0xFF << padBits));
-
-            if (lastOctet == lastOctetDer)
+            if (padBits != 0)
             {
-                asn1Out.WriteEncodingDL(withID, Asn1Tags.BitString, contents);
+                int last = contents.Length - 1;
+                byte lastBer = contents[last];
+                byte lastDer = (byte)(lastBer & (0xFF << padBits));
+
+                if (lastBer != lastDer)
+                    return new PrimitiveEncodingSuffixed(tagClass, tagNo, contents, lastDer);
             }
-            else
-            {
-                asn1Out.WriteEncodingDL(withID, Asn1Tags.BitString, contents, 0, last, lastOctetDer);
-            }
-		}
+
+            return new PrimitiveEncoding(tagClass, tagNo, contents);
+        }
 
         protected override int Asn1GetHashCode()
 		{
@@ -242,11 +276,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             int padBits = contents[0];
             int last = contents.Length - 1;
 
-            byte lastOctetDer = (byte)(contents[last] & (0xFF << padBits));
+            byte lastDer = (byte)(contents[last] & (0xFF << padBits));
 
             int hc = Arrays.GetHashCode(contents, 0, last);
             hc *= 257;
-            hc ^= lastOctetDer;
+            hc ^= lastDer;
             return hc;
         }
 
@@ -272,42 +306,47 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             }
 
             int padBits = thisContents[0];
-            byte thisLastOctetDer = (byte)(thisContents[last] & (0xFF << padBits));
-            byte thatLastOctetDer = (byte)(thatContents[last] & (0xFF << padBits));
+            byte thisLastDer = (byte)(thisContents[last] & (0xFF << padBits));
+            byte thatLastDer = (byte)(thatContents[last] & (0xFF << padBits));
 
-            return thisLastOctetDer == thatLastOctetDer;
+            return thisLastDer == thatLastDer;
+        }
+
+        public Stream GetBitStream()
+        {
+            return new MemoryStream(contents, 1, contents.Length - 1, false);
+        }
+
+        public Stream GetOctetStream()
+        {
+            int padBits = contents[0] & 0xFF;
+            if (0 != padBits)
+                throw new IOException("expected octet-aligned bitstring, but found padBits: " + padBits);
+
+            return GetBitStream();
+        }
+
+        public Asn1BitStringParser Parser
+        {
+            get { return this; }
         }
 
         public override string GetString()
 		{
-			StringBuilder buffer = new StringBuilder("#");
-
 			byte[] str = GetDerEncoded();
 
-			for (int i = 0; i != str.Length; i++)
+            StringBuilder buffer = PlatformSupport.Text.StringBuilderPool.Get(1 + str.Length * 2); //new StringBuilder(1 + str.Length * 2);
+            buffer.Append('#');
+
+            for (int i = 0; i != str.Length; i++)
 			{
-				uint ubyte = str[i];
-				buffer.Append(table[(ubyte >> 4) & 0xf]);
-				buffer.Append(table[str[i] & 0xf]);
+				uint u8 = str[i];
+				buffer.Append(table[u8 >> 4]);
+				buffer.Append(table[u8 & 0xF]);
 			}
 
-			return buffer.ToString();
+			return PlatformSupport.Text.StringBuilderPool.ReleaseAndGrab(buffer);
 		}
-
-        internal static int EncodedLength(bool withID, int contentsLength)
-        {
-            return Asn1OutputStream.GetLengthOfEncodingDL(withID, contentsLength);
-        }
-
-        internal static void Encode(Asn1OutputStream asn1Out, bool withID, byte[] buf, int off, int len)
-        {
-            asn1Out.WriteEncodingDL(withID, Asn1Tags.BitString, buf, off, len);
-        }
-
-        internal static void Encode(Asn1OutputStream asn1Out, bool withID, byte pad, byte[] buf, int off, int len)
-        {
-            asn1Out.WriteEncodingDL(withID, Asn1Tags.BitString, pad, buf, off, len);
-        }
 
 		internal static DerBitString CreatePrimitive(byte[] contents)
 		{
@@ -323,9 +362,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 
                 byte finalOctet = contents[length - 1];
                 if (finalOctet != (byte)(finalOctet & (0xFF << padBits)))
-                {
-                    return new BerBitString(contents, false);
-                }
+                    return new DLBitString(contents, false);
             }
 
             return new DerBitString(contents, false);

@@ -4,7 +4,6 @@ using System;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
@@ -13,16 +12,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
     {
         internal void UpdateDigest(TlsHash hash)
         {
-            Streams.WriteBufTo(this, new TlsHashSink(hash));
+            WriteTo(new TlsHashSink(hash));
         }
 
         /// <exception cref="IOException"/>
-        internal void CopyTo(Stream output)
+        internal void CopyInputTo(Stream output)
         {
-            // TODO[tls-port]
-            // NOTE: Copy data since the output here may be under control of external code.
-            //Streams.PipeAll(new MemoryStream(buf, 0, count), output);
-            Streams.WriteBufTo(this, output);
+            // TODO[tls] Consider defensive copy if 'output' might be external code
+            WriteTo(output);
         }
     }
 }

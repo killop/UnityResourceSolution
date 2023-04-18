@@ -99,6 +99,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
             Reduce(tt, z);
         }
 
+        public static void Multiply(uint[] x, uint[] y, uint[] z, uint[] tt)
+        {
+            Nat256.Mul(x, y, tt);
+            Reduce(tt, z);
+        }
+
         public static void MultiplyAddToExt(uint[] x, uint[] y, uint[] zz)
         {
             uint c = Nat256.MulAddTo(x, y, zz);
@@ -172,11 +178,31 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
             Reduce(tt, z);
         }
 
+        public static void Square(uint[] x, uint[] z, uint[] tt)
+        {
+            Nat256.Square(x, tt);
+            Reduce(tt, z);
+        }
+
         public static void SquareN(uint[] x, int n, uint[] z)
         {
             Debug.Assert(n > 0);
 
             uint[] tt = Nat256.CreateExt();
+            Nat256.Square(x, tt);
+            Reduce(tt, z);
+
+            while (--n > 0)
+            {
+                Nat256.Square(z, tt);
+                Reduce(tt, z);
+            }
+        }
+
+        public static void SquareN(uint[] x, int n, uint[] z, uint[] tt)
+        {
+            Debug.Assert(n > 0);
+
             Nat256.Square(x, tt);
             Reduce(tt, z);
 

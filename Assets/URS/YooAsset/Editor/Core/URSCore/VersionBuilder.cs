@@ -8,6 +8,8 @@ using UnityEngine;
 using SemanticVersion = SemanticVersioning.SemanticVersion;
 using MHLab.Patch.Core.Octodiff;
 using YooAsset.Utility;
+using UnityEditor;
+using Context = System.Collections.Generic.Dictionary<string, object>;
 
 namespace URS.Editor 
 {
@@ -95,7 +97,7 @@ namespace URS.Editor
             var di = new DirectoryInfo(versionRootDirectory);
             foreach (DirectoryInfo subDirectory in di.GetDirectories())
             {
-                Debug.LogError(subDirectory.Name);
+                //Debug.LogError(subDirectory.Name);
                 var name = subDirectory.Name;
                 var names = name.Split("---");
                 var versionCode = names[0];
@@ -129,13 +131,59 @@ namespace URS.Editor
             fileSystem.WriteAllTextToFile(IndexJsonPath, IndexJson);
         }
 
-        public static void BuildPatch(string versionRootDirectory,IFileSystem fileSystem, string targetVersionCode = null)
+        public static void PurgeVersion(string versionRootDirectory, IFileSystem fileSystem,string targetVersion, int maxVersionCount = 4) 
         {
             var setting = URSRuntimeSetting.instance;
             var IndexJsonPath = fileSystem.CombinePaths(versionRootDirectory, setting.FilesVersionIndexFileName);
             var jsonText = fileSystem.ReadAllTextFromFile(IndexJsonPath);
             var versionIndex = JsonUtility.FromJson<URSFilesVersionIndex>(jsonText);
             versionIndex.AfterSerialize();
+            if (versionIndex.Versions == null || versionIndex.Versions.Length <= maxVersionCount)
+            {
+                Debug.Log($"当前的版本数量{versionIndex.Versions.Length}，小于目标数量{maxVersionCount},跳过跳过版本裁剪");
+                return;
+            }
+            else
+            {
+                int purgeCount = versionIndex.Versions.Length - maxVersionCount;
+                for (int i = 0; i < purgeCount; i++)
+                {
+                    var versionCode = versionIndex.Versions[i].VersionCode;
+                    if (versionCode == targetVersion) 
+                    {
+                        break;// 这样情况一般就是出现了版本回退，版本回退的时候，一般保留高版本
+                    }
+                    var currentDirectoryName = $"{versionCode}---{versionIndex.Versions[i].FilesVersionHash}";
+                    var versionDirectory = fileSystem.CombinePaths(versionRootDirectory, currentDirectoryName).FullPath;
+                    if (!Directory.Exists(versionDirectory))
+                    {
+                        Debug.LogError($"在版本裁剪的过程中遇到不可预知的错误:{versionDirectory}不存在这个版本");
+                        continue;
+                    }
+                    else 
+                    {
+                        fileSystem.DeleteDirectory((FilePath)versionDirectory);
+                    }
+                }
+
+                BuildVersions(versionRootDirectory, fileSystem);
+            }
+        }
+        
+
+        public static void BuildPatch(string versionRootDirectory,IFileSystem fileSystem, string targetVersionCode = null)
+        {
+
+            var setting = URSRuntimeSetting.instance;
+            var IndexJsonPath = fileSystem.CombinePaths(versionRootDirectory, setting.FilesVersionIndexFileName);
+            var jsonText = fileSystem.ReadAllTextFromFile(IndexJsonPath);
+            var versionIndex = JsonUtility.FromJson<URSFilesVersionIndex>(jsonText);
+            versionIndex.AfterSerialize();
+            var patchDirecrtory = fileSystem.CombinePaths(versionRootDirectory, setting.PatchDirectory).FullPath;
+            if (Directory.Exists(patchDirecrtory)) 
+            {
+                Directory.Delete(patchDirecrtory,true);
+            }
             if (versionIndex.Versions == null || versionIndex.Versions.Length <= 1)
             {
                 Debug.LogWarning("构建补丁失败，因为当前文件夹没有可用版本,或者版本数量少于2个");
@@ -172,20 +220,24 @@ namespace URS.Editor
                 }
                 else
                 {
-                    var item = versionIndex.Versions[targetIndex];
-                    var targetVersionDiretoryName = $"{item.VersionCode}---{item.FilesVersionHash}";
-                    var patchDirecrtory = fileSystem.CombinePaths(versionRootDirectory, setting.PatchDirectory).FullPath;
+                    var targetVersion = versionIndex.Versions[targetIndex];
+                    var targetVersionDiretoryName = $"{targetVersion.VersionCode}---{targetVersion.FilesVersionHash}";
                     var tempDirectory = fileSystem.CombinePaths(versionRootDirectory, setting.PatchTempDirectory).FullPath;
                     var patchItemInfos = new Dictionary<string, List<PatchItemVersion>>();
-
+                    //var versionDifference= new Dictionary<string, int>();
                     for (int i = 0; i < versionIndex.Versions.Length; i++)
                     {
                         if (i != targetIndex) 
                         {
-                            var currentDirectoryName = $"{versionIndex.Versions[i].VersionCode}---{versionIndex.Versions[i].FilesVersionHash}";
-                            BinaryDiffVersionDirectroy(versionRootDirectory, patchDirecrtory, tempDirectory, currentDirectoryName, targetVersionDiretoryName, fileSystem, ref patchItemInfos);
+                            var versionCode = versionIndex.Versions[i].VersionCode;
+                            var currentDirectoryName = $"{versionCode}---{versionIndex.Versions[i].FilesVersionHash}";
+                            var differenceCount = 0;
+                            var missCount = 0;
+                            BinaryDiffVersionDirectroy(versionRootDirectory, patchDirecrtory, tempDirectory, currentDirectoryName, targetVersionDiretoryName, fileSystem, ref patchItemInfos,ref differenceCount,ref missCount);
+                            Debug.Log($"From Version{versionCode},To Version{targetVersion.VersionCode},PatchCount {differenceCount} missCount{missCount}");
                         }
                     }
+                   
                     var patchItems = new List<PatchItem>();
                     foreach (var kv in patchItemInfos)
                     {
@@ -208,9 +260,21 @@ namespace URS.Editor
                 }
             }
         }
-
-        private static void BinaryDiffVersionDirectroy(string versionRootDirectory,string patchDirectory,string patchSigDirectory, string fromDirectoryName, string toDirectoryName, IFileSystem fileSystem,ref Dictionary<string,List<PatchItemVersion>> collector)
+        
+        
+        private static void BinaryDiffVersionDirectroy(
+            string versionRootDirectory,
+            string patchDirectory,
+            string patchSigDirectory, 
+            string fromDirectoryName, 
+            string toDirectoryName, 
+            IFileSystem fileSystem,
+            ref Dictionary<string,List<PatchItemVersion>> collector,
+            ref int differenceCount,
+            ref int missCount)
         {
+            differenceCount = 0;
+            missCount = 0;
             var setting = URSRuntimeSetting.instance;
             fromDirectoryName = fileSystem.CombinePaths(versionRootDirectory, fromDirectoryName).FullPath;
             toDirectoryName = fileSystem.CombinePaths(versionRootDirectory, toDirectoryName).FullPath;
@@ -262,10 +326,13 @@ namespace URS.Editor
                         if (!collector.ContainsKey(relativePath))
                         {
                             var list = new List<PatchItemVersion>();
+                            differenceCount++;
                             list.Add(new PatchItemVersion()
                             {
                                 FromHashCode = fromHashCode,
-                                ToHashCode = toHashCode
+                                ToHashCode = toHashCode,
+                                Hash = Hashing.GetFileXXhash(patchPath),
+                                SizeBytes = FileUtility.GetFileSize(patchPath)
                             });
                             collector.Add(relativePath, list);
                         }
@@ -284,43 +351,67 @@ namespace URS.Editor
                             }
                             if (!find)
                             {
+                                differenceCount++;
                                 list.Add(new PatchItemVersion()
                                 {
                                     FromHashCode = fromHashCode,
-                                    ToHashCode = toHashCode
+                                    ToHashCode = toHashCode,
+                                    Hash = Hashing.GetFileXXhash(patchPath),
+                                    SizeBytes = FileUtility.GetFileSize(patchPath)
                                 });
                             }
                         }
                     }
-                    
-                }
-            }
-        }
-        public static void BuildChannleVersionPatches(string channelRoot)
-        {
-            var routerFilePath = $"{channelRoot}/{URSRuntimeSetting.instance.RemoteAppToChannelRouterFileName}";
-            var jsonText = File.ReadAllText(routerFilePath);
-            var router = JsonUtility.FromJson<AppToChannelRouter>(jsonText);
-            var fileSystem = new FileSystem();
-            for (int i = 0; i < router.Items.Length; i++)
-            {
-                var item = router.Items[i];
-                var channel = item.ChannelId;
-                var version = item.VersionCode;
 
-                var channelDirectoryName=  $"{Build.GetChannelRoot()}/{channel}";
-                DirectoryInfo directoryInfo = new DirectoryInfo(channelDirectoryName);
-                foreach (var di in directoryInfo.GetDirectories())
+                }
+                else 
                 {
-                    var diName = di.Name;// android,ios,windows...
-                    var versionRootDirectory = $"{channelDirectoryName}/{diName}";
-                    BuildVersions(versionRootDirectory, fileSystem);
-                    BuildPatch(versionRootDirectory, fileSystem, version);
+                    missCount++;
                 }
             }
-          
         }
-       
+        public static void BuildChannelVersions(string versionRootDirectory , int purgeVersionCount = 4, string targetVersion = null)
+        {
+            var fileSystem = new FileSystem();
+            BuildVersions(versionRootDirectory, fileSystem);
+            if (purgeVersionCount > 0) 
+            {
+                PurgeVersion(versionRootDirectory, fileSystem, targetVersion, purgeVersionCount);
+            }
+            BuildPatch(versionRootDirectory, fileSystem, targetVersion);
+        }
+
+        /// <summary>
+        /// 自动是最新版本
+        /// </summary>
+        public static void BuildAutoAppVersionRouter(string versionRootDirectory,string targetVersion) 
+        {
+            var fileSystem = new FileSystem();
+            var setting = URSRuntimeSetting.instance;
+            var IndexJsonPath = fileSystem.CombinePaths(versionRootDirectory, setting.FilesVersionIndexFileName);
+            var jsonText = fileSystem.ReadAllTextFromFile(IndexJsonPath);
+            var versionIndex = JsonUtility.FromJson<URSFilesVersionIndex>(jsonText);
+            if (string.IsNullOrEmpty(targetVersion)) {
+                targetVersion= versionIndex.Versions[versionIndex.Versions.Length - 1].VersionCode;
+            }
+
+            var routerFilePath = $"{versionRootDirectory}/{URSRuntimeSetting.instance.RemoteAppVersionRouterFileName}";
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(routerFilePath));
+            if (File.Exists(routerFilePath))
+            {
+                File.Delete(routerFilePath);
+            }
+
+            AppVersionRouter router = new AppVersionRouter();
+            router.Items = new AppVersionItem[1];
+            router.Items[0] = new AppVersionItem() 
+            {
+                VersionCode = targetVersion,
+                ApplicationVersion= @"\d+.\d+.\d+"
+            };
+            router.DefaultVersion = targetVersion;
+            File.WriteAllText(routerFilePath, JsonUtility.ToJson(router, true));
+        }
     }
 }
 

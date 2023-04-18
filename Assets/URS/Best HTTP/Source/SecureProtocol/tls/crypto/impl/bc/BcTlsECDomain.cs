@@ -6,7 +6,6 @@ using System.IO;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Agreement;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.EC;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
@@ -21,7 +20,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
     public class BcTlsECDomain
         : TlsECDomain
     {
-        public static BcTlsSecret CalculateBasicAgreement(BcTlsCrypto crypto, ECPrivateKeyParameters privateKey,
+        public static BcTlsSecret CalculateECDHAgreement(BcTlsCrypto crypto, ECPrivateKeyParameters privateKey,
             ECPublicKeyParameters publicKey)
         {
             ECDHBasicAgreement basicAgreement = new ECDHBasicAgreement();
@@ -50,33 +49,29 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             // Parameters are lazily created the first time a particular curve is accessed
 
             string curveName = NamedGroup.GetCurveName(namedGroup);
-            X9ECParameters ecP = CustomNamedCurves.GetByName(curveName);
+            X9ECParameters ecP = ECKeyPairGenerator.FindECCurveByName(curveName);
             if (ecP == null)
-            {
-                ecP = ECNamedCurveTable.GetByName(curveName);
-                if (ecP == null)
-                    return null;
-            }
+                return null;
 
             // It's a bit inefficient to do this conversion every time
             return new ECDomainParameters(ecP.Curve, ecP.G, ecP.N, ecP.H, ecP.GetSeed());
         }
 
         protected readonly BcTlsCrypto m_crypto;
-        protected readonly TlsECConfig m_ecConfig;
-        protected readonly ECDomainParameters m_ecDomainParameters;
+        protected readonly TlsECConfig m_config;
+        protected readonly ECDomainParameters m_domainParameters;
 
         public BcTlsECDomain(BcTlsCrypto crypto, TlsECConfig ecConfig)
         {
             this.m_crypto = crypto;
-            this.m_ecConfig = ecConfig;
-            this.m_ecDomainParameters = GetDomainParameters(ecConfig);
+            this.m_config = ecConfig;
+            this.m_domainParameters = GetDomainParameters(ecConfig);
         }
 
         public virtual BcTlsSecret CalculateECDHAgreement(ECPrivateKeyParameters privateKey,
             ECPublicKeyParameters publicKey)
         {
-            return CalculateBasicAgreement(m_crypto, privateKey, publicKey);
+            return CalculateECDHAgreement(m_crypto, privateKey, publicKey);
         }
 
         public virtual TlsAgreement CreateECDH()
@@ -86,16 +81,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
 
         public virtual ECPoint DecodePoint(byte[] encoding)
         {
-            return m_ecDomainParameters.Curve.DecodePoint(encoding);
+            return m_domainParameters.Curve.DecodePoint(encoding);
         }
 
+        /// <exception cref="IOException"/>
         public virtual ECPublicKeyParameters DecodePublicKey(byte[] encoding)
         {
             try
             {
                 ECPoint point = DecodePoint(encoding);
 
-                return new ECPublicKeyParameters(point, m_ecDomainParameters);
+                return new ECPublicKeyParameters(point, m_domainParameters);
             }
             catch (IOException e)
             {
@@ -120,7 +116,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
         public virtual AsymmetricCipherKeyPair GenerateKeyPair()
         {
             ECKeyPairGenerator keyPairGenerator = new ECKeyPairGenerator();
-            keyPairGenerator.Init(new ECKeyGenerationParameters(m_ecDomainParameters, m_crypto.SecureRandom));
+            keyPairGenerator.Init(new ECKeyGenerationParameters(m_domainParameters, m_crypto.SecureRandom));
             return keyPairGenerator.GenerateKeyPair();
         }
     }

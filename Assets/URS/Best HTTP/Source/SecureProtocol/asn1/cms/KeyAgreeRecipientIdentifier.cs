@@ -46,7 +46,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 					(Asn1TaggedObject)obj, false));
 			}
 
-			throw new ArgumentException("Invalid KeyAgreeRecipientIdentifier: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("Invalid KeyAgreeRecipientIdentifier: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		} 
 
 		private readonly IssuerAndSerialNumber issuerSerial;

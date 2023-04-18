@@ -1,15 +1,13 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Crmf;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
 {
@@ -18,7 +16,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
         private readonly BigInteger _certReqId;
         private X509ExtensionsGenerator _extGenerator;
         private CertTemplateBuilder _templateBuilder;
-        private IList _controls = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+        private IList<IControl> m_controls = new List<IControl>();
         private ISignatureFactory _popSigner;
         private PKMacBuilder _pkMacBuilder;
         private char[] _password;
@@ -75,9 +73,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
             return this;
         }
 
-        public CertificateRequestMessageBuilder SetValidity(Time notBefore, Time notAfter)
+        public CertificateRequestMessageBuilder SetValidity(DateTime? notBefore, DateTime? notAfter)
         {
-            _templateBuilder.SetValidity(new OptionalValidity(notBefore, notAfter));
+            _templateBuilder.SetValidity(new OptionalValidity(CreateTime(notBefore), CreateTime(notAfter)));
             return this;
         }
 
@@ -97,7 +95,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
 
         public CertificateRequestMessageBuilder AddControl(IControl control)
         {
-            _controls.Add(control);
+            m_controls.Add(control);
             return this;
         }
 
@@ -197,13 +195,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
 
             v.Add(_templateBuilder.Build());
 
-            if (_controls.Count > 0)
+            if (m_controls.Count > 0)
             {
                 Asn1EncodableVector controlV = new Asn1EncodableVector();
 
-                foreach (object item in _controls)
+                foreach (var control in m_controls)
                 {
-                    IControl control = (IControl)item;
                     controlV.Add(new AttributeTypeAndValue(control.Type, control.Value));
                 }
 
@@ -260,6 +257,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
             }
 
             return new CertificateRequestMessage(CertReqMsg.GetInstance(new DerSequence(v)));
+        }
+
+        private static Time CreateTime(DateTime? dateTime)
+        {
+            return dateTime == null ? null : new Time(dateTime.Value);
         }
     }
 }

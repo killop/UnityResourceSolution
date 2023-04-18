@@ -19,8 +19,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 	{
 		private readonly DirectoryString restriction;
 
-		public static Restriction GetInstance(
-			object obj)
+		public static Restriction GetInstance(object obj)
 		{
 			if (obj is Restriction)
 				return (Restriction) obj;
@@ -28,7 +27,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 			if (obj is IAsn1String)
 				return new Restriction(DirectoryString.GetInstance(obj));
 
-            throw new ArgumentException("Unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("Unknown object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		/**
@@ -42,8 +41,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 		*
 		* @param restriction A IAsn1String.
 		*/
-		private Restriction(
-			DirectoryString restriction)
+		private Restriction(DirectoryString restriction)
 		{
 			this.restriction = restriction;
 		}
@@ -53,8 +51,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 		*
 		* @param restriction The description of the restriction.
 		*/
-		public Restriction(
-			string restriction)
+		public Restriction(string restriction)
 		{
 			this.restriction = new DirectoryString(restriction);
 		}

@@ -25,7 +25,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Crmf
             if (obj is Asn1Sequence)
                 return new Controls((Asn1Sequence)obj);
 
-            throw new ArgumentException("Invalid object: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("Invalid object: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
         public Controls(params AttributeTypeAndValue[] atvs)

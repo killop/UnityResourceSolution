@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -13,7 +13,6 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
@@ -24,7 +23,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 
 		private DerObjectIdentifier			keyAgreementOID;
 		private DerObjectIdentifier			keyEncryptionOID;
-		private IList					    recipientCerts;
+		private IList<X509Certificate>      recipientCerts;
 		private AsymmetricCipherKeyPair		senderKeyPair;
 
 		internal KeyAgreeRecipientInfoGenerator()
@@ -41,9 +40,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			set { this.keyEncryptionOID = value; }
 		}
 
-		internal ICollection RecipientCerts
+		internal IEnumerable<X509Certificate> RecipientCerts
 		{
-			set { this.recipientCerts = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(value); }
+			set { this.recipientCerts = new List<X509Certificate>(value); }
 		}
 
 		internal AsymmetricCipherKeyPair SenderKeyPair

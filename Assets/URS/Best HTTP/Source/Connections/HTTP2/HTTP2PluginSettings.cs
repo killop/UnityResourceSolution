@@ -56,7 +56,7 @@ namespace BestHTTP.Connections.HTTP2
         /// <summary>
         /// Time between two ping messages.
         /// </summary>
-        public TimeSpan PingFrequency = TimeSpan.FromSeconds(5);
+        public TimeSpan PingFrequency = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// Timeout to receive a ping acknowledgement from the server. If no ack reveived in this time the connection will be treated as broken.
@@ -68,6 +68,9 @@ namespace BestHTTP.Connections.HTTP2
         /// </summary>
         public bool EnableConnectProtocol = false;
 
+        /// <summary>
+        /// Settings for WebSockets over HTTP/2 (RFC 8441)
+        /// </summary>
         public WebSocketOverHTTP2Settings WebSocketOverHTTP2Settings = new WebSocketOverHTTP2Settings();
     }
 }

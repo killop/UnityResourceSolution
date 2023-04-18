@@ -1,12 +1,11 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
@@ -45,15 +44,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             }
         }
 
-        /// <summary>an <see cref="IList"/> of (possibly null) <see cref="Asn1.Ocsp.OcspResponse"/>.</summary>
-        public IList OcspResponseList
+        /// <summary>an <see cref="IList{T}"/> of (possibly null) <see cref="Asn1.Ocsp.OcspResponse"/>.</summary>
+        public IList<OcspResponse> OcspResponseList
         {
             get
             {
                 if (!IsCorrectType(CertificateStatusType.ocsp_multi, m_response))
                     throw new InvalidOperationException("'response' is not an OCSPResponseList");
 
-                return (IList)m_response;
+                return (IList<OcspResponse>)m_response;
             }
         }
 
@@ -75,10 +74,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             }
             case CertificateStatusType.ocsp_multi:
             {
-                IList ocspResponseList = (IList)m_response;
+                var ocspResponseList = (IList<OcspResponse>)m_response;
                 int count = ocspResponseList.Count;
 
-                IList derEncodings = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(count);
+                var derEncodings = new List<byte[]>(count);
                 long totalLength = 0;
                 foreach (OcspResponse ocspResponse in ocspResponseList)
                 {
@@ -139,8 +138,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 RequireStatusRequestVersion(1, statusRequestVersion);
 
                 byte[] derEncoding = TlsUtilities.ReadOpaque24(input, 1);
-                Asn1Object derObject = TlsUtilities.ReadDerObject(derEncoding);
-                response = OcspResponse.GetInstance(derObject);
+                response = ParseOcspResponse(derEncoding);
                 break;
             }
             case CertificateStatusType.ocsp_multi:
@@ -150,7 +148,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 byte[] ocsp_response_list = TlsUtilities.ReadOpaque24(input, 1);
                 MemoryStream buf = new MemoryStream(ocsp_response_list, false);
 
-                IList ocspResponseList = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+                var ocspResponseList = new List<OcspResponse>();
                 while (buf.Position < buf.Length)
                 {
                     if (ocspResponseList.Count >= certificateCount)
@@ -164,14 +162,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                     else
                     {
                         byte[] derEncoding = TlsUtilities.ReadFully(length, buf);
-                        Asn1Object derObject = TlsUtilities.ReadDerObject(derEncoding);
-                        OcspResponse ocspResponse = OcspResponse.GetInstance(derObject);
-                        ocspResponseList.Add(ocspResponse);
+                        ocspResponseList.Add(ParseOcspResponse(derEncoding));
                     }
                 }
 
-                // Match IList capacity to actual size
-                response = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(ocspResponseList);
+                response = ocspResponseList;
                 break;
             }
             default:
@@ -181,7 +176,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             return new CertificateStatus(status_type, response);
         }
 
-        private static bool IsCorrectType(short statusType, Object response)
+        private static bool IsCorrectType(short statusType, object response)
         {
             switch (statusType)
             {
@@ -196,20 +191,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         private static bool IsOcspResponseList(object response)
         {
-            if (!(response is IList))
-                return false;
+            return response is IList<OcspResponse> v && v.Count > 0;
+        }
 
-            IList v = (IList)response;
-            int count = v.Count;
-            if (count < 1)
-                return false;
-
-            foreach (object e in v)
-            {
-                if (null != e && !(e is OcspResponse))
-                    return false;
-            }
-            return true;
+        /// <exception cref="IOException"/>
+        private static OcspResponse ParseOcspResponse(byte[] derEncoding)
+        {
+            Asn1Object asn1 = TlsUtilities.ReadAsn1Object(derEncoding);
+            OcspResponse ocspResponse = OcspResponse.GetInstance(asn1);
+            TlsUtilities.RequireDerEncoding(ocspResponse, derEncoding);
+            return ocspResponse;
         }
 
         /// <exception cref="IOException"/>

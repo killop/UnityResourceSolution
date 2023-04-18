@@ -2,27 +2,34 @@
 #pragma warning disable
 using System;
 using System.IO;
+using System.Runtime.Serialization;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
-    public class TlsException
+	[Serializable]
+	public class TlsException
         : IOException
     {
-        public TlsException()
-            : base()
-        {
-        }
+		public TlsException()
+			: base()
+		{
+		}
 
-        public TlsException(string message)
-            : base(message)
-        {
-        }
+		public TlsException(string message)
+			: base(message)
+		{
+		}
 
-        public TlsException(string message, Exception cause)
-            : base(message, cause)
-        {
-        }
-    }
+		public TlsException(string message, Exception innerException)
+			: base(message, innerException)
+		{
+		}
+
+		protected TlsException(SerializationInfo info, StreamingContext context)
+			: base(info, context)
+		{
+		}
+	}
 }
 #pragma warning restore
 #endif

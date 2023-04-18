@@ -125,7 +125,7 @@ namespace YooAsset
 				if (isError == false)
 				{
 					// 注意：如果文件验证失败需要删除文件
-					if (SandboxFileSystem.CheckContentIntegrity(_unzipEntry.StreamFileMeta, _unzipEntry.HardiskSavePath) == false)
+					if (URSFileSystem.DownloadFolderCheckContentIntegrity(_unzipEntry.StreamFileMeta, _unzipEntry.HardiskSavePath) == false)
 					{
 						isError = true;
 						_lastError = $"Verification failed";			
@@ -146,7 +146,7 @@ namespace YooAsset
 				{
 					_steps = ESteps.Succeed;
                     Logger.Log($"下载完毕{_unzipEntry.HardiskSavePath} ");
-                    SandboxFileSystem.RegisterVerifyFile(_unzipEntry.StreamFileMeta);
+                    URSFileSystem.DownloadFolderRegisterVerifyFile(_unzipEntry.StreamFileMeta);
 				}
 
 				// 释放下载器

@@ -29,12 +29,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
             }
         }
 
-
-        public int GetValue()
-        {
-            return crc;
-        }
-
 		public int Value
 		{
 			get { return crc; }

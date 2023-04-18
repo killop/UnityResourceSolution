@@ -25,13 +25,19 @@ namespace BestHTTP.Logger
         }
 
         private List<LoggingContextField> fields = null;
+        private static System.Random random = new System.Random();
 
         private LoggingContext() { }
 
         public LoggingContext(object boundto)
         {
-            Add("TypeName", boundto.GetType().Name);
-            Add("Hash", boundto.GetHashCode());
+            var name = boundto.GetType().Name;
+            Add("TypeName", name);
+
+            long hash = 0;
+            lock (random)
+                hash = ((long)boundto.GetHashCode() << 32 | (long)name.GetHashCode()) ^ ((long)this.GetHashCode() << 16) | (long)(random.Next(int.MaxValue) << 32) | (long)random.Next(int.MaxValue);
+            Add("Hash", hash);
         }
 
         public void Add(string key, long value)
@@ -152,7 +158,8 @@ namespace BestHTTP.Logger
 
         public static string Escape(string original)
         {
-            return new StringBuilder(original)
+            return PlatformSupport.Text.StringBuilderPool.ReleaseAndGrab(PlatformSupport.Text.StringBuilderPool.Get(1)
+                        .Append(original)
                         .Replace("\\", "\\\\")
                         .Replace("\"", "\\\"")
                         .Replace("/", "\\/")
@@ -160,8 +167,7 @@ namespace BestHTTP.Logger
                         .Replace("\f", "\\f")
                         .Replace("\n", "\\n")
                         .Replace("\r", "\\r")
-                        .Replace("\t", "\\t")
-                        .ToString();
+                        .Replace("\t", "\\t"));
         }
     }
 }

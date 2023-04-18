@@ -1,14 +1,12 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-using System.IO;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Date;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Extension;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
@@ -21,17 +19,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 	* @see org.bouncycastle.x509.X509Store
 	*/
 	public class X509AttrCertStoreSelector
-		: IX509Selector
+		: ISelector<X509V2AttributeCertificate>
 	{
 		// TODO: name constraints???
 
-		private IX509AttributeCertificate attributeCert;
-		private DateTimeObject attributeCertificateValid;
+		private X509V2AttributeCertificate attributeCert;
+		private DateTime? attributeCertificateValid;
 		private AttributeCertificateHolder holder;
 		private AttributeCertificateIssuer issuer;
 		private BigInteger serialNumber;
-		private ISet targetNames = new HashSet();
-		private ISet targetGroups = new HashSet();
+		private ISet<GeneralName> targetNames = new HashSet<GeneralName>();
+		private ISet<GeneralName> targetGroups = new HashSet<GeneralName>();
 
 		public X509AttrCertStoreSelector()
 		{
@@ -45,23 +43,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 			this.holder = o.holder;
 			this.issuer = o.issuer;
 			this.serialNumber = o.serialNumber;
-			this.targetGroups = new HashSet(o.targetGroups);
-			this.targetNames = new HashSet(o.targetNames);
+			this.targetGroups = new HashSet<GeneralName>(o.targetGroups);
+			this.targetNames = new HashSet<GeneralName>(o.targetNames);
 		}
 
 		/// <summary>
 		/// Decides if the given attribute certificate should be selected.
 		/// </summary>
-		/// <param name="obj">The attribute certificate to be checked.</param>
+		/// <param name="attrCert">The attribute certificate to be checked.</param>
 		/// <returns><code>true</code> if the object matches this selector.</returns>
-		public bool Match(
-			object obj)
+		public bool Match(X509V2AttributeCertificate attrCert)
 		{
-			if (obj == null)
-				throw new ArgumentNullException("obj");
-
-			IX509AttributeCertificate attrCert = obj as IX509AttributeCertificate;
-
 			if (attrCert == null)
 				return false;
 
@@ -163,22 +155,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 
 		/// <summary>The attribute certificate which must be matched.</summary>
 		/// <remarks>If <c>null</c> is given, any will do.</remarks>
-		public IX509AttributeCertificate AttributeCert
+		public X509V2AttributeCertificate AttributeCert
 		{
 			get { return attributeCert; }
 			set { this.attributeCert = value; }
 		}
 
-
-		public DateTimeObject AttribueCertificateValid
-		{
-			get { return attributeCertificateValid; }
-			set { this.attributeCertificateValid = value; }
-		}
-
 		/// <summary>The criteria for validity</summary>
 		/// <remarks>If <c>null</c> is given any will do.</remarks>
-		public DateTimeObject AttributeCertificateValid
+		public DateTime? AttributeCertificateValid
 		{
 			get { return attributeCertificateValid; }
 			set { this.attributeCertificateValid = value; }
@@ -241,8 +226,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		* @param name a byte array containing the name in ASN.1 DER encoded form of a GeneralName
 		* @throws IOException if a parsing error occurs.
 		*/
-		public void AddTargetName(
-			byte[] name)
+		public void AddTargetName(byte[] name)
 		{
 			AddTargetName(GeneralName.GetInstance(Asn1Object.FromByteArray(name)));
 		}
@@ -260,8 +244,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		* @see #AddTargetName(byte[])
 		* @see #AddTargetName(GeneralName)
 		*/
-		public void SetTargetNames(
-			IEnumerable names)
+		public void SetTargetNames(IEnumerable<object> names)
 		{
 			targetNames = ExtractGeneralNames(names);
 		}
@@ -275,9 +258,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		* @return The collection of target names
 		* @see #setTargetNames(Collection)
 		*/
-		public IEnumerable GetTargetNames()
+		public IEnumerable<GeneralName> GetTargetNames()
 		{
-			return new EnumerableProxy(targetNames);
+			return CollectionUtilities.Proxy(targetNames);
 		}
 
 		/**
@@ -293,8 +276,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		*
 		* @param group The group as GeneralName form (not <code>null</code>)
 		*/
-		public void AddTargetGroup(
-			GeneralName group)
+		public void AddTargetGroup(GeneralName group)
 		{
 			targetGroups.Add(group);
 		}
@@ -313,8 +295,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		* @param name a byte array containing the group in ASN.1 DER encoded form of a GeneralName
 		* @throws IOException if a parsing error occurs.
 		*/
-		public void AddTargetGroup(
-			byte[] name)
+		public void AddTargetGroup(byte[] name)
 		{
 			AddTargetGroup(GeneralName.GetInstance(Asn1Object.FromByteArray(name)));
 		}
@@ -332,8 +313,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		* @see #AddTargetGroup(byte[])
 		* @see #AddTargetGroup(GeneralName)
 		*/
-		public void SetTargetGroups(
-			IEnumerable names)
+		public void SetTargetGroups(IEnumerable<object> names)
 		{
 			targetGroups = ExtractGeneralNames(names);
 		}
@@ -347,28 +327,31 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		* @return The collection of target groups.
 		* @see #setTargetGroups(Collection)
 		*/
-		public IEnumerable GetTargetGroups()
+		public IEnumerable<GeneralName> GetTargetGroups()
 		{
-			return new EnumerableProxy(targetGroups);
+			return CollectionUtilities.Proxy(targetGroups);
 		}
 
-		private ISet ExtractGeneralNames(
-			IEnumerable names)
+		private ISet<GeneralName> ExtractGeneralNames(IEnumerable<object> names)
 		{
-			ISet result = new HashSet();
+			var result = new HashSet<GeneralName>();
 
 			if (names != null)
 			{
 				foreach (object o in names)
 				{
-					if (o is GeneralName)
+					if (o is GeneralName gn)
 					{
-						result.Add(o);
+						result.Add(gn);
+					}
+					else if (o is byte[] bs)
+					{
+						result.Add(GeneralName.GetInstance(Asn1Object.FromByteArray(bs)));
 					}
 					else
-					{
-						result.Add(GeneralName.GetInstance(Asn1Object.FromByteArray((byte[]) o)));
-					}
+                    {
+						throw new InvalidOperationException();
+                    }
 				}
 			}
 

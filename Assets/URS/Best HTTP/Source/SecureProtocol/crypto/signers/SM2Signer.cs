@@ -74,10 +74,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 
             if (forSigning)
             {
-                if (baseParam is ParametersWithRandom)
+                if (baseParam is ParametersWithRandom rParam)
                 {
-                    ParametersWithRandom rParam = (ParametersWithRandom)baseParam;
-
                     ecKey = (ECKeyParameters)rParam.Parameters;
                     ecParams = ecKey.Parameters;
                     kCalculator.Init(ecParams.N, rParam.Random);
@@ -86,7 +84,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
                 {
                     ecKey = (ECKeyParameters)baseParam;
                     ecParams = ecKey.Parameters;
-                    kCalculator.Init(ecParams.N, new SecureRandom());
+                    kCalculator.Init(ecParams.N, CryptoServicesRegistrar.GetSecureRandom());
                 }
                 pubPoint = CreateBasePointMultiplier().Multiply(ecParams.G, ((ECPrivateKeyParameters)ecKey).D).Normalize();
             }
@@ -108,10 +106,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             digest.Update(b);
         }
 
-        public virtual void BlockUpdate(byte[] buf, int off, int len)
+        public virtual void BlockUpdate(byte[] input, int inOff, int inLen)
         {
-            digest.BlockUpdate(buf, off, len);
+            digest.BlockUpdate(input, inOff, inLen);
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            digest.BlockUpdate(input);
+        }
+#endif
 
         public virtual bool VerifySignature(byte[] signature)
         {

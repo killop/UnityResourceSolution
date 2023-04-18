@@ -71,7 +71,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms.Ecc
 				return new MQVuserKeyingMaterial((Asn1Sequence)obj);
 			}
 
-            throw new ArgumentException("Invalid MQVuserKeyingMaterial: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("Invalid MQVuserKeyingMaterial: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
 		}
 		
 		public OriginatorPublicKey EphemeralPublicKey

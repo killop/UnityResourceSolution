@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
@@ -149,7 +149,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
             handshake.HandshakeHash.NotifyPrfDetermined();
 
-            IList serverSupplementalData = state.server.GetServerSupplementalData();
+            var serverSupplementalData = state.server.GetServerSupplementalData();
             if (serverSupplementalData != null)
             {
                 byte[] supplementalDataBody = GenerateSupplementalData(serverSupplementalData);
@@ -157,7 +157,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             }
 
             state.keyExchange = TlsUtilities.InitKeyExchangeServer(state.serverContext, state.server);
-            state.serverCredentials = TlsUtilities.EstablishServerCredentials(state.server);
+
+            state.serverCredentials = null;
+
+            if (!KeyExchangeAlgorithm.IsAnonymous(securityParameters.KeyExchangeAlgorithm))
+            {
+                state.serverCredentials = TlsUtilities.EstablishServerCredentials(state.server);
+            }
 
             // Server certificate
             {
@@ -227,17 +233,34 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
                     TlsUtilities.EstablishServerSigAlgs(securityParameters, state.certificateRequest);
 
-                    TlsUtilities.TrackHashAlgorithms(handshake.HandshakeHash, securityParameters.ServerSigAlgs);
+                    if (ProtocolVersion.DTLSv12.Equals(securityParameters.NegotiatedVersion))
+                    {
+                        TlsUtilities.TrackHashAlgorithms(handshake.HandshakeHash, securityParameters.ServerSigAlgs);
 
-                    byte[] certificateRequestBody = GenerateCertificateRequest(state, state.certificateRequest);
-                    handshake.SendMessage(HandshakeType.certificate_request, certificateRequestBody);
+                        if (state.serverContext.Crypto.HasAnyStreamVerifiers(securityParameters.ServerSigAlgs))
+                        {
+                            handshake.HandshakeHash.ForceBuffering();
+                        }
+                    }
+                    else
+                    {
+                        if (state.serverContext.Crypto.HasAnyStreamVerifiersLegacy(state.certificateRequest.CertificateTypes))
+                        {
+                            handshake.HandshakeHash.ForceBuffering();
+                        }
+                    }
                 }
             }
 
-            handshake.SendMessage(HandshakeType.server_hello_done, TlsUtilities.EmptyBytes);
+            handshake.HandshakeHash.SealHashAlgorithms();
 
-            bool forceBuffering = false;
-            TlsUtilities.SealHandshakeHash(state.serverContext, handshake.HandshakeHash, forceBuffering);
+            if (null != state.certificateRequest)
+            {
+                byte[] certificateRequestBody = GenerateCertificateRequest(state, state.certificateRequest);
+                handshake.SendMessage(HandshakeType.certificate_request, certificateRequestBody);
+            }
+
+            handshake.SendMessage(HandshakeType.server_hello_done, TlsUtilities.EmptyBytes);
 
             clientMessage = handshake.ReceiveMessage();
 
@@ -299,12 +322,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
              * parameters).
              */
             {
-                TlsHandshakeHash certificateVerifyHash = handshake.PrepareToFinish();
-
                 if (ExpectCertificateVerifyMessage(state))
                 {
-                    byte[] certificateVerifyBody = handshake.ReceiveMessageBody(HandshakeType.certificate_verify);
-                    ProcessCertificateVerify(state, certificateVerifyBody, certificateVerifyHash);
+                    clientMessage = handshake.ReceiveMessageDelayedDigest(HandshakeType.certificate_verify);
+                    byte[] certificateVerifyBody = clientMessage.Body;
+                    ProcessCertificateVerify(state, certificateVerifyBody, handshake.HandshakeHash);
+                    handshake.PrepareToFinish();
+                    handshake.UpdateHandshakeMessagesDigest(clientMessage);
+                }
+                else
+                {
+                    handshake.PrepareToFinish();
                 }
             }
 
@@ -355,7 +383,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
             recordLayer.InitHeartbeat(state.heartbeat, HeartbeatMode.peer_allowed_to_send == state.heartbeatPolicy);
 
-            return new DtlsTransport(recordLayer);
+            return new DtlsTransport(recordLayer, state.server.IgnoreCorruptDtlsRecords);
         }
 
         /// <exception cref="IOException"/>
@@ -611,7 +639,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             MemoryStream buf = new MemoryStream(body, false);
 
             Certificate.ParseOptions options = new Certificate.ParseOptions()
-                .SetMaxChainLength(state.server.GetMaxCertificateChainLength());
+            {
+                CertificateType = TlsExtensionsUtilities.GetClientCertificateTypeExtensionServer(
+                    state.clientExtensions, CertificateType.X509),
+                MaxChainLength = state.server.GetMaxCertificateChainLength(),
+            };
 
             Certificate clientCertificate = Certificate.Parse(options, state.serverContext, buf, null);
 
@@ -641,7 +673,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         protected virtual void ProcessClientHello(ServerHandshakeState state, byte[] body)
         {
             MemoryStream buf = new MemoryStream(body, false);
-            ClientHello clientHello = ClientHello.Parse(buf, new NullOutputStream());
+            ClientHello clientHello = ClientHello.Parse(buf, Stream.Null);
             ProcessClientHello(state, clientHello);
         }
 
@@ -803,7 +835,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         protected virtual void ProcessClientSupplementalData(ServerHandshakeState state, byte[] body)
         {
             MemoryStream buf = new MemoryStream(body, false);
-            IList clientSupplementalData = TlsProtocol.ReadSupplementalDataMessage(buf);
+            var clientSupplementalData = TlsProtocol.ReadSupplementalDataMessage(buf);
             state.server.ProcessClientSupplementalData(clientSupplementalData);
         }
 
@@ -827,8 +859,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             internal TlsSecret sessionMasterSecret = null;
             internal SessionParameters.Builder sessionParametersBuilder = null;
             internal int[] offeredCipherSuites = null;
-            internal IDictionary clientExtensions = null;
-            internal IDictionary serverExtensions = null;
+            internal IDictionary<int, byte[]> clientExtensions = null;
+            internal IDictionary<int, byte[]> serverExtensions = null;
             internal bool offeredExtendedMasterSecret = false;
             internal bool resumedSession = false;
             internal bool expectSessionTicket = false;

@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 {
@@ -60,7 +59,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			baseDigest.BlockUpdate(input, inOff, length);
 		}
 
-		public int DoFinal(byte[] output, int outOff)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            baseDigest.BlockUpdate(input);
+        }
+#endif
+
+        public int DoFinal(byte[] output, int outOff)
 		{
 			byte[] tmp = new byte[baseDigest.GetDigestSize()];
 
@@ -71,7 +77,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			return length;
 		}
 
-		public void Reset()
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int DoFinal(Span<byte> output)
+        {
+			int baseDigestSize = baseDigest.GetDigestSize();
+            Span<byte> tmp = baseDigestSize <= 128
+				? stackalloc byte[baseDigestSize]
+				: new byte[baseDigestSize];
+
+            baseDigest.DoFinal(tmp);
+
+            tmp[..length].CopyTo(output);
+
+            return length;
+        }
+#endif
+
+        public void Reset()
 		{
 			baseDigest.Reset();
 		}

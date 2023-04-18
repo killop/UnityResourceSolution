@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.BC;
@@ -12,40 +12,36 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.TeleTrust;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
 {
     /// <summary>
     ///
     /// </summary>
-    public sealed class PbeUtilities
+    public static class PbeUtilities
     {
-        private PbeUtilities()
-        {
-        }
-
         const string Pkcs5S1 = "Pkcs5S1";
         const string Pkcs5S2 = "Pkcs5S2";
         const string Pkcs12 = "Pkcs12";
         const string OpenSsl = "OpenSsl";
 
-        private static readonly IDictionary algorithms = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
-        private static readonly IDictionary algorithmType = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
-        private static readonly IDictionary oids = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+        private static readonly IDictionary<string, string> Algorithms =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly IDictionary<string, string> AlgorithmType =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly IDictionary<string, DerObjectIdentifier> Oids =
+            new Dictionary<string, DerObjectIdentifier>(StringComparer.OrdinalIgnoreCase);
 
         static PbeUtilities()
         {
-            algorithms["PKCS5SCHEME1"] = "Pkcs5scheme1";
-            algorithms["PKCS5SCHEME2"] = "Pkcs5scheme2";
-            algorithms["PBKDF2"] = "Pkcs5scheme2";
-            algorithms[PkcsObjectIdentifiers.IdPbeS2.Id] = "Pkcs5scheme2";
+            Algorithms["PKCS5SCHEME1"] = "Pkcs5scheme1";
+            Algorithms["PKCS5SCHEME2"] = "Pkcs5scheme2";
+            Algorithms["PBKDF2"] = "Pkcs5scheme2";
+            Algorithms[PkcsObjectIdentifiers.IdPbeS2.Id] = "Pkcs5scheme2";
 //			algorithms[PkcsObjectIdentifiers.IdPbkdf2.Id] = "Pkcs5scheme2";
 
             // FIXME Add support for these? (see Pkcs8Generator)
@@ -54,155 +50,155 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
 //			algorithms[NistObjectIdentifiers.IdAes192Cbc.Id] = "Pkcs5scheme2";
 //			algorithms[NistObjectIdentifiers.IdAes256Cbc.Id] = "Pkcs5scheme2";
 
-            algorithms["PBEWITHMD2ANDDES-CBC"] = "PBEwithMD2andDES-CBC";
-            algorithms[PkcsObjectIdentifiers.PbeWithMD2AndDesCbc.Id] = "PBEwithMD2andDES-CBC";
-            algorithms["PBEWITHMD2ANDRC2-CBC"] = "PBEwithMD2andRC2-CBC";
-            algorithms[PkcsObjectIdentifiers.PbeWithMD2AndRC2Cbc.Id] = "PBEwithMD2andRC2-CBC";
-            algorithms["PBEWITHMD5ANDDES-CBC"] = "PBEwithMD5andDES-CBC";
-            algorithms[PkcsObjectIdentifiers.PbeWithMD5AndDesCbc.Id] = "PBEwithMD5andDES-CBC";
-            algorithms["PBEWITHMD5ANDRC2-CBC"] = "PBEwithMD5andRC2-CBC";
-            algorithms[PkcsObjectIdentifiers.PbeWithMD5AndRC2Cbc.Id] = "PBEwithMD5andRC2-CBC";
-            algorithms["PBEWITHSHA1ANDDES"] = "PBEwithSHA-1andDES-CBC";
-            algorithms["PBEWITHSHA-1ANDDES"] = "PBEwithSHA-1andDES-CBC";
-            algorithms["PBEWITHSHA1ANDDES-CBC"] = "PBEwithSHA-1andDES-CBC";
-            algorithms["PBEWITHSHA-1ANDDES-CBC"] = "PBEwithSHA-1andDES-CBC";
-            algorithms[PkcsObjectIdentifiers.PbeWithSha1AndDesCbc.Id] = "PBEwithSHA-1andDES-CBC";
-            algorithms["PBEWITHSHA1ANDRC2"] = "PBEwithSHA-1andRC2-CBC";
-            algorithms["PBEWITHSHA-1ANDRC2"] = "PBEwithSHA-1andRC2-CBC";
-            algorithms["PBEWITHSHA1ANDRC2-CBC"] = "PBEwithSHA-1andRC2-CBC";
-            algorithms["PBEWITHSHA-1ANDRC2-CBC"] = "PBEwithSHA-1andRC2-CBC";
-            algorithms[PkcsObjectIdentifiers.PbeWithSha1AndRC2Cbc.Id] = "PBEwithSHA-1andRC2-CBC";
-            algorithms["PKCS12"] = "Pkcs12";
-            algorithms[BCObjectIdentifiers.bc_pbe_sha1_pkcs12_aes128_cbc.Id] = "PBEwithSHA-1and128bitAES-CBC-BC";
-            algorithms[BCObjectIdentifiers.bc_pbe_sha1_pkcs12_aes192_cbc.Id] = "PBEwithSHA-1and192bitAES-CBC-BC";
-            algorithms[BCObjectIdentifiers.bc_pbe_sha1_pkcs12_aes256_cbc.Id] = "PBEwithSHA-1and256bitAES-CBC-BC";
-            algorithms[BCObjectIdentifiers.bc_pbe_sha256_pkcs12_aes128_cbc.Id] = "PBEwithSHA-256and128bitAES-CBC-BC";
-            algorithms[BCObjectIdentifiers.bc_pbe_sha256_pkcs12_aes192_cbc.Id] = "PBEwithSHA-256and192bitAES-CBC-BC";
-            algorithms[BCObjectIdentifiers.bc_pbe_sha256_pkcs12_aes256_cbc.Id] = "PBEwithSHA-256and256bitAES-CBC-BC";
-            algorithms["PBEWITHSHAAND128BITRC4"] = "PBEwithSHA-1and128bitRC4";
-            algorithms["PBEWITHSHA1AND128BITRC4"] = "PBEwithSHA-1and128bitRC4";
-            algorithms["PBEWITHSHA-1AND128BITRC4"] = "PBEwithSHA-1and128bitRC4";
-            algorithms[PkcsObjectIdentifiers.PbeWithShaAnd128BitRC4.Id] = "PBEwithSHA-1and128bitRC4";
-            algorithms["PBEWITHSHAAND40BITRC4"] = "PBEwithSHA-1and40bitRC4";
-            algorithms["PBEWITHSHA1AND40BITRC4"] = "PBEwithSHA-1and40bitRC4";
-            algorithms["PBEWITHSHA-1AND40BITRC4"] = "PBEwithSHA-1and40bitRC4";
-            algorithms[PkcsObjectIdentifiers.PbeWithShaAnd40BitRC4.Id] = "PBEwithSHA-1and40bitRC4";
-            algorithms["PBEWITHSHAAND3-KEYDESEDE-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
-            algorithms["PBEWITHSHAAND3-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
-            algorithms["PBEWITHSHA1AND3-KEYDESEDE-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
-            algorithms["PBEWITHSHA1AND3-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
-            algorithms["PBEWITHSHA-1AND3-KEYDESEDE-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
-            algorithms["PBEWITHSHA-1AND3-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
-            algorithms[PkcsObjectIdentifiers.PbeWithShaAnd3KeyTripleDesCbc.Id] = "PBEwithSHA-1and3-keyDESEDE-CBC";
-            algorithms["PBEWITHSHAAND2-KEYDESEDE-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
-            algorithms["PBEWITHSHAAND2-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
-            algorithms["PBEWITHSHA1AND2-KEYDESEDE-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
-            algorithms["PBEWITHSHA1AND2-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
-            algorithms["PBEWITHSHA-1AND2-KEYDESEDE-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
-            algorithms["PBEWITHSHA-1AND2-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
-            algorithms[PkcsObjectIdentifiers.PbeWithShaAnd2KeyTripleDesCbc.Id] = "PBEwithSHA-1and2-keyDESEDE-CBC";
-            algorithms["PBEWITHSHAAND128BITRC2-CBC"] = "PBEwithSHA-1and128bitRC2-CBC";
-            algorithms["PBEWITHSHA1AND128BITRC2-CBC"] = "PBEwithSHA-1and128bitRC2-CBC";
-            algorithms["PBEWITHSHA-1AND128BITRC2-CBC"] = "PBEwithSHA-1and128bitRC2-CBC";
-            algorithms[PkcsObjectIdentifiers.PbeWithShaAnd128BitRC2Cbc.Id] = "PBEwithSHA-1and128bitRC2-CBC";
-            algorithms["PBEWITHSHAAND40BITRC2-CBC"] = "PBEwithSHA-1and40bitRC2-CBC";
-            algorithms["PBEWITHSHA1AND40BITRC2-CBC"] = "PBEwithSHA-1and40bitRC2-CBC";
-            algorithms["PBEWITHSHA-1AND40BITRC2-CBC"] = "PBEwithSHA-1and40bitRC2-CBC";
-            algorithms[PkcsObjectIdentifiers.PbewithShaAnd40BitRC2Cbc.Id] = "PBEwithSHA-1and40bitRC2-CBC";
-            algorithms["PBEWITHSHAAND128BITAES-CBC-BC"] = "PBEwithSHA-1and128bitAES-CBC-BC";
-            algorithms["PBEWITHSHA1AND128BITAES-CBC-BC"] = "PBEwithSHA-1and128bitAES-CBC-BC";
-            algorithms["PBEWITHSHA-1AND128BITAES-CBC-BC"] = "PBEwithSHA-1and128bitAES-CBC-BC";
-            algorithms["PBEWITHSHAAND192BITAES-CBC-BC"] = "PBEwithSHA-1and192bitAES-CBC-BC";
-            algorithms["PBEWITHSHA1AND192BITAES-CBC-BC"] = "PBEwithSHA-1and192bitAES-CBC-BC";
-            algorithms["PBEWITHSHA-1AND192BITAES-CBC-BC"] = "PBEwithSHA-1and192bitAES-CBC-BC";
-            algorithms["PBEWITHSHAAND256BITAES-CBC-BC"] = "PBEwithSHA-1and256bitAES-CBC-BC";
-            algorithms["PBEWITHSHA1AND256BITAES-CBC-BC"] = "PBEwithSHA-1and256bitAES-CBC-BC";
-            algorithms["PBEWITHSHA-1AND256BITAES-CBC-BC"] = "PBEwithSHA-1and256bitAES-CBC-BC";
-            algorithms["PBEWITHSHA256AND128BITAES-CBC-BC"] = "PBEwithSHA-256and128bitAES-CBC-BC";
-            algorithms["PBEWITHSHA-256AND128BITAES-CBC-BC"] = "PBEwithSHA-256and128bitAES-CBC-BC";
-            algorithms["PBEWITHSHA256AND192BITAES-CBC-BC"] = "PBEwithSHA-256and192bitAES-CBC-BC";
-            algorithms["PBEWITHSHA-256AND192BITAES-CBC-BC"] = "PBEwithSHA-256and192bitAES-CBC-BC";
-            algorithms["PBEWITHSHA256AND256BITAES-CBC-BC"] = "PBEwithSHA-256and256bitAES-CBC-BC";
-            algorithms["PBEWITHSHA-256AND256BITAES-CBC-BC"] = "PBEwithSHA-256and256bitAES-CBC-BC";
-            algorithms["PBEWITHSHAANDIDEA"] = "PBEwithSHA-1andIDEA-CBC";
-            algorithms["PBEWITHSHAANDIDEA-CBC"] = "PBEwithSHA-1andIDEA-CBC";
-            algorithms["PBEWITHSHAANDTWOFISH"] = "PBEwithSHA-1andTWOFISH-CBC";
-            algorithms["PBEWITHSHAANDTWOFISH-CBC"] = "PBEwithSHA-1andTWOFISH-CBC";
-            algorithms["PBEWITHHMACSHA1"] = "PBEwithHmacSHA-1";
-            algorithms["PBEWITHHMACSHA-1"] = "PBEwithHmacSHA-1";
-            algorithms[OiwObjectIdentifiers.IdSha1.Id] = "PBEwithHmacSHA-1";
-            algorithms["PBEWITHHMACSHA224"] = "PBEwithHmacSHA-224";
-            algorithms["PBEWITHHMACSHA-224"] = "PBEwithHmacSHA-224";
-            algorithms[NistObjectIdentifiers.IdSha224.Id] = "PBEwithHmacSHA-224";
-            algorithms["PBEWITHHMACSHA256"] = "PBEwithHmacSHA-256";
-            algorithms["PBEWITHHMACSHA-256"] = "PBEwithHmacSHA-256";
-            algorithms[NistObjectIdentifiers.IdSha256.Id] = "PBEwithHmacSHA-256";
-            algorithms["PBEWITHHMACRIPEMD128"] = "PBEwithHmacRipeMD128";
-            algorithms[TeleTrusTObjectIdentifiers.RipeMD128.Id] = "PBEwithHmacRipeMD128";
-            algorithms["PBEWITHHMACRIPEMD160"] = "PBEwithHmacRipeMD160";
-            algorithms[TeleTrusTObjectIdentifiers.RipeMD160.Id] = "PBEwithHmacRipeMD160";
-            algorithms["PBEWITHHMACRIPEMD256"] = "PBEwithHmacRipeMD256";
-            algorithms[TeleTrusTObjectIdentifiers.RipeMD256.Id] = "PBEwithHmacRipeMD256";
-            algorithms["PBEWITHHMACTIGER"] = "PBEwithHmacTiger";
+            Algorithms["PBEWITHMD2ANDDES-CBC"] = "PBEwithMD2andDES-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbeWithMD2AndDesCbc.Id] = "PBEwithMD2andDES-CBC";
+            Algorithms["PBEWITHMD2ANDRC2-CBC"] = "PBEwithMD2andRC2-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbeWithMD2AndRC2Cbc.Id] = "PBEwithMD2andRC2-CBC";
+            Algorithms["PBEWITHMD5ANDDES-CBC"] = "PBEwithMD5andDES-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbeWithMD5AndDesCbc.Id] = "PBEwithMD5andDES-CBC";
+            Algorithms["PBEWITHMD5ANDRC2-CBC"] = "PBEwithMD5andRC2-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbeWithMD5AndRC2Cbc.Id] = "PBEwithMD5andRC2-CBC";
+            Algorithms["PBEWITHSHA1ANDDES"] = "PBEwithSHA-1andDES-CBC";
+            Algorithms["PBEWITHSHA-1ANDDES"] = "PBEwithSHA-1andDES-CBC";
+            Algorithms["PBEWITHSHA1ANDDES-CBC"] = "PBEwithSHA-1andDES-CBC";
+            Algorithms["PBEWITHSHA-1ANDDES-CBC"] = "PBEwithSHA-1andDES-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbeWithSha1AndDesCbc.Id] = "PBEwithSHA-1andDES-CBC";
+            Algorithms["PBEWITHSHA1ANDRC2"] = "PBEwithSHA-1andRC2-CBC";
+            Algorithms["PBEWITHSHA-1ANDRC2"] = "PBEwithSHA-1andRC2-CBC";
+            Algorithms["PBEWITHSHA1ANDRC2-CBC"] = "PBEwithSHA-1andRC2-CBC";
+            Algorithms["PBEWITHSHA-1ANDRC2-CBC"] = "PBEwithSHA-1andRC2-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbeWithSha1AndRC2Cbc.Id] = "PBEwithSHA-1andRC2-CBC";
+            Algorithms["PKCS12"] = "Pkcs12";
+            Algorithms[BCObjectIdentifiers.bc_pbe_sha1_pkcs12_aes128_cbc.Id] = "PBEwithSHA-1and128bitAES-CBC-BC";
+            Algorithms[BCObjectIdentifiers.bc_pbe_sha1_pkcs12_aes192_cbc.Id] = "PBEwithSHA-1and192bitAES-CBC-BC";
+            Algorithms[BCObjectIdentifiers.bc_pbe_sha1_pkcs12_aes256_cbc.Id] = "PBEwithSHA-1and256bitAES-CBC-BC";
+            Algorithms[BCObjectIdentifiers.bc_pbe_sha256_pkcs12_aes128_cbc.Id] = "PBEwithSHA-256and128bitAES-CBC-BC";
+            Algorithms[BCObjectIdentifiers.bc_pbe_sha256_pkcs12_aes192_cbc.Id] = "PBEwithSHA-256and192bitAES-CBC-BC";
+            Algorithms[BCObjectIdentifiers.bc_pbe_sha256_pkcs12_aes256_cbc.Id] = "PBEwithSHA-256and256bitAES-CBC-BC";
+            Algorithms["PBEWITHSHAAND128BITRC4"] = "PBEwithSHA-1and128bitRC4";
+            Algorithms["PBEWITHSHA1AND128BITRC4"] = "PBEwithSHA-1and128bitRC4";
+            Algorithms["PBEWITHSHA-1AND128BITRC4"] = "PBEwithSHA-1and128bitRC4";
+            Algorithms[PkcsObjectIdentifiers.PbeWithShaAnd128BitRC4.Id] = "PBEwithSHA-1and128bitRC4";
+            Algorithms["PBEWITHSHAAND40BITRC4"] = "PBEwithSHA-1and40bitRC4";
+            Algorithms["PBEWITHSHA1AND40BITRC4"] = "PBEwithSHA-1and40bitRC4";
+            Algorithms["PBEWITHSHA-1AND40BITRC4"] = "PBEwithSHA-1and40bitRC4";
+            Algorithms[PkcsObjectIdentifiers.PbeWithShaAnd40BitRC4.Id] = "PBEwithSHA-1and40bitRC4";
+            Algorithms["PBEWITHSHAAND3-KEYDESEDE-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHAAND3-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHA1AND3-KEYDESEDE-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHA1AND3-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHA-1AND3-KEYDESEDE-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHA-1AND3-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and3-keyDESEDE-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbeWithShaAnd3KeyTripleDesCbc.Id] = "PBEwithSHA-1and3-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHAAND2-KEYDESEDE-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHAAND2-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHA1AND2-KEYDESEDE-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHA1AND2-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHA-1AND2-KEYDESEDE-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHA-1AND2-KEYTRIPLEDES-CBC"] = "PBEwithSHA-1and2-keyDESEDE-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbeWithShaAnd2KeyTripleDesCbc.Id] = "PBEwithSHA-1and2-keyDESEDE-CBC";
+            Algorithms["PBEWITHSHAAND128BITRC2-CBC"] = "PBEwithSHA-1and128bitRC2-CBC";
+            Algorithms["PBEWITHSHA1AND128BITRC2-CBC"] = "PBEwithSHA-1and128bitRC2-CBC";
+            Algorithms["PBEWITHSHA-1AND128BITRC2-CBC"] = "PBEwithSHA-1and128bitRC2-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbeWithShaAnd128BitRC2Cbc.Id] = "PBEwithSHA-1and128bitRC2-CBC";
+            Algorithms["PBEWITHSHAAND40BITRC2-CBC"] = "PBEwithSHA-1and40bitRC2-CBC";
+            Algorithms["PBEWITHSHA1AND40BITRC2-CBC"] = "PBEwithSHA-1and40bitRC2-CBC";
+            Algorithms["PBEWITHSHA-1AND40BITRC2-CBC"] = "PBEwithSHA-1and40bitRC2-CBC";
+            Algorithms[PkcsObjectIdentifiers.PbewithShaAnd40BitRC2Cbc.Id] = "PBEwithSHA-1and40bitRC2-CBC";
+            Algorithms["PBEWITHSHAAND128BITAES-CBC-BC"] = "PBEwithSHA-1and128bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA1AND128BITAES-CBC-BC"] = "PBEwithSHA-1and128bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA-1AND128BITAES-CBC-BC"] = "PBEwithSHA-1and128bitAES-CBC-BC";
+            Algorithms["PBEWITHSHAAND192BITAES-CBC-BC"] = "PBEwithSHA-1and192bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA1AND192BITAES-CBC-BC"] = "PBEwithSHA-1and192bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA-1AND192BITAES-CBC-BC"] = "PBEwithSHA-1and192bitAES-CBC-BC";
+            Algorithms["PBEWITHSHAAND256BITAES-CBC-BC"] = "PBEwithSHA-1and256bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA1AND256BITAES-CBC-BC"] = "PBEwithSHA-1and256bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA-1AND256BITAES-CBC-BC"] = "PBEwithSHA-1and256bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA256AND128BITAES-CBC-BC"] = "PBEwithSHA-256and128bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA-256AND128BITAES-CBC-BC"] = "PBEwithSHA-256and128bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA256AND192BITAES-CBC-BC"] = "PBEwithSHA-256and192bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA-256AND192BITAES-CBC-BC"] = "PBEwithSHA-256and192bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA256AND256BITAES-CBC-BC"] = "PBEwithSHA-256and256bitAES-CBC-BC";
+            Algorithms["PBEWITHSHA-256AND256BITAES-CBC-BC"] = "PBEwithSHA-256and256bitAES-CBC-BC";
+            Algorithms["PBEWITHSHAANDIDEA"] = "PBEwithSHA-1andIDEA-CBC";
+            Algorithms["PBEWITHSHAANDIDEA-CBC"] = "PBEwithSHA-1andIDEA-CBC";
+            Algorithms["PBEWITHSHAANDTWOFISH"] = "PBEwithSHA-1andTWOFISH-CBC";
+            Algorithms["PBEWITHSHAANDTWOFISH-CBC"] = "PBEwithSHA-1andTWOFISH-CBC";
+            Algorithms["PBEWITHHMACSHA1"] = "PBEwithHmacSHA-1";
+            Algorithms["PBEWITHHMACSHA-1"] = "PBEwithHmacSHA-1";
+            Algorithms[OiwObjectIdentifiers.IdSha1.Id] = "PBEwithHmacSHA-1";
+            Algorithms["PBEWITHHMACSHA224"] = "PBEwithHmacSHA-224";
+            Algorithms["PBEWITHHMACSHA-224"] = "PBEwithHmacSHA-224";
+            Algorithms[NistObjectIdentifiers.IdSha224.Id] = "PBEwithHmacSHA-224";
+            Algorithms["PBEWITHHMACSHA256"] = "PBEwithHmacSHA-256";
+            Algorithms["PBEWITHHMACSHA-256"] = "PBEwithHmacSHA-256";
+            Algorithms[NistObjectIdentifiers.IdSha256.Id] = "PBEwithHmacSHA-256";
+            Algorithms["PBEWITHHMACRIPEMD128"] = "PBEwithHmacRipeMD128";
+            Algorithms[TeleTrusTObjectIdentifiers.RipeMD128.Id] = "PBEwithHmacRipeMD128";
+            Algorithms["PBEWITHHMACRIPEMD160"] = "PBEwithHmacRipeMD160";
+            Algorithms[TeleTrusTObjectIdentifiers.RipeMD160.Id] = "PBEwithHmacRipeMD160";
+            Algorithms["PBEWITHHMACRIPEMD256"] = "PBEwithHmacRipeMD256";
+            Algorithms[TeleTrusTObjectIdentifiers.RipeMD256.Id] = "PBEwithHmacRipeMD256";
+            Algorithms["PBEWITHHMACTIGER"] = "PBEwithHmacTiger";
 
-            algorithms["PBEWITHMD5AND128BITAES-CBC-OPENSSL"] = "PBEwithMD5and128bitAES-CBC-OpenSSL";
-            algorithms["PBEWITHMD5AND192BITAES-CBC-OPENSSL"] = "PBEwithMD5and192bitAES-CBC-OpenSSL";
-            algorithms["PBEWITHMD5AND256BITAES-CBC-OPENSSL"] = "PBEwithMD5and256bitAES-CBC-OpenSSL";
+            Algorithms["PBEWITHMD5AND128BITAES-CBC-OPENSSL"] = "PBEwithMD5and128bitAES-CBC-OpenSSL";
+            Algorithms["PBEWITHMD5AND192BITAES-CBC-OPENSSL"] = "PBEwithMD5and192bitAES-CBC-OpenSSL";
+            Algorithms["PBEWITHMD5AND256BITAES-CBC-OPENSSL"] = "PBEwithMD5and256bitAES-CBC-OpenSSL";
 
-            algorithmType["Pkcs5scheme1"] = Pkcs5S1;
-            algorithmType["Pkcs5scheme2"] = Pkcs5S2;
-            algorithmType["PBEwithMD2andDES-CBC"] = Pkcs5S1;
-            algorithmType["PBEwithMD2andRC2-CBC"] = Pkcs5S1;
-            algorithmType["PBEwithMD5andDES-CBC"] = Pkcs5S1;
-            algorithmType["PBEwithMD5andRC2-CBC"] = Pkcs5S1;
-            algorithmType["PBEwithSHA-1andDES-CBC"] = Pkcs5S1;
-            algorithmType["PBEwithSHA-1andRC2-CBC"] = Pkcs5S1;
-            algorithmType["Pkcs12"] = Pkcs12;
-            algorithmType["PBEwithSHA-1and128bitRC4"] = Pkcs12;
-            algorithmType["PBEwithSHA-1and40bitRC4"] = Pkcs12;
-            algorithmType["PBEwithSHA-1and3-keyDESEDE-CBC"] = Pkcs12;
-            algorithmType["PBEwithSHA-1and2-keyDESEDE-CBC"] = Pkcs12;
-            algorithmType["PBEwithSHA-1and128bitRC2-CBC"] = Pkcs12;
-            algorithmType["PBEwithSHA-1and40bitRC2-CBC"] = Pkcs12;
-            algorithmType["PBEwithSHA-1and128bitAES-CBC-BC"] = Pkcs12;
-            algorithmType["PBEwithSHA-1and192bitAES-CBC-BC"] = Pkcs12;
-            algorithmType["PBEwithSHA-1and256bitAES-CBC-BC"] = Pkcs12;
-            algorithmType["PBEwithSHA-256and128bitAES-CBC-BC"] = Pkcs12;
-            algorithmType["PBEwithSHA-256and192bitAES-CBC-BC"] = Pkcs12;
-            algorithmType["PBEwithSHA-256and256bitAES-CBC-BC"] = Pkcs12;
-            algorithmType["PBEwithSHA-1andIDEA-CBC"] = Pkcs12;
-            algorithmType["PBEwithSHA-1andTWOFISH-CBC"] = Pkcs12;
-            algorithmType["PBEwithHmacSHA-1"] = Pkcs12;
-            algorithmType["PBEwithHmacSHA-224"] = Pkcs12;
-            algorithmType["PBEwithHmacSHA-256"] = Pkcs12;
-            algorithmType["PBEwithHmacRipeMD128"] = Pkcs12;
-            algorithmType["PBEwithHmacRipeMD160"] = Pkcs12;
-            algorithmType["PBEwithHmacRipeMD256"] = Pkcs12;
-            algorithmType["PBEwithHmacTiger"] = Pkcs12;
+            AlgorithmType["Pkcs5scheme1"] = Pkcs5S1;
+            AlgorithmType["Pkcs5scheme2"] = Pkcs5S2;
+            AlgorithmType["PBEwithMD2andDES-CBC"] = Pkcs5S1;
+            AlgorithmType["PBEwithMD2andRC2-CBC"] = Pkcs5S1;
+            AlgorithmType["PBEwithMD5andDES-CBC"] = Pkcs5S1;
+            AlgorithmType["PBEwithMD5andRC2-CBC"] = Pkcs5S1;
+            AlgorithmType["PBEwithSHA-1andDES-CBC"] = Pkcs5S1;
+            AlgorithmType["PBEwithSHA-1andRC2-CBC"] = Pkcs5S1;
+            AlgorithmType["Pkcs12"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1and128bitRC4"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1and40bitRC4"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1and3-keyDESEDE-CBC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1and2-keyDESEDE-CBC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1and128bitRC2-CBC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1and40bitRC2-CBC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1and128bitAES-CBC-BC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1and192bitAES-CBC-BC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1and256bitAES-CBC-BC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-256and128bitAES-CBC-BC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-256and192bitAES-CBC-BC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-256and256bitAES-CBC-BC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1andIDEA-CBC"] = Pkcs12;
+            AlgorithmType["PBEwithSHA-1andTWOFISH-CBC"] = Pkcs12;
+            AlgorithmType["PBEwithHmacSHA-1"] = Pkcs12;
+            AlgorithmType["PBEwithHmacSHA-224"] = Pkcs12;
+            AlgorithmType["PBEwithHmacSHA-256"] = Pkcs12;
+            AlgorithmType["PBEwithHmacRipeMD128"] = Pkcs12;
+            AlgorithmType["PBEwithHmacRipeMD160"] = Pkcs12;
+            AlgorithmType["PBEwithHmacRipeMD256"] = Pkcs12;
+            AlgorithmType["PBEwithHmacTiger"] = Pkcs12;
 
-            algorithmType["PBEwithMD5and128bitAES-CBC-OpenSSL"] = OpenSsl;
-            algorithmType["PBEwithMD5and192bitAES-CBC-OpenSSL"] = OpenSsl;
-            algorithmType["PBEwithMD5and256bitAES-CBC-OpenSSL"] = OpenSsl;
+            AlgorithmType["PBEwithMD5and128bitAES-CBC-OpenSSL"] = OpenSsl;
+            AlgorithmType["PBEwithMD5and192bitAES-CBC-OpenSSL"] = OpenSsl;
+            AlgorithmType["PBEwithMD5and256bitAES-CBC-OpenSSL"] = OpenSsl;
 
-            oids["PBEwithMD2andDES-CBC"] = PkcsObjectIdentifiers.PbeWithMD2AndDesCbc;
-            oids["PBEwithMD2andRC2-CBC"] = PkcsObjectIdentifiers.PbeWithMD2AndRC2Cbc;
-            oids["PBEwithMD5andDES-CBC"] = PkcsObjectIdentifiers.PbeWithMD5AndDesCbc;
-            oids["PBEwithMD5andRC2-CBC"] = PkcsObjectIdentifiers.PbeWithMD5AndRC2Cbc;
-            oids["PBEwithSHA-1andDES-CBC"] = PkcsObjectIdentifiers.PbeWithSha1AndDesCbc;
-            oids["PBEwithSHA-1andRC2-CBC"] = PkcsObjectIdentifiers.PbeWithSha1AndRC2Cbc;
-            oids["PBEwithSHA-1and128bitRC4"] = PkcsObjectIdentifiers.PbeWithShaAnd128BitRC4;
-            oids["PBEwithSHA-1and40bitRC4"] = PkcsObjectIdentifiers.PbeWithShaAnd40BitRC4;
-            oids["PBEwithSHA-1and3-keyDESEDE-CBC"] = PkcsObjectIdentifiers.PbeWithShaAnd3KeyTripleDesCbc;
-            oids["PBEwithSHA-1and2-keyDESEDE-CBC"] = PkcsObjectIdentifiers.PbeWithShaAnd2KeyTripleDesCbc;
-            oids["PBEwithSHA-1and128bitRC2-CBC"] = PkcsObjectIdentifiers.PbeWithShaAnd128BitRC2Cbc;
-            oids["PBEwithSHA-1and40bitRC2-CBC"] = PkcsObjectIdentifiers.PbewithShaAnd40BitRC2Cbc;
-            oids["PBEwithHmacSHA-1"] = OiwObjectIdentifiers.IdSha1;
-            oids["PBEwithHmacSHA-224"] = NistObjectIdentifiers.IdSha224;
-            oids["PBEwithHmacSHA-256"] = NistObjectIdentifiers.IdSha256;
-            oids["PBEwithHmacRipeMD128"] = TeleTrusTObjectIdentifiers.RipeMD128;
-            oids["PBEwithHmacRipeMD160"] = TeleTrusTObjectIdentifiers.RipeMD160;
-            oids["PBEwithHmacRipeMD256"] = TeleTrusTObjectIdentifiers.RipeMD256;
-            oids["Pkcs5scheme2"] = PkcsObjectIdentifiers.IdPbeS2;
+            Oids["PBEwithMD2andDES-CBC"] = PkcsObjectIdentifiers.PbeWithMD2AndDesCbc;
+            Oids["PBEwithMD2andRC2-CBC"] = PkcsObjectIdentifiers.PbeWithMD2AndRC2Cbc;
+            Oids["PBEwithMD5andDES-CBC"] = PkcsObjectIdentifiers.PbeWithMD5AndDesCbc;
+            Oids["PBEwithMD5andRC2-CBC"] = PkcsObjectIdentifiers.PbeWithMD5AndRC2Cbc;
+            Oids["PBEwithSHA-1andDES-CBC"] = PkcsObjectIdentifiers.PbeWithSha1AndDesCbc;
+            Oids["PBEwithSHA-1andRC2-CBC"] = PkcsObjectIdentifiers.PbeWithSha1AndRC2Cbc;
+            Oids["PBEwithSHA-1and128bitRC4"] = PkcsObjectIdentifiers.PbeWithShaAnd128BitRC4;
+            Oids["PBEwithSHA-1and40bitRC4"] = PkcsObjectIdentifiers.PbeWithShaAnd40BitRC4;
+            Oids["PBEwithSHA-1and3-keyDESEDE-CBC"] = PkcsObjectIdentifiers.PbeWithShaAnd3KeyTripleDesCbc;
+            Oids["PBEwithSHA-1and2-keyDESEDE-CBC"] = PkcsObjectIdentifiers.PbeWithShaAnd2KeyTripleDesCbc;
+            Oids["PBEwithSHA-1and128bitRC2-CBC"] = PkcsObjectIdentifiers.PbeWithShaAnd128BitRC2Cbc;
+            Oids["PBEwithSHA-1and40bitRC2-CBC"] = PkcsObjectIdentifiers.PbewithShaAnd40BitRC2Cbc;
+            Oids["PBEwithHmacSHA-1"] = OiwObjectIdentifiers.IdSha1;
+            Oids["PBEwithHmacSHA-224"] = NistObjectIdentifiers.IdSha224;
+            Oids["PBEwithHmacSHA-256"] = NistObjectIdentifiers.IdSha256;
+            Oids["PBEwithHmacRipeMD128"] = TeleTrusTObjectIdentifiers.RipeMD128;
+            Oids["PBEwithHmacRipeMD160"] = TeleTrusTObjectIdentifiers.RipeMD160;
+            Oids["PBEwithHmacRipeMD256"] = TeleTrusTObjectIdentifiers.RipeMD256;
+            Oids["Pkcs5scheme2"] = PkcsObjectIdentifiers.IdPbeS2;
         }
 
         static PbeParametersGenerator MakePbeGenerator(
@@ -244,60 +240,65 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
         /// </summary>
         /// <param name="mechanism">A string representation of the encoding.</param>
         /// <returns>A DerObjectIdentifier, null if the Oid is not available.</returns>
-        public static DerObjectIdentifier GetObjectIdentifier(
-            string mechanism)
+        public static DerObjectIdentifier GetObjectIdentifier(string mechanism)
         {
-            mechanism = (string) algorithms[BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(mechanism)];
-            if (mechanism != null)
-            {
-                return (DerObjectIdentifier)oids[mechanism];
-            }
-            return null;
+            if (!Algorithms.TryGetValue(mechanism, out var algorithm))
+                return null;
+
+            return CollectionUtilities.GetValueOrNull(Oids, algorithm);
         }
 
-        public static ICollection Algorithms
+        //public static ICollection Algorithms
+        //{
+        //    get { return oids.Keys; }
+        //}
+
+        public static bool IsPkcs12(string algorithm)
         {
-            get { return oids.Keys; }
+            if (!Algorithms.TryGetValue(algorithm, out var mechanism))
+                return false;
+            if (!AlgorithmType.TryGetValue(mechanism, out var algorithmType))
+                return false;
+
+            return Pkcs12.Equals(algorithmType);
         }
 
-        public static bool IsPkcs12(
-            string algorithm)
+        public static bool IsPkcs5Scheme1(string algorithm)
         {
-            string mechanism = (string)algorithms[BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm)];
+            if (!Algorithms.TryGetValue(algorithm, out var mechanism))
+                return false;
+            if (!AlgorithmType.TryGetValue(mechanism, out var algorithmType))
+                return false;
 
-            return mechanism != null && Pkcs12.Equals(algorithmType[mechanism]);
+            return Pkcs5S1.Equals(algorithmType);
         }
 
-        public static bool IsPkcs5Scheme1(
-            string algorithm)
+        public static bool IsPkcs5Scheme2(string algorithm)
         {
-            string mechanism = (string)algorithms[BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm)];
+            if (!Algorithms.TryGetValue(algorithm, out var mechanism))
+                return false;
+            if (!AlgorithmType.TryGetValue(mechanism, out var algorithmType))
+                return false;
 
-            return mechanism != null && Pkcs5S1.Equals(algorithmType[mechanism]);
+            return Pkcs5S2.Equals(algorithmType);
         }
 
-        public static bool IsPkcs5Scheme2(
-            string algorithm)
+        public static bool IsOpenSsl(string algorithm)
         {
-            string mechanism = (string)algorithms[BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm)];
+            if (!Algorithms.TryGetValue(algorithm, out var mechanism))
+                return false;
+            if (!AlgorithmType.TryGetValue(mechanism, out var algorithmType))
+                return false;
 
-            return mechanism != null && Pkcs5S2.Equals(algorithmType[mechanism]);
+            return OpenSsl.Equals(algorithmType);
         }
 
-        public static bool IsOpenSsl(
-            string algorithm)
+        public static bool IsPbeAlgorithm(string algorithm)
         {
-            string mechanism = (string)algorithms[BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm)];
+            if (!Algorithms.TryGetValue(algorithm, out var mechanism))
+                return false;
 
-            return mechanism != null && OpenSsl.Equals(algorithmType[mechanism]);
-        }
-
-        public static bool IsPbeAlgorithm(
-            string algorithm)
-        {
-            string mechanism = (string)algorithms[BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm)];
-
-            return mechanism != null && algorithmType[mechanism] != null;
+            return AlgorithmType.ContainsKey(mechanism);
         }
 
         public static Asn1Encodable GenerateAlgorithmParameters(
@@ -402,7 +403,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
             bool			wrongPkcs12Zero,
             Asn1Encodable   pbeParameters)
         {
-            string mechanism = (string)algorithms[BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm)];
+            string mechanism = CollectionUtilities.GetValueOrNull(Algorithms, algorithm);
 
             byte[] keyBytes = null;
             byte[] salt = null;
@@ -459,7 +460,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
                     :	GeneratorUtilities.GetDefaultKeySize(encOid);
 
                 PbeParametersGenerator gen = MakePbeGenerator(
-                    (string)algorithmType[mechanism], digest, keyBytes, salt, iterationCount);
+                    AlgorithmType[mechanism], digest, keyBytes, salt, iterationCount);
 
                 parameters = gen.GenerateDerivedParameters(encOid.Id, keyLength);
 
@@ -476,10 +477,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
                     }
                 }
             }
-            else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithSHA-1"))
+            else if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithSHA-1"))
             {
                 PbeParametersGenerator generator = MakePbeGenerator(
-                    (string) algorithmType[mechanism], new Sha1Digest(), keyBytes, salt, iterationCount);
+                    AlgorithmType[mechanism], new Sha1Digest(), keyBytes, salt, iterationCount);
 
                 if (mechanism.Equals("PBEwithSHA-1and128bitAES-CBC-BC"))
                 {
@@ -526,10 +527,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
                     parameters = generator.GenerateDerivedParameters("RC2", 64, 64);
                 }
             }
-            else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithSHA-256"))
+            else if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithSHA-256"))
             {
                 PbeParametersGenerator generator = MakePbeGenerator(
-                    (string) algorithmType[mechanism], new Sha256Digest(), keyBytes, salt, iterationCount);
+                    AlgorithmType[mechanism], new Sha256Digest(), keyBytes, salt, iterationCount);
 
                 if (mechanism.Equals("PBEwithSHA-256and128bitAES-CBC-BC"))
                 {
@@ -544,10 +545,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
                     parameters = generator.GenerateDerivedParameters("AES", 256, 128);
                 }
             }
-            else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithMD5"))
+            else if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithMD5"))
             {
                 PbeParametersGenerator generator = MakePbeGenerator(
-                    (string)algorithmType[mechanism], new MD5Digest(), keyBytes, salt, iterationCount);
+                    AlgorithmType[mechanism], new MD5Digest(), keyBytes, salt, iterationCount);
 
                 if (mechanism.Equals("PBEwithMD5andDES-CBC"))
                 {
@@ -570,10 +571,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
                     parameters = generator.GenerateDerivedParameters("AES", 256, 128);
                 }
             }
-            else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithMD2"))
+            else if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithMD2"))
             {
                 PbeParametersGenerator generator = MakePbeGenerator(
-                    (string)algorithmType[mechanism], new MD2Digest(), keyBytes, salt, iterationCount);
+                    AlgorithmType[mechanism], new MD2Digest(), keyBytes, salt, iterationCount);
                 if (mechanism.Equals("PBEwithMD2andDES-CBC"))
                 {
                     parameters = generator.GenerateDerivedParameters("DES", 64, 64);
@@ -583,13 +584,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
                     parameters = generator.GenerateDerivedParameters("RC2", 64, 64);
                 }
             }
-            else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithHmac"))
+            else if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithHmac"))
             {
                 string digestName = mechanism.Substring("PBEwithHmac".Length);
                 IDigest digest = DigestUtilities.GetDigest(digestName);
 
                 PbeParametersGenerator generator = MakePbeGenerator(
-                    (string) algorithmType[mechanism], digest, keyBytes, salt, iterationCount);
+                    AlgorithmType[mechanism], digest, keyBytes, salt, iterationCount);
 
                 int bitLen = digest.GetDigestSize() * 8;
                 parameters = generator.GenerateDerivedMacParameters(bitLen);
@@ -621,44 +622,43 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
             return CreateEngine(algorithm);
         }
 
-        public static object CreateEngine(
-            string algorithm)
+        public static object CreateEngine(string algorithm)
         {
-            string mechanism = (string)algorithms[BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm)];
+            string mechanism = CollectionUtilities.GetValueOrNull(Algorithms, algorithm);
 
-            if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithHmac"))
+            if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithHmac"))
             {
                 string digestName = mechanism.Substring("PBEwithHmac".Length);
 
                 return MacUtilities.GetMac("HMAC/" + digestName);
             }
 
-            if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithMD2")
-                ||	BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithMD5")
-                ||	BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithSHA-1")
-                ||	BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithSHA-256"))
+            if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithMD2")
+                ||	Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithMD5")
+                ||	Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithSHA-1")
+                ||	Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEwithSHA-256"))
             {
-                if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "AES-CBC-BC") || BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "AES-CBC-OPENSSL"))
+                if (Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "AES-CBC-BC") || Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "AES-CBC-OPENSSL"))
                 {
                     return CipherUtilities.GetCipher("AES/CBC");
                 }
 
-                if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "DES-CBC"))
+                if (Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "DES-CBC"))
                 {
                     return CipherUtilities.GetCipher("DES/CBC");
                 }
 
-                if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "DESEDE-CBC"))
+                if (Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "DESEDE-CBC"))
                 {
                     return CipherUtilities.GetCipher("DESEDE/CBC");
                 }
 
-                if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "RC2-CBC"))
+                if (Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "RC2-CBC"))
                 {
                     return CipherUtilities.GetCipher("RC2/CBC");
                 }
 
-                if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "RC4"))
+                if (Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "RC4"))
                 {
                     return CipherUtilities.GetCipher("RC4");
                 }
@@ -667,15 +667,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
             return null;
         }
 
-        public static string GetEncodingName(
-            DerObjectIdentifier oid)
+        public static string GetEncodingName(DerObjectIdentifier oid)
         {
-            return (string) algorithms[oid.Id];
+            return CollectionUtilities.GetValueOrNull(Algorithms, oid.Id);
         }
 
         private static ICipherParameters FixDesParity(string mechanism, ICipherParameters parameters)
         {
-            if (!BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "DES-CBC") && !BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "DESEDE-CBC"))
+            if (!Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "DES-CBC") && !Org.BouncyCastle.Utilities.Platform.EndsWith(mechanism, "DESEDE-CBC"))
             {
                 return parameters;
             }

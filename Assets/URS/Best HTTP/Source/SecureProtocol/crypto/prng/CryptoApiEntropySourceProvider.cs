@@ -1,6 +1,5 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-#if !(NETCF_1_0 || PORTABLE || NETFX_CORE)
 using System;
 using System.Security.Cryptography;
 
@@ -59,6 +58,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Prng
                 return result;
             }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            int IEntropySource.GetEntropy(Span<byte> output)
+            {
+                int length = (mEntropySize + 7) / 8;
+                mRng.GetBytes(output[..length]);
+                return length;
+            }
+#endif
+
             int IEntropySource.EntropySize
             {
                 get { return mEntropySize; }
@@ -68,7 +76,5 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Prng
         }
     }
 }
-
-#endif
 #pragma warning restore
 #endif

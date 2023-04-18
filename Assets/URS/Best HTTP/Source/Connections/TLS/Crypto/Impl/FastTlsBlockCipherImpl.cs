@@ -14,7 +14,7 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
         private readonly bool m_isEncrypting;
         private readonly IBlockCipher m_cipher;
 
-        private NoCopyKeyParameter key;
+        private KeyParameter key;
 
         internal FastTlsBlockCipherImpl(IBlockCipher cipher, bool isEncrypting)
         {
@@ -24,13 +24,27 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
 
         public void SetKey(byte[] key, int keyOff, int keyLen)
         {
-            this.key = new NoCopyKeyParameter(key, keyOff, keyLen);
+            this.key = new KeyParameter(key, keyOff, keyLen);
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void SetKey(ReadOnlySpan<byte> key)
+        {
+            this.key = new KeyParameter(key);
+        }
+#endif
 
         public void Init(byte[] iv, int ivOff, int ivLen)
         {
-            m_cipher.Init(m_isEncrypting, new FastParametersWithIV(key, iv, ivOff, ivLen));
+            m_cipher.Init(m_isEncrypting, new ParametersWithIV(key, iv, ivOff, ivLen));
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void Init(ReadOnlySpan<byte> iv)
+        {
+            m_cipher.Init(m_isEncrypting, new ParametersWithIV(key, iv));
+        }
+#endif
 
         public int DoFinal(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset)
         {

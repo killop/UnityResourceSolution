@@ -45,7 +45,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Crmf
             if (obj is Asn1TaggedObject)
                 return new ProofOfPossession((Asn1TaggedObject)obj);
 
-            throw new ArgumentException("Invalid object: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("Invalid object: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
         /** Creates a ProofOfPossession with type raVerified. */

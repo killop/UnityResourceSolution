@@ -3,6 +3,7 @@ using System;
 
 using BestHTTP.Connections;
 using BestHTTP.Extensions;
+using BestHTTP.PlatformSupport.Memory;
 using BestHTTP.WebSocket.Frames;
 
 namespace BestHTTP.WebSocket
@@ -80,7 +81,7 @@ namespace BestHTTP.WebSocket
             this._internalRequest.DisableCache = true;
 #endif
 
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
             this._internalRequest.Proxy = this.Parent.GetProxy(this.Uri);
 #endif
 
@@ -283,10 +284,17 @@ namespace BestHTTP.WebSocket
                     this.Parent.OnMessage(this.Parent, msg);
             };
 
-            webSocket.OnBinary = (ws, bin) =>
+            webSocket.OnBinaryNoAlloc = (ws, frame) =>
             {
                 if (this.Parent.OnBinary != null)
+                {
+                    var bin = new byte[frame.Count];
+                    Array.Copy(frame.Data, 0, bin, 0, frame.Count);
                     this.Parent.OnBinary(this.Parent, bin);
+                }
+
+                if (this.Parent.OnBinaryNoAlloc != null)
+                    this.Parent.OnBinaryNoAlloc(this.Parent, frame);
             };
 
             webSocket.OnClosed = (ws, code, msg) =>
@@ -323,6 +331,16 @@ namespace BestHTTP.WebSocket
         public override void Send(byte[] buffer, ulong offset, ulong count)
         {
             webSocket.Send(buffer, offset, count);
+        }
+
+        public override void SendAsBinary(BufferSegment data)
+        {
+            webSocket.Send(WebSocketFrameTypes.Binary, data);
+        }
+
+        public override void SendAsText(BufferSegment data)
+        {
+            webSocket.Send(WebSocketFrameTypes.Text, data);
         }
 
         public override void Send(WebSocketFrame frame)

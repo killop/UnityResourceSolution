@@ -10,6 +10,7 @@ using BestHTTP.Extensions;
 using BestHTTP.Core;
 using BestHTTP.PlatformSupport.Memory;
 using BestHTTP.Logger;
+using BestHTTP.PlatformSupport.Threading;
 
 namespace BestHTTP.Connections.HTTP2
 {
@@ -96,14 +97,14 @@ namespace BestHTTP.Connections.HTTP2
 
         public void SignalRunnerThread()
         {
-            this.newFrameSignal.Set();
+            this.newFrameSignal?.Set();
         }
 
         public void RunHandler()
         {
             HTTPManager.Logger.Information("HTTP2Handler", "Processing thread up and running!", this.Context);
 
-            Thread.CurrentThread.Name = "BestHTTP.HTTP2 Process";
+            ThreadedRunner.SetThreadName("BestHTTP.HTTP2 Process");
 
             PlatformSupport.Threading.ThreadedRunner.RunLongLiving(ReadThread);
 
@@ -175,7 +176,7 @@ namespace BestHTTP.Connections.HTTP2
                             // lastInteraction                                                                                    lastInteraction + MaxIdleTime
 
                             var sendPingAt = this.lastPingSent + this.pingFrequency;
-                            var timeoutAt = this.lastPingSent + HTTPManager.HTTP2Settings.Timeout;
+                            var timeoutAt = this.waitingForPingAck != 0 ? this.lastPingSent + HTTPManager.HTTP2Settings.Timeout : DateTime.MaxValue;
                             var nextPingInteraction = sendPingAt < timeoutAt ? sendPingAt : timeoutAt;
 
                             var disconnectByIdleAt = this.lastInteraction + HTTPManager.HTTP2Settings.MaxIdleTime;
@@ -184,6 +185,16 @@ namespace BestHTTP.Connections.HTTP2
                             int wait = (int)(nextDueClientInteractionAt - now).TotalMilliseconds;
 
                             wait = (int)Math.Min(wait, this.MaxGoAwayWaitTime.TotalMilliseconds);
+
+                            TimeSpan nextStreamInteraction = TimeSpan.MaxValue;
+                            for (int i = 0; i < this.clientInitiatedStreams.Count; i++)
+                            {
+                                var streamInteraction = this.clientInitiatedStreams[i].NextInteraction;
+                                if (streamInteraction < nextStreamInteraction)
+                                    nextStreamInteraction = streamInteraction;
+                            }
+                            
+                            wait = (int)Math.Min(wait, nextStreamInteraction.TotalMilliseconds);
 
                             if (wait >= 1)
                             {
@@ -255,6 +266,8 @@ namespace BestHTTP.Connections.HTTP2
 
                                             this.outgoingFrames.Add(frame);
                                         }
+
+                                        BufferPool.Release(pingFrame.OpaqueData);
                                         break;
 
                                     case HTTP2FrameTypes.WINDOW_UPDATE:
@@ -268,7 +281,7 @@ namespace BestHTTP.Connections.HTTP2
 
                                         HTTPManager.Logger.Information("HTTP2Handler", "Received GOAWAY frame: " + goAwayFrame.ToString(), this.Context);
 
-                                        string msg = string.Format("Server closing the connection! Error code: {0} ({1})", goAwayFrame.Error, goAwayFrame.ErrorCode);
+                                        string msg = string.Format("Server closing the connection! Error code: {0} ({1}) Additonal Debug Data: {2}", goAwayFrame.Error, goAwayFrame.ErrorCode, new BufferSegment(goAwayFrame.AdditionalDebugData, 0, (int)goAwayFrame.AdditionalDebugDataLength));
                                         for (int i = 0; i < this.clientInitiatedStreams.Count; ++i)
                                             this.clientInitiatedStreams[i].Abort(msg);
                                         this.clientInitiatedStreams.Clear();
@@ -276,7 +289,9 @@ namespace BestHTTP.Connections.HTTP2
                                         // set the running flag to false, so the thread can exit
                                         this.isRunning = false;
 
-                                        this.conn.State = HTTPConnectionStates.Closed;
+                                        BufferPool.Release(goAwayFrame.AdditionalDebugData);
+
+                                        //this.conn.State = HTTPConnectionStates.Closed;
                                         break;
 
                                     case HTTP2FrameTypes.ALT_SVC:
@@ -301,12 +316,19 @@ namespace BestHTTP.Connections.HTTP2
                             HTTPRequest request;
                             while (this.clientInitiatedStreams.Count < maxConcurrentStreams && this.requestQueue.TryDequeue(out request))
                             {
-                                // create a new stream
-                                var newStream = new HTTP2Stream((UInt32)Interlocked.Add(ref LastStreamId, 2), this, this.settings, this.HPACKEncoder);
+                                HTTP2Stream newStream = null;
+#if !BESTHTTP_DISABLE_WEBSOCKET
+                                if (request.Tag is WebSocket.OverHTTP2)
+                                {
+                                    newStream = new HTTP2WebSocketStream((UInt32)Interlocked.Add(ref LastStreamId, 2), this, this.settings, this.HPACKEncoder);
+                                }
+                                else
+#endif
+                                {
+                                    newStream = new HTTP2Stream((UInt32)Interlocked.Add(ref LastStreamId, 2), this, this.settings, this.HPACKEncoder);
+                                }
 
-                                // process the request
                                 newStream.Assign(request);
-
                                 this.clientInitiatedStreams.Add(newStream);
                             }
                         }
@@ -363,7 +385,8 @@ namespace BestHTTP.Connections.HTTP2
                         {
                             HTTPManager.Logger.Information("HTTP2Handler", "No GoAway frame received back. Really quitting now!", this.Context);
                             this.isRunning = false;
-                            conn.State = HTTPConnectionStates.Closed;
+
+                            //conn.State = HTTPConnectionStates.Closed;
                         }
 
                         uint streamWindowUpdates = 0;
@@ -428,6 +451,9 @@ namespace BestHTTP.Connections.HTTP2
                                 bufferedStream.Write(buffer.Data, 0, buffer.Length);
                         
                             bufferedStream.Write(frame.Payload, (int)frame.PayloadOffset, (int)frame.PayloadLength);
+
+                            if (!frame.DontUseMemPool)
+                                BufferPool.Release(frame.Payload);
                         }
 
                     } // while (this.isRunning)
@@ -438,7 +464,7 @@ namespace BestHTTP.Connections.HTTP2
             catch (Exception ex)
             {
                 // Log out the exception if it's a non-expected one.
-                if (this.ShutdownType == ShutdownTypes.Running && this.goAwaySentAt == DateTime.MaxValue && HTTPManager.IsQuitting)
+                if (this.ShutdownType == ShutdownTypes.Running && this.goAwaySentAt == DateTime.MaxValue && !HTTPManager.IsQuitting)
                     HTTPManager.Logger.Exception("HTTP2Handler", "Sender thread", ex, this.Context);
             }
             finally
@@ -485,7 +511,7 @@ namespace BestHTTP.Connections.HTTP2
         {
             try
             {
-                Thread.CurrentThread.Name = "BestHTTP.HTTP2 Read";
+                ThreadedRunner.SetThreadName("BestHTTP.HTTP2 Read");
                 HTTPManager.Logger.Information("HTTP2Handler", "Reader thread up and running!", this.Context);
 
                 while (this.isRunning)
@@ -528,10 +554,16 @@ namespace BestHTTP.Connections.HTTP2
 
                                 HTTPManager.Logger.Verbose("HTTP2Handler", string.Format("Latency: {0:F2}ms, RTT buffer: {1}", this.Latency, this.rtts.ToString()), this.Context);
                             }
+
+                            BufferPool.Release(pingFrame.OpaqueData);
                             break;
 
                         case HTTP2FrameTypes.GOAWAY:
                             // Just exit from this thread. The processing thread will handle the frame too.
+
+                            // Risking a double release here if the processing thread also consumed the goaway frame
+                            //if (Volatile.Read(ref this.threadExitCount) > 0)
+                            //    BufferPool.Release(header.Payload);
                             return;
                     }
                 }
@@ -555,15 +587,24 @@ namespace BestHTTP.Connections.HTTP2
 
             // First thread closing notifies the ConnectionEventHelper
             int counter = Interlocked.Increment(ref this.threadExitCount);
-            if (counter == 1)
-                ConnectionEventHelper.EnqueueConnectionEvent(new ConnectionEventInfo(this.conn, HTTPConnectionStates.Closed));
-
-            // Last thread closes the AutoResetEvent
-            if (counter == 2)
+            switch(counter)
             {
-                if (this.newFrameSignal != null)
-                    this.newFrameSignal.Close();
-                this.newFrameSignal = null;
+                case 1:
+                    ConnectionEventHelper.EnqueueConnectionEvent(new ConnectionEventInfo(this.conn, HTTPConnectionStates.Closed));
+                    break;
+
+                // Last thread closes the AutoResetEvent
+                case 2:
+                    if (this.newFrameSignal != null)
+                        this.newFrameSignal.Close();
+                    this.newFrameSignal = null;
+
+                    while (this.newFrames.TryDequeue(out var frame))
+                        BufferPool.Release(frame.Payload);
+                    break;
+                default:
+                    HTTPManager.Logger.Warning("HTTP2Handler", String.Format("TryToCleanup - counter is {0}!", counter));
+                    break;
             }
         }
 

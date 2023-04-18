@@ -36,22 +36,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
             this.value = value;
         }
 
-		public CertStatus(
-            Asn1TaggedObject choice)
+		public CertStatus(Asn1TaggedObject choice)
         {
             this.tagNo = choice.TagNo;
 
 			switch (choice.TagNo)
             {
-				case 1:
-					value = RevokedInfo.GetInstance(choice, false);
-					break;
-				case 0:
-				case 2:
-					value = DerNull.Instance;
-					break;
-				default:
-					throw new ArgumentException("Unknown tag encountered: " + choice.TagNo);
+            case 0:
+                value = Asn1Null.GetInstance(choice, false);
+                break;
+            case 1:
+				value = RevokedInfo.GetInstance(choice, false);
+				break;
+			case 2:
+                value = Asn1Null.GetInstance(choice, false);
+                break;
+			default:
+				throw new ArgumentException("Unknown tag encountered: " + Asn1Utilities.GetTagText(choice));
             }
         }
 
@@ -68,7 +69,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
                 return new CertStatus((Asn1TaggedObject)obj);
             }
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
 		public int TagNo

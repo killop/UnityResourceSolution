@@ -30,6 +30,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             m_digest.BlockUpdate(data, offSet, length);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void Update(ReadOnlySpan<byte> input)
+        {
+            m_digest.BlockUpdate(input);
+        }
+#endif
+
         public byte[] CalculateHash()
         {
             byte[] rv = new byte[m_digest.GetDigestSize()];

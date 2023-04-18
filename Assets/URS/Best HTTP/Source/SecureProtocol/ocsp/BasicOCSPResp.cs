@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -9,10 +9,8 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 {
@@ -105,72 +103,42 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
             get { return resp.SignatureAlgorithm.Algorithm.Id; }
 		}
 
-
-		public RespData GetResponseData()
-		{
-			return new RespData(data);
-		}
-
 		public byte[] GetSignature()
 		{
 			return resp.GetSignatureOctets();
 		}
 
-		private IList GetCertList()
+		private List<X509Certificate> GetCertList()
 		{
-			// load the certificates and revocation lists if we have any
+			// load the certificates if we have any
 
-			IList certs = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
-			Asn1Sequence s = resp.Certs;
+			var result = new List<X509Certificate>();
 
-			if (s != null)
+			Asn1Sequence certs = resp.Certs;
+			if (certs != null)
 			{
-				foreach (Asn1Encodable ae in s)
+				foreach (Asn1Encodable ae in certs)
 				{
-					try
+					if (ae != null && ae.ToAsn1Object() is Asn1Sequence s)
 					{
-						certs.Add(new X509CertificateParser().ReadCertificate(ae.GetEncoded()));
-					}
-					catch (IOException ex)
-					{
-						throw new OcspException("can't re-encode certificate!", ex);
-					}
-					catch (CertificateException ex)
-					{
-						throw new OcspException("can't re-encode certificate!", ex);
+						result.Add(new X509Certificate(X509CertificateStructure.GetInstance(s)));
 					}
 				}
 			}
 
-			return certs;
+			return result;
 		}
 
 		public X509Certificate[] GetCerts()
 		{
-			IList certs = GetCertList();
-            X509Certificate[] result = new X509Certificate[certs.Count];
-            for (int i = 0; i < certs.Count; ++i)
-            {
-                result[i] = (X509Certificate)certs[i];
-            }
-            return result;
+			return GetCertList().ToArray();
 		}
 
 		/// <returns>The certificates, if any, associated with the response.</returns>
 		/// <exception cref="OcspException">In the event of an encoding error.</exception>
-		public IX509Store GetCertificates(
-			string type)
+		public IStore<X509Certificate> GetCertificates()
 		{
-			try
-			{
-				return X509StoreFactory.Create(
-					"Certificate/" + type,
-					new X509CollectionStoreParameters(this.GetCertList()));
-			}
-			catch (Exception e)
-			{
-				throw new OcspException("can't setup the CertStore", e);
-			}
+			return CollectionUtilities.CreateStore(this.GetCertList());
 		}
 
 		/// <summary>

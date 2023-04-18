@@ -55,9 +55,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Fpe
 
         protected static bool IsOverrideSet(string propName)
         {
-            string propValue = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetEnvironmentVariable(propName);
+            string propValue = Org.BouncyCastle.Utilities.Platform.GetEnvironmentVariable(propName);
 
-            return propValue != null && BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EqualsIgnoreCase("true", propValue);
+            return propValue != null && Org.BouncyCastle.Utilities.Platform.EqualsIgnoreCase("true", propValue);
         }
 
         /// <summary>

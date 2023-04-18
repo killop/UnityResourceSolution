@@ -8,7 +8,7 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.IO;
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators
 {
     public class DefaultSignatureCalculator
-        : IStreamCalculator
+        : IStreamCalculator<IBlockResult>
     {
         private readonly SignerSink mSignerSink;
 
@@ -22,7 +22,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators
             get { return mSignerSink; }
         }
 
-        public object GetResult()
+        public IBlockResult GetResult()
         {
             return new DefaultSignatureResult(mSignerSink.Signer);
         }

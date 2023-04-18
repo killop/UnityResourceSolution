@@ -26,7 +26,7 @@ namespace Daihenka.AssetPipeline.Import
             var isValidFileExtension = assetType.IsValidFileExtension(assetPath, otherAssetExtensions);
             var isNotExcluded = IsValidSubPath(dirname) && !IsExcludedFile(filename);
             var isFileValid = file.IsValid && file.IsMatch(filename);
-
+           // Debug.LogError("assetPath    "+ assetPath+"   isEnabled " + isEnabled+ " isValidFileExtension "+ isValidFileExtension+ " isNotExcluded "+ isNotExcluded+ " isFileValid "+ isFileValid);
             return isEnabled && isValidFileExtension && isNotExcluded && isFileValid;
         }
 

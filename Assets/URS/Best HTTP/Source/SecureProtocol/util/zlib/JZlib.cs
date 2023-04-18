@@ -36,11 +36,12 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * and contributors of zlib.
  */
 
-namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
-
-    public sealed class JZlib{
-        private const String _version="1.0.7";
-        public static String version()
+namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib
+{
+    public sealed class JZlib
+    {
+        private const string _version="1.0.7";
+        public static string version()
 		{
 			return _version;
 		}

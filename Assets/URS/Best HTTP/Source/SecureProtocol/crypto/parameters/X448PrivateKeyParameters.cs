@@ -35,6 +35,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
             Array.Copy(buf, off, data, 0, KeySize);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public X448PrivateKeyParameters(ReadOnlySpan<byte> buf)
+            : base(true)
+        {
+            if (buf.Length != KeySize)
+                throw new ArgumentException("must have length " + KeySize, nameof(buf));
+
+            buf.CopyTo(data);
+        }
+#endif
+
         public X448PrivateKeyParameters(Stream input)
             : base(true)
         {
@@ -47,6 +58,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
             Array.Copy(data, 0, buf, off, KeySize);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void Encode(Span<byte> buf)
+        {
+            data.CopyTo(buf);
+        }
+#endif
+
         public byte[] GetEncoded()
         {
             return Arrays.Clone(data);
@@ -54,23 +72,43 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 
         public X448PublicKeyParameters GeneratePublicKey()
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            Span<byte> publicKey = stackalloc byte[X448.PointSize];
+            X448.GeneratePublicKey(data, publicKey);
+            return new X448PublicKeyParameters(publicKey);
+#else
             byte[] publicKey = new byte[X448.PointSize];
             X448.GeneratePublicKey(data, 0, publicKey, 0);
             return new X448PublicKeyParameters(publicKey, 0);
+#endif
         }
 
         public void GenerateSecret(X448PublicKeyParameters publicKey, byte[] buf, int off)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            GenerateSecret(publicKey, buf.AsSpan(off));
+#else
             byte[] encoded = new byte[X448.PointSize];
             publicKey.Encode(encoded, 0);
             if (!X448.CalculateAgreement(data, 0, encoded, 0, buf, off))
                 throw new InvalidOperationException("X448 agreement failed");
+#endif
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void GenerateSecret(X448PublicKeyParameters publicKey, Span<byte> buf)
+        {
+            Span<byte> encoded = stackalloc byte[X448.PointSize];
+            publicKey.Encode(encoded);
+            if (!X448.CalculateAgreement(data, encoded, buf))
+                throw new InvalidOperationException("X448 agreement failed");
+        }
+#endif
 
         private static byte[] Validate(byte[] buf)
         {
             if (buf.Length != KeySize)
-                throw new ArgumentException("must have length " + KeySize, "buf");
+                throw new ArgumentException("must have length " + KeySize, nameof(buf));
 
             return buf;
         }

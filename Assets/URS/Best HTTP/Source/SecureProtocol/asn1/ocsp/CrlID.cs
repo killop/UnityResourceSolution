@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 {
@@ -10,11 +9,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
     {
         private readonly DerIA5String		crlUrl;
         private readonly DerInteger			crlNum;
-        private readonly DerGeneralizedTime	crlTime;
+        private readonly Asn1GeneralizedTime crlTime;
 
-		// TODO Add GetInstance method(s) and amke this private?
-		public CrlID(
-            Asn1Sequence seq)
+		// TODO Add GetInstance method(s) and make this private?
+		public CrlID(Asn1Sequence seq)
         {
 			foreach (Asn1TaggedObject o in seq)
 			{
@@ -27,7 +25,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
                     crlNum = DerInteger.GetInstance(o, true);
                     break;
                 case 2:
-                    crlTime = DerGeneralizedTime.GetInstance(o, true);
+                    crlTime = Asn1GeneralizedTime.GetInstance(o, true);
                     break;
                 default:
                     throw new ArgumentException("unknown tag number: " + o.TagNo);
@@ -45,7 +43,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 			get { return crlNum; }
 		}
 
-		public DerGeneralizedTime CrlTime
+		public Asn1GeneralizedTime CrlTime
 		{
 			get { return crlTime; }
 		}

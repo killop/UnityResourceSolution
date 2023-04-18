@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using BestHTTP.Logger;
 using BestHTTP.PlatformSupport.Memory;
+using BestHTTP.PlatformSupport.Text;
 
 namespace BestHTTP.SignalRCore.Transports
 {
@@ -104,7 +105,7 @@ namespace BestHTTP.SignalRCore.Transports
             this.State = string.IsNullOrEmpty(this.ErrorReason) ? TransportStates.Connected : TransportStates.Failed;
         }
 
-        StringBuilder queryBuilder = new StringBuilder(3);
+        //StringBuilder queryBuilder = new StringBuilder(3);
         protected Uri BuildUri(Uri baseUri)
         {
             if (this.connection.NegotiationResult == null)
@@ -112,7 +113,7 @@ namespace BestHTTP.SignalRCore.Transports
 
             UriBuilder builder = new UriBuilder(baseUri);
 
-            queryBuilder.Length = 0;
+            var queryBuilder = StringBuilderPool.Get(3);
 
             queryBuilder.Append(baseUri.Query);
             if (!string.IsNullOrEmpty(this.connection.NegotiationResult.ConnectionToken))
@@ -120,7 +121,7 @@ namespace BestHTTP.SignalRCore.Transports
             else if (!string.IsNullOrEmpty(this.connection.NegotiationResult.ConnectionId))
                 queryBuilder.Append("&id=").Append(this.connection.NegotiationResult.ConnectionId);
 
-            builder.Query = queryBuilder.ToString();
+            builder.Query = StringBuilderPool.ReleaseAndGrab(queryBuilder);
 
             if (builder.Query.StartsWith("??"))
                 builder.Query = builder.Query.Substring(2);

@@ -6,7 +6,6 @@ using System.IO;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Rfc8032;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 {
@@ -58,6 +57,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             buffer.Write(buf, off, len);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            buffer.Write(input);
+        }
+#endif
+
         public virtual byte[] GenerateSignature()
         {
             if (!forSigning || null == privateKey)
@@ -85,13 +91,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             {
                 lock (this)
                 {
-#if PORTABLE || NETFX_CORE
-                    byte[] buf = ToArray();
-                    int count = buf.Length;
-#else
                     byte[] buf = GetBuffer();
-                    int count = (int)Position;
-#endif
+                    int count = Convert.ToInt32(Length);
+
                     byte[] signature = new byte[Ed25519PrivateKeyParameters.SignatureSize];
                     privateKey.Sign(Ed25519.Algorithm.Ed25519ctx, ctx, buf, 0, count, signature, 0);
                     Reset();
@@ -109,13 +111,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 
                 lock (this)
                 {
-#if PORTABLE || NETFX_CORE
-                    byte[] buf = ToArray();
-                    int count = buf.Length;
-#else
                     byte[] buf = GetBuffer();
-                    int count = (int)Position;
-#endif
+                    int count = Convert.ToInt32(Length);
+
                     byte[] pk = publicKey.GetEncoded();
                     bool result = Ed25519.Verify(signature, 0, pk, 0, ctx, buf, 0, count);
                     Reset();
@@ -127,14 +125,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             {
                 lock (this)
                 {
-                    long count = Position;
-#if PORTABLE || NETFX_CORE
-                    this.Position = 0L;
-                    Streams.WriteZeroes(this, count);
-#else
-                    Array.Clear(GetBuffer(), 0, (int)count);
-#endif
-                    this.Position = 0L;
+                    int count = Convert.ToInt32(Length);
+                    Array.Clear(GetBuffer(), 0, count);
+                    SetLength(0);
                 }
             }
         }

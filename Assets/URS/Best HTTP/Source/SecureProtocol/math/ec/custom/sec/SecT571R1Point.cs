@@ -9,26 +9,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
     internal class SecT571R1Point
         : AbstractF2mPoint
     {
-        /**
-         * @deprecated Use ECCurve.createPoint to construct points
-         */
-        public SecT571R1Point(ECCurve curve, ECFieldElement x, ECFieldElement y)
-            : this(curve, x, y, false)
+        internal SecT571R1Point(ECCurve curve, ECFieldElement x, ECFieldElement y)
+            : base(curve, x, y)
         {
         }
 
-        /**
-         * @deprecated per-point compression property will be removed, refer {@link #getEncoded(bool)}
-         */
-        public SecT571R1Point(ECCurve curve, ECFieldElement x, ECFieldElement y, bool withCompression)
-            : base(curve, x, y, withCompression)
-        {
-            if ((x == null) != (y == null))
-                throw new ArgumentException("Exactly one of the field elements is null");
-        }
-
-        internal SecT571R1Point(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs, bool withCompression)
-            : base(curve, x, y, zs, withCompression)
+        internal SecT571R1Point(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs)
+            : base(curve, x, y, zs)
         {
         }
 
@@ -156,7 +143,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
                 X3 = (SecT571FieldElement)L.Square().Add(L).Add(X1).AddOne();
                 if (X3.IsZero)
                 {
-                    return new SecT571R1Point(curve, X3, SecT571R1Curve.SecT571R1_B_SQRT, IsCompressed);
+                    return new SecT571R1Point(curve, X3, SecT571R1Curve.SecT571R1_B_SQRT);
                 }
 
                 ECFieldElement Y3 = L.Multiply(X1.Add(X3)).Add(X3).Add(Y1);
@@ -180,7 +167,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
                 if (X3.IsZero)
                 {
-                    return new SecT571R1Point(curve, X3, SecT571R1Curve.SecT571R1_B_SQRT, IsCompressed);
+                    return new SecT571R1Point(curve, X3, SecT571R1Curve.SecT571R1_B_SQRT);
                 }
 
                 Z3 = new SecT571FieldElement(t3);
@@ -208,7 +195,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
                 }
             }
 
-            return new SecT571R1Point(curve, X3, L3, new ECFieldElement[] { Z3 }, IsCompressed);
+            return new SecT571R1Point(curve, X3, L3, new ECFieldElement[] { Z3 });
         }
 
         public override ECPoint Twice()
@@ -249,7 +236,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
             if (Nat576.IsZero64(T))
             {
-                return new SecT571R1Point(curve, new SecT571FieldElement(T), SecT571R1Curve.SecT571R1_B_SQRT, IsCompressed);
+                return new SecT571R1Point(curve, new SecT571FieldElement(T), SecT571R1Curve.SecT571R1_B_SQRT);
             }
 
             ulong[] tt = Nat576.CreateExt64();
@@ -279,7 +266,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
             SecT571Field.AddBothTo(X3.x, Z3.x, t2);
             SecT571FieldElement L3 = new SecT571FieldElement(t2);
 
-            return new SecT571R1Point(curve, X3, L3, new ECFieldElement[] { Z3 }, IsCompressed);
+            return new SecT571R1Point(curve, X3, L3, new ECFieldElement[] { Z3 });
         }
 
         public override ECPoint TwicePlus(ECPoint b)
@@ -327,14 +314,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
             if (A.IsZero)
             {
-                return new SecT571R1Point(curve, A, SecT571R1Curve.SecT571R1_B_SQRT, IsCompressed);
+                return new SecT571R1Point(curve, A, SecT571R1Curve.SecT571R1_B_SQRT);
             }
 
             ECFieldElement X3 = A.Square().Multiply(X2Z1Sq);
             ECFieldElement Z3 = A.Multiply(B).Multiply(Z1Sq);
             ECFieldElement L3 = A.Add(B).Square().MultiplyPlusProduct(T, L2.AddOne(), Z3);
 
-            return new SecT571R1Point(curve, X3, L3, new ECFieldElement[] { Z3 }, IsCompressed);
+            return new SecT571R1Point(curve, X3, L3, new ECFieldElement[] { Z3 });
         }
 
         public override ECPoint Negate()
@@ -348,7 +335,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
             // L is actually Lambda (X + Y/X) here
             ECFieldElement L = this.RawYCoord, Z = this.RawZCoords[0];
-            return new SecT571R1Point(Curve, X, L.Add(Z), new ECFieldElement[] { Z }, IsCompressed);
+            return new SecT571R1Point(Curve, X, L.Add(Z), new ECFieldElement[] { Z });
         }
     }
 }

@@ -65,7 +65,7 @@ namespace BestHTTP.Core
                         OnEvent(protocolEvent);
                     }
                     catch (Exception ex)
-{
+                    {
                         HTTPManager.Logger.Exception("ProtocolEventHelper", "ProcessQueue", ex, protocolEvent.Source.LoggingContext);
                     }
                 }

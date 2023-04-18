@@ -103,12 +103,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
             return Arrays.Clone(iv);
         }
 
-
-        public long GetIterationCount()
-        {
-            return IterationCount;
-        }
-
 		/// <summary>The iteration count</summary>
         public virtual long IterationCount
 		{

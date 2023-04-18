@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -19,8 +18,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
         private Asn1OctetString         encryptedDigest;
         private Asn1Set                 unauthenticatedAttributes;
 
-        public static SignerInfo GetInstance(
-            object obj)
+        public static SignerInfo GetInstance(object obj)
         {
             if (obj == null || obj is SignerInfo)
                 return (SignerInfo) obj;
@@ -28,7 +26,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
             if (obj is Asn1Sequence)
                 return new SignerInfo((Asn1Sequence) obj);
 
-            throw new ArgumentException("Unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("Unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
         public SignerInfo(
@@ -65,30 +63,28 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
             this.unauthenticatedAttributes = Asn1Set.GetInstance(unauthenticatedAttributes);
         }
 
-
-        public SignerInfo(
-            Asn1Sequence seq)
+        private SignerInfo(Asn1Sequence seq)
         {
-            IEnumerator e = seq.GetEnumerator();
+            var e = seq.GetEnumerator();
 
             e.MoveNext();
-            version = (DerInteger) e.Current;
+            version = (DerInteger)e.Current;
 
             e.MoveNext();
-            sid = SignerIdentifier.GetInstance(e.Current);
+            sid = SignerIdentifier.GetInstance(e.Current.ToAsn1Object());
 
             e.MoveNext();
-            digAlgorithm = AlgorithmIdentifier.GetInstance(e.Current);
+            digAlgorithm = AlgorithmIdentifier.GetInstance(e.Current.ToAsn1Object());
 
             e.MoveNext();
-            object obj = e.Current;
+            var obj = e.Current.ToAsn1Object();
 
-            if (obj is Asn1TaggedObject)
+            if (obj is Asn1TaggedObject tagged)
             {
-                authenticatedAttributes = Asn1Set.GetInstance((Asn1TaggedObject) obj, false);
+                authenticatedAttributes = Asn1Set.GetInstance(tagged, false);
 
                 e.MoveNext();
-                digEncryptionAlgorithm = AlgorithmIdentifier.GetInstance(e.Current);
+                digEncryptionAlgorithm = AlgorithmIdentifier.GetInstance(e.Current.ToAsn1Object());
             }
             else
             {
@@ -97,11 +93,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
             }
 
             e.MoveNext();
-            encryptedDigest = DerOctetString.GetInstance(e.Current);
+            encryptedDigest = Asn1OctetString.GetInstance(e.Current.ToAsn1Object());
 
             if (e.MoveNext())
             {
-                unauthenticatedAttributes = Asn1Set.GetInstance((Asn1TaggedObject) e.Current, false);
+                unauthenticatedAttributes = Asn1Set.GetInstance((Asn1TaggedObject)e.Current.ToAsn1Object(), false);
             }
             else
             {

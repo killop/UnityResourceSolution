@@ -71,7 +71,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
         public int avail_out;      // remaining free space at next_out
         public long total_out;     // total nb of bytes output so far
 
-        public String msg;
+        public string msg;
 
         internal Deflate dstate; 
         internal Inflate istate; 

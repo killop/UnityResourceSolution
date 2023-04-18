@@ -64,6 +64,8 @@ namespace BestHTTP.SignalRCore.Messages
         {
             switch (this.type)
             {
+                case MessageTypes.Handshake:
+                    return string.Format("[Handshake Error: '{0}'", this.error);
                 case MessageTypes.Invocation:
                     return string.Format("[Invocation Id: {0}, Target: '{1}', Argument count: {2}, Stream Ids: {3}]", this.invocationId, this.target, this.arguments != null ? this.arguments.Length : 0, this.streamIds != null ? this.streamIds.Length : 0);
                 case MessageTypes.StreamItem:

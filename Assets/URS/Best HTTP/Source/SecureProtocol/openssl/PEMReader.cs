@@ -1,25 +1,22 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Sec;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.TeleTrust;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.EC;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Encoders;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
@@ -34,27 +31,27 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.OpenSsl
     * Certificates will be returned using the appropriate java.security type.</p>
     */
     public class PemReader
-        : BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem.PemReader
+        : Utilities.IO.Pem.PemReader
     {
-//		private static readonly IDictionary parsers = new Hashtable();
+        //private static readonly Dictionary<string, PemObjectParser> Parsers = new Dictionary<string, PemObjectParser>();
 
         static PemReader()
         {
-//			parsers.Add("CERTIFICATE REQUEST", new PKCS10CertificationRequestParser());
-//			parsers.Add("NEW CERTIFICATE REQUEST", new PKCS10CertificationRequestParser());
-//			parsers.Add("CERTIFICATE", new X509CertificateParser(provider));
-//			parsers.Add("X509 CERTIFICATE", new X509CertificateParser(provider));
-//			parsers.Add("X509 CRL", new X509CRLParser(provider));
-//			parsers.Add("PKCS7", new PKCS7Parser());
-//			parsers.Add("ATTRIBUTE CERTIFICATE", new X509AttributeCertificateParser());
-//			parsers.Add("EC PARAMETERS", new ECNamedCurveSpecParser());
-//			parsers.Add("PUBLIC KEY", new PublicKeyParser(provider));
-//			parsers.Add("RSA PUBLIC KEY", new RSAPublicKeyParser(provider));
-//			parsers.Add("RSA PRIVATE KEY", new RSAKeyPairParser(provider));
-//			parsers.Add("DSA PRIVATE KEY", new DSAKeyPairParser(provider));
-//			parsers.Add("EC PRIVATE KEY", new ECDSAKeyPairParser(provider));
-//			parsers.Add("ENCRYPTED PRIVATE KEY", new EncryptedPrivateKeyParser(provider));
-//			parsers.Add("PRIVATE KEY", new PrivateKeyParser(provider));
+//			Parsers.Add("CERTIFICATE REQUEST", new PKCS10CertificationRequestParser());
+//			Parsers.Add("NEW CERTIFICATE REQUEST", new PKCS10CertificationRequestParser());
+//			Parsers.Add("CERTIFICATE", new X509CertificateParser(provider));
+//			Parsers.Add("X509 CERTIFICATE", new X509CertificateParser(provider));
+//			Parsers.Add("X509 CRL", new X509CRLParser(provider));
+//			Parsers.Add("PKCS7", new PKCS7Parser());
+//			Parsers.Add("ATTRIBUTE CERTIFICATE", new X509AttributeCertificateParser());
+//			Parsers.Add("EC PARAMETERS", new ECNamedCurveSpecParser());
+//			Parsers.Add("PUBLIC KEY", new PublicKeyParser(provider));
+//			Parsers.Add("RSA PUBLIC KEY", new RSAPublicKeyParser(provider));
+//			Parsers.Add("RSA PRIVATE KEY", new RSAKeyPairParser(provider));
+//			Parsers.Add("DSA PRIVATE KEY", new DSAKeyPairParser(provider));
+//			Parsers.Add("EC PRIVATE KEY", new ECDSAKeyPairParser(provider));
+//			Parsers.Add("ENCRYPTED PRIVATE KEY", new EncryptedPrivateKeyParser(provider));
+//			Parsers.Add("PRIVATE KEY", new PrivateKeyParser(provider));
         }
 
         private readonly IPasswordFinder pFinder;
@@ -95,7 +92,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.OpenSsl
 //			if (parsers.Contains(obj.Type))
 //				return ((PemObjectParser)parsers[obj.Type]).ParseObject(obj);
 
-            if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(obj.Type, "PRIVATE KEY"))
+            if (Org.BouncyCastle.Utilities.Platform.EndsWith(obj.Type, "PRIVATE KEY"))
                 return ReadPrivateKey(obj);
 
             switch (obj.Type)
@@ -201,7 +198,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.OpenSsl
         * @return the X509 Attribute Certificate
         * @throws IOException if an I/O error occured
         */
-        private IX509AttributeCertificate ReadAttributeCertificate(PemObject pemObject)
+        private X509V2AttributeCertificate ReadAttributeCertificate(PemObject pemObject)
         {
             return new X509V2AttributeCertificate(pemObject.Content);
         }
@@ -235,18 +232,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.OpenSsl
             //
             // extract the key
             //
-            Debug.Assert(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(pemObject.Type, "PRIVATE KEY"));
+            Debug.Assert(Org.BouncyCastle.Utilities.Platform.EndsWith(pemObject.Type, "PRIVATE KEY"));
 
             string type = pemObject.Type.Substring(0, pemObject.Type.Length - "PRIVATE KEY".Length).Trim();
             byte[] keyBytes = pemObject.Content;
 
-            IDictionary fields = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+            var fields = new Dictionary<string, string>();
             foreach (PemHeader header in pemObject.Headers)
             {
                 fields[header.Name] = header.Value;
             }
 
-            string procType = (string) fields["Proc-Type"];
+            string procType = CollectionUtilities.GetValueOrNull(fields, "Proc-Type");
 
             if (procType == "4,ENCRYPTED")
             {
@@ -254,11 +251,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.OpenSsl
                     throw new PasswordException("No password finder specified, but a password is required");
 
                 char[] password = pFinder.GetPassword();
-
                 if (password == null)
                     throw new PasswordException("Password is null, but a password is required");
 
-                string dekInfo = (string) fields["DEK-Info"];
+                if (!fields.TryGetValue("DEK-Info", out var dekInfo))
+                    throw new PemException("missing DEK-info");
+
                 string[] tknz = dekInfo.Split(',');
 
                 string dekAlgName = tknz[0].Trim();
@@ -381,22 +379,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.OpenSsl
 //			return GetCurveParameters(oid.Id);
 //		}
 
-        //private static ECDomainParameters GetCurveParameters(
-        private static X9ECParameters GetCurveParameters(
-            string name)
+        private static X9ECParameters GetCurveParameters(string name)
         {
-            // TODO ECGost3410NamedCurves support (returns ECDomainParameters though)
-
-            X9ECParameters ecP = CustomNamedCurves.GetByName(name);
-            if (ecP == null)
-            {
-                ecP = ECNamedCurveTable.GetByName(name);
-            }
-
+            X9ECParameters ecP = ECKeyPairGenerator.FindECCurveByName(name);
             if (ecP == null)
                 throw new Exception("unknown curve name: " + name);
 
-            //return new ECDomainParameters(ecP.Curve, ecP.G, ecP.N, ecP.H, ecP.GetSeed());
             return ecP;
         }
     }

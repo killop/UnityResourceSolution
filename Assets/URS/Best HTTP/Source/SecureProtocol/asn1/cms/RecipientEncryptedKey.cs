@@ -54,7 +54,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 				return new RecipientEncryptedKey((Asn1Sequence) obj);
 			}
 
-			throw new ArgumentException("Invalid RecipientEncryptedKey: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("Invalid RecipientEncryptedKey: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public RecipientEncryptedKey(

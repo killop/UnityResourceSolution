@@ -51,7 +51,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
                 return new RecipientIdentifier((Asn1Object) o);
 
 			throw new ArgumentException(
-              "Illegal object in RecipientIdentifier: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
+              "Illegal object in RecipientIdentifier: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
         }
 
 		public bool IsTagged

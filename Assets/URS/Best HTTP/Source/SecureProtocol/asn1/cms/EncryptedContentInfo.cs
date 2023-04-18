@@ -52,7 +52,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			if (obj is Asn1Sequence)
                 return new EncryptedContentInfo((Asn1Sequence)obj);
 
-            throw new ArgumentException("Invalid EncryptedContentInfo: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("Invalid EncryptedContentInfo: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
         public DerObjectIdentifier ContentType

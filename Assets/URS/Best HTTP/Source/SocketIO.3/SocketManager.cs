@@ -8,6 +8,7 @@ using BestHTTP.Extensions;
 using BestHTTP.SocketIO3.Parsers;
 using BestHTTP.SocketIO3.Events;
 using BestHTTP.Logger;
+using BestHTTP.PlatformSupport.Memory;
 
 namespace BestHTTP.SocketIO3
 {
@@ -207,9 +208,6 @@ namespace BestHTTP.SocketIO3
         {
             this.Context = new LoggingContext(this);
 
-            if (uri.Scheme.StartsWith("ws"))
-                options.ConnectWith = TransportTypes.WebSocket;
-
             string path = uri.PathAndQuery;
             if (path.Length <= 1)
             {
@@ -227,6 +225,11 @@ namespace BestHTTP.SocketIO3
             this.State = States.Initial;
             this.PreviousState = States.Initial;
             this.Parser = parser ?? new DefaultJsonParser();
+
+#if !BESTHTTP_DISABLE_WEBSOCKET
+            if (uri.Scheme.StartsWith("ws"))
+                options.ConnectWith = TransportTypes.WebSocket;
+#endif
         }
 
         #endregion
@@ -355,7 +358,11 @@ namespace BestHTTP.SocketIO3
             lastPingReceived = DateTime.MinValue;
 
             if (removeSockets && OfflinePackets != null)
+            {
+                foreach (var packet in OfflinePackets)
+                    BufferPool.Release(packet.PayloadData);
                 OfflinePackets.Clear();
+            }
 
             // Remove the references from the dictionary too.
             if (removeSockets)
@@ -523,7 +530,8 @@ namespace BestHTTP.SocketIO3
         /// </summary>
         void IManager.SendPacket(OutgoingPacket packet)
         {
-            HTTPManager.Logger.Information("SocketManager", "SendPacket " + packet.ToString(), this.Context);
+            if (HTTPManager.Logger.Level <= Loglevels.Information)
+                HTTPManager.Logger.Information("SocketManager", "SendPacket " + packet.ToString(), this.Context);
 
             ITransport trans = SelectTransport();
 
@@ -541,7 +549,10 @@ namespace BestHTTP.SocketIO3
             else
             {
                 if (packet.IsVolatile)
+                {
+                    BufferPool.Release(packet.PayloadData);
                     return;
+                }
 
                 HTTPManager.Logger.Information("SocketManager", "SendPacket - Offline stashing packet", this.Context);
 

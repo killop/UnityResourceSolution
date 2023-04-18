@@ -1,25 +1,29 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-
-#if PORTABLE || NETFX_CORE
-using System.Collections.Generic;
-using System.Linq;
-#endif
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
-    abstract public class Asn1Set
-        : Asn1Object, IEnumerable
+    public abstract class Asn1Set
+        : Asn1Object, IEnumerable<Asn1Encodable>
     {
-        // NOTE: Only non-readonly to support LazyDerSet
-        internal Asn1Encodable[] elements;
+        internal class Meta : Asn1UniversalType
+        {
+            internal static readonly Asn1UniversalType Instance = new Meta();
+
+            private Meta() : base(typeof(Asn1Set), Asn1Tags.Set) {}
+
+            internal override Asn1Object FromImplicitConstructed(Asn1Sequence sequence)
+            {
+                return sequence.ToAsn1Set();
+            }
+        }
 
         /**
          * return an ASN1Set from the given object.
@@ -27,39 +31,33 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
          * @param obj the object we want converted.
          * @exception ArgumentException if the object cannot be converted.
          */
-        public static Asn1Set GetInstance(
-            object obj)
+        public static Asn1Set GetInstance(object obj)
         {
-            if (obj == null || obj is Asn1Set)
+            if (obj == null)
+                return null;
+
+            if (obj is Asn1Set asn1Set)
+                return asn1Set;
+
+            if (obj is IAsn1Convertible asn1Convertible)
             {
-                return (Asn1Set)obj;
+                Asn1Object asn1Object = asn1Convertible.ToAsn1Object();
+                if (asn1Object is Asn1Set converted)
+                    return converted;
             }
-            else if (obj is Asn1SetParser)
-            {
-                return Asn1Set.GetInstance(((Asn1SetParser)obj).ToAsn1Object());
-            }
-            else if (obj is byte[])
+            else if (obj is byte[] bytes)
             {
                 try
                 {
-                    return Asn1Set.GetInstance(FromByteArray((byte[])obj));
+                    return (Asn1Set)Meta.Instance.FromByteArray(bytes);
                 }
                 catch (IOException e)
                 {
                     throw new ArgumentException("failed to construct set from byte[]: " + e.Message);
                 }
             }
-            else if (obj is Asn1Encodable)
-            {
-                Asn1Object primitive = ((Asn1Encodable)obj).ToAsn1Object();
 
-                if (primitive is Asn1Set)
-                {
-                    return (Asn1Set)primitive;
-                }
-            }
-
-            throw new ArgumentException("Unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
         /**
@@ -72,65 +70,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
          * dealing with implicitly tagged sets you really <b>should</b>
          * be using this method.
          *
-         * @param obj the tagged object.
-         * @param explicitly true if the object is meant to be explicitly tagged
-         *          false otherwise.
-         * @exception ArgumentException if the tagged object cannot
-         *          be converted.
+         * @param taggedObject the tagged object.
+         * @param declaredExplicit true if the object is meant to be explicitly tagged false otherwise.
+         * @exception ArgumentException if the tagged object cannot be converted.
          */
-        public static Asn1Set GetInstance(
-            Asn1TaggedObject	obj,
-            bool				explicitly)
+        public static Asn1Set GetInstance(Asn1TaggedObject taggedObject, bool declaredExplicit)
         {
-            Asn1Object inner = obj.GetObject();
-
-            if (explicitly)
-            {
-                if (!obj.IsExplicit())
-                    throw new ArgumentException("object implicit - explicit expected.");
-
-                return (Asn1Set) inner;
-            }
-
-            //
-            // constructed object which appears to be explicitly tagged
-            // and it's really implicit means we have to add the
-            // surrounding sequence.
-            //
-            if (obj.IsExplicit())
-            {
-                return new DerSet(inner);
-            }
-
-            if (inner is Asn1Set)
-            {
-                return (Asn1Set) inner;
-            }
-
-            //
-            // in this case the parser returns a sequence, convert it
-            // into a set.
-            //
-            if (inner is Asn1Sequence)
-            {
-                Asn1EncodableVector v = new Asn1EncodableVector();
-                Asn1Sequence s = (Asn1Sequence) inner;
-
-                foreach (Asn1Encodable ae in s)
-                {
-                    v.Add(ae);
-                }
-
-                // TODO Should be able to construct set directly from sequence?
-                return new DerSet(v, false);
-            }
-
-            throw new ArgumentException("Unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            return (Asn1Set)Meta.Instance.GetContextInstance(taggedObject, declaredExplicit);
         }
+
+        // NOTE: Only non-readonly to support LazyDLSet
+        internal Asn1Encodable[] elements;
+        internal bool isSorted;
 
         protected internal Asn1Set()
         {
             this.elements = Asn1EncodableVector.EmptyElements;
+            this.isSorted = true;
         }
 
         protected internal Asn1Set(Asn1Encodable element)
@@ -139,27 +95,58 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
                 throw new ArgumentNullException("element");
 
             this.elements = new Asn1Encodable[]{ element };
+            this.isSorted = true;
         }
 
-        protected internal Asn1Set(params Asn1Encodable[] elements)
+        protected internal Asn1Set(Asn1Encodable[] elements, bool doSort)
         {
             if (Arrays.IsNullOrContainsNull(elements))
                 throw new NullReferenceException("'elements' cannot be null, or contain null");
 
-            this.elements = Asn1EncodableVector.CloneElements(elements);
+            Asn1Encodable[] tmp = Asn1EncodableVector.CloneElements(elements);
+            if (doSort && tmp.Length >= 2)
+            {
+                tmp = Sort(tmp);
+            }
+
+            this.elements = tmp;
+            this.isSorted = doSort || tmp.Length < 2;
         }
 
-        protected internal Asn1Set(Asn1EncodableVector elementVector)
+        protected internal Asn1Set(Asn1EncodableVector elementVector, bool doSort)
         {
             if (null == elementVector)
                 throw new ArgumentNullException("elementVector");
 
-            this.elements = elementVector.TakeElements();
+            Asn1Encodable[] tmp;
+            if (doSort && elementVector.Count >= 2)
+            {
+                tmp = Sort(elementVector.CopyElements());
+            }
+            else
+            {
+                tmp = elementVector.TakeElements();
+            }
+
+            this.elements = tmp;
+            this.isSorted = doSort || tmp.Length < 2;
         }
 
-        public virtual IEnumerator GetEnumerator()
+        protected internal Asn1Set(bool isSorted, Asn1Encodable[] elements)
         {
-            return elements.GetEnumerator();
+            this.elements = elements;
+            this.isSorted = isSorted || elements.Length < 2;
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        public virtual IEnumerator<Asn1Encodable> GetEnumerator()
+        {
+            IEnumerable<Asn1Encodable> e = elements;
+            return e.GetEnumerator();
         }
 
         /**
@@ -178,6 +165,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             get { return elements.Length; }
         }
 
+        public virtual T[] MapElements<T>(Func<Asn1Encodable, T> func)
+        {
+            // NOTE: Call Count here to 'force' a LazyDerSet
+            int count = Count;
+            T[] result = new T[count];
+            for (int i = 0; i < count; ++i)
+            {
+                result[i] = func(elements[i]);
+            }
+            return result;
+        }
+
         public virtual Asn1Encodable[] ToArray()
         {
             return Asn1EncodableVector.CloneElements(elements);
@@ -194,6 +193,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
                 Asn1Set outer)
             {
                 this.outer = outer;
+                // NOTE: Call Count here to 'force' a LazyDerSet
                 this.max = outer.Count;
             }
 
@@ -229,8 +229,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 
         protected override int Asn1GetHashCode()
         {
-            //return Arrays.GetHashCode(elements);
-            int i = elements.Length;
+            // NOTE: Call Count here to 'force' a LazyDerSet
+            int i = Count;
             int hc = i + 1;
 
             while (--i >= 0)
@@ -248,6 +248,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             if (null == that)
                 return false;
 
+            // NOTE: Call Count here (on both) to 'force' a LazyDerSet
             int count = this.Count;
             if (that.Count != count)
                 return false;
@@ -257,34 +258,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
                 Asn1Object o1 = this.elements[i].ToAsn1Object();
                 Asn1Object o2 = that.elements[i].ToAsn1Object();
 
-                if (o1 != o2 && !o1.CallAsn1Equals(o2))
+                if (!o1.Equals(o2))
                     return false;
             }
 
             return true;
-        }
-
-        protected internal void Sort()
-        {
-            if (elements.Length < 2)
-                return;
-
-#if PORTABLE || NETFX_CORE
-            this.elements = elements
-                .Cast<Asn1Encodable>()
-                .Select(a => new { Item = a, Key = a.GetEncoded(Asn1Encodable.Der) })
-                .OrderBy(t => t.Key, new DerComparer())
-                .Select(t => t.Item)
-                .ToArray();
-#else
-            int count = elements.Length;
-            byte[][] keys = new byte[count][];
-            for (int i = 0; i < count; ++i)
-            {
-                keys[i] = elements[i].GetEncoded(Der);
-            }
-            Array.Sort(keys, elements, new DerComparer());
-#endif
         }
 
         public override string ToString()
@@ -292,21 +270,26 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             return CollectionUtilities.ToString(elements);
         }
 
-#if PORTABLE || NETFX_CORE
+        internal static Asn1Encodable[] Sort(Asn1Encodable[] elements)
+        {
+            int count = elements.Length;
+            if (count < 2)
+                return elements;
+
+            byte[][] keys = new byte[count][];
+            for (int i = 0; i < count; ++i)
+            {
+                keys[i] = elements[i].GetEncoded(Der);
+            }
+            Array.Sort(keys, elements, new DerComparer());
+            return elements;
+        }
+
         private class DerComparer
             : IComparer<byte[]>
         {
-            public int Compare(byte[] x, byte[] y)
+            public int Compare(byte[] a, byte[] b)
             {
-                byte[] a = x, b = y;
-#else
-        private class DerComparer
-            : IComparer
-        {
-            public int Compare(object x, object y)
-            {
-                byte[] a = (byte[])x, b = (byte[])y;
-#endif
                 Debug.Assert(a.Length >= 2 && b.Length >= 2);
 
                 /*
@@ -326,6 +309,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
                 if (a0 != b0)
                     return a0 < b0 ? -1 : 1;
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+                int compareLength = System.Math.Min(a.Length, b.Length) - 1;
+                return a.AsSpan(1, compareLength).SequenceCompareTo(b.AsSpan(1, compareLength));
+#else
                 int len = System.Math.Min(a.Length, b.Length);
                 for (int i = 1; i < len; ++i)
                 {
@@ -335,6 +322,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
                 }
                 Debug.Assert(a.Length == b.Length);
                 return 0;
+#endif
             }
         }
     }

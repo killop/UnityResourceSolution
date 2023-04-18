@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -17,7 +17,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 {
 	/// <summary>An implementation of a version 2 X.509 Attribute Certificate.</summary>
 	public class X509V2AttributeCertificate
-		: X509ExtensionBase, IX509AttributeCertificate
+		: X509ExtensionBase
 	{
 		private readonly AttributeCertificate cert;
 		private readonly DateTime notBefore;
@@ -51,8 +51,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		{
 		}
 
-		internal X509V2AttributeCertificate(
-			AttributeCertificate cert)
+		public X509V2AttributeCertificate(AttributeCertificate cert)
 		{
 			this.cert = cert;
 
@@ -65,6 +64,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 			{
 				throw new IOException("invalid data structure in certificate!", e);
 			}
+		}
+
+		public virtual AttributeCertificate AttributeCertificate
+		{
+			get { return cert; }
 		}
 
 		public virtual int Version
@@ -180,30 +184,28 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
         protected virtual void CheckSignature(
             IVerifierFactory verifier)
         {
+            // TODO Compare IsAlgIDEqual in X509Certificate.CheckSignature
             if (!cert.SignatureAlgorithm.Equals(cert.ACInfo.Signature))
-			{
 				throw new CertificateException("Signature algorithm in certificate info not same as outer certificate");
-			}
 
-            IStreamCalculator streamCalculator = verifier.CreateCalculator();
+            IStreamCalculator<IVerifier> streamCalculator = verifier.CreateCalculator();
 
 			try
 			{
                 byte[] b = this.cert.ACInfo.GetEncoded();
 
-                streamCalculator.Stream.Write(b, 0, b.Length);
-
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(streamCalculator.Stream);
+				using (var stream = streamCalculator.Stream)
+				{
+                    stream.Write(b, 0, b.Length);
+                }
             }
 			catch (IOException e)
 			{
 				throw new SignatureException("Exception encoding certificate info object", e);
 			}
 
-			if (!((IVerifier)streamCalculator.GetResult()).IsVerified(this.GetSignature()))
-			{
+			if (!streamCalculator.GetResult().IsVerified(this.GetSignature()))
 				throw new InvalidKeyException("Public key presented not for certificate signature");
-			}
 		}
 
 		public virtual byte[] GetEncoded()
@@ -233,7 +235,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 			string oid)
 		{
 			Asn1Sequence seq = cert.ACInfo.Attributes;
-			IList list = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+			var list = new List<X509Attribute>();
 
 			for (int i = 0; i != seq.Count; i++)
 			{
@@ -249,16 +251,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 				return null;
 			}
 
-            X509Attribute[] result = new X509Attribute[list.Count];
-            for (int i = 0; i < list.Count; ++i)
-            {
-                result[i] = (X509Attribute)list[i];
-            }
-            return result;
+			return list.ToArray();
 		}
 
-		public override bool Equals(
-			object obj)
+		public override bool Equals(object obj)
 		{
 			if (obj == this)
 				return true;

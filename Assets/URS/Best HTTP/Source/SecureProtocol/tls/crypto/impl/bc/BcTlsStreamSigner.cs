@@ -18,9 +18,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             this.m_output = new SignerSink(signer);
         }
 
-        public Stream GetOutputStream()
+        public Stream Stream
         {
-            return m_output;
+            get { return m_output; }
         }
 
         public byte[] GetSignature()

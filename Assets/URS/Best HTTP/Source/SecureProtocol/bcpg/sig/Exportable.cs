@@ -12,17 +12,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg.Sig
     {
         private static byte[] BooleanToByteArray(bool val)
         {
-            byte[]    data = new byte[1];
-
-            if (val)
-            {
-                data[0] = 1;
-                return data;
-            }
-            else
-            {
-                return data;
-            }
+            return new byte[1]{ Convert.ToByte(val) };
         }
 
         public Exportable(

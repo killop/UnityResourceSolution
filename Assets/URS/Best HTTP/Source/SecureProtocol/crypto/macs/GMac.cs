@@ -1,12 +1,9 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 {
@@ -57,10 +54,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
         /// </summary>
         public void Init(ICipherParameters parameters)
         {
-            if (parameters is ParametersWithIV)
+            if (parameters is ParametersWithIV param)
             {
-                ParametersWithIV param = (ParametersWithIV)parameters;
-
                 byte[] iv = param.GetIV();
                 KeyParameter keyParam = (KeyParameter)param.Parameters;
 
@@ -75,7 +70,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 
         public string AlgorithmName
         {
-            get { return cipher.GetUnderlyingCipher().AlgorithmName + "-GMAC"; }
+            get { return cipher.UnderlyingCipher.AlgorithmName + "-GMAC"; }
         }
 
         public int GetMacSize()
@@ -93,6 +88,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
             cipher.ProcessAadBytes(input, inOff, len);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            cipher.ProcessAadBytes(input);
+        }
+#endif
+
         public int DoFinal(byte[] output, int outOff)
         {
             try
@@ -105,6 +107,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
                 throw new InvalidOperationException(e.ToString());
             }
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int DoFinal(Span<byte> output)
+        {
+            try
+            {
+                return cipher.DoFinal(output);
+            }
+            catch (InvalidCipherTextException e)
+            {
+                // Impossible in encrypt mode
+                throw new InvalidOperationException(e.ToString());
+            }
+        }
+#endif
 
         public void Reset()
         {

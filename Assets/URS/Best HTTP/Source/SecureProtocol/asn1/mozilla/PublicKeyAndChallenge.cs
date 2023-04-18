@@ -41,7 +41,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Mozilla
 
 			throw new ArgumentException(
 				"unknown object in 'PublicKeyAndChallenge' factory : "
-                + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj) + ".");
+                + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj) + ".");
 		}
 
 		public PublicKeyAndChallenge(

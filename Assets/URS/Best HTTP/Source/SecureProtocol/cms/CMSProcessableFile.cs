@@ -1,7 +1,5 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-#if !PORTABLE || NETFX_CORE || DOTNET
-using System;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -38,19 +36,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 
         public virtual void Write(Stream zOut)
 		{
-			Stream inStr = _file.OpenRead();
-            Streams.PipeAll(inStr, zOut, _bufSize);
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(inStr);
-		}
-
-        /// <returns>The file handle</returns>
-		[Obsolete]
-		public virtual object GetContent()
-		{
-			return _file;
+			using (var inStr = _file.OpenRead())
+			{
+                Streams.PipeAll(inStr, zOut, _bufSize);
+            }
 		}
 	}
 }
-#endif
 #pragma warning restore
 #endif

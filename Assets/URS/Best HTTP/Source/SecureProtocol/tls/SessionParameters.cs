@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
@@ -84,7 +84,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             }
 
             /// <exception cref="IOException"/>
-            public Builder SetServerExtensions(IDictionary serverExtensions)
+            public Builder SetServerExtensions(IDictionary<int, byte[]> serverExtensions)
             {
                 if (serverExtensions == null || serverExtensions.Count < 1)
                 {
@@ -181,7 +181,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         }
 
         /// <exception cref="IOException"/>
-        public IDictionary ReadServerExtensions()
+        public IDictionary<int, byte[]> ReadServerExtensions()
         {
             if (m_encodedServerExtensions == null)
                 return null;

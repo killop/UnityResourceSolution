@@ -15,7 +15,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 		private readonly bool                versionPresent;
 		private readonly DerInteger          version;
 		private readonly ResponderID         responderID;
-		private readonly DerGeneralizedTime  producedAt;
+		private readonly Asn1GeneralizedTime producedAt;
 		private readonly Asn1Sequence        responses;
 		private readonly X509Extensions      responseExtensions;
 
@@ -39,13 +39,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 				return new ResponseData((Asn1Sequence)obj);
 			}
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public ResponseData(
 			DerInteger          version,
 			ResponderID         responderID,
-			DerGeneralizedTime  producedAt,
+            Asn1GeneralizedTime producedAt,
 			Asn1Sequence        responses,
 			X509Extensions      responseExtensions)
 		{
@@ -58,7 +58,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 
 		public ResponseData(
 			ResponderID         responderID,
-			DerGeneralizedTime  producedAt,
+            Asn1GeneralizedTime producedAt,
 			Asn1Sequence        responses,
 			X509Extensions      responseExtensions)
 			: this(V1, responderID, producedAt, responses, responseExtensions)
@@ -92,7 +92,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 			}
 
 			this.responderID = ResponderID.GetInstance(seq[index++]);
-			this.producedAt = (DerGeneralizedTime)seq[index++];
+			this.producedAt = (Asn1GeneralizedTime)seq[index++];
 			this.responses = (Asn1Sequence)seq[index++];
 
 			if (seq.Count > index)
@@ -112,7 +112,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 			get { return responderID; }
 		}
 
-		public DerGeneralizedTime ProducedAt
+		public Asn1GeneralizedTime ProducedAt
 		{
 			get { return producedAt; }
 		}

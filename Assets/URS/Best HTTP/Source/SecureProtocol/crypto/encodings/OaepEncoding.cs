@@ -64,31 +64,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Encodings
             hash.DoFinal(defHash, 0);
         }
 
-        public IAsymmetricBlockCipher GetUnderlyingCipher()
-        {
-            return engine;
-        }
+        public string AlgorithmName => engine.AlgorithmName + "/OAEPPadding";
 
-        public string AlgorithmName
-        {
-            get { return engine.AlgorithmName + "/OAEPPadding"; }
-        }
+        public IAsymmetricBlockCipher UnderlyingCipher => engine;
 
-        public void Init(
-            bool				forEncryption,
-            ICipherParameters	param)
+        public void Init(bool forEncryption, ICipherParameters parameters)
         {
-            if (param is ParametersWithRandom)
+            if (parameters is ParametersWithRandom withRandom)
             {
-                ParametersWithRandom rParam = (ParametersWithRandom)param;
-                this.random = rParam.Random;
+                this.random = withRandom.Random;
             }
             else
             {
-                this.random = new SecureRandom();
+                this.random = CryptoServicesRegistrar.GetSecureRandom();
             }
 
-            engine.Init(forEncryption, param);
+            engine.Init(forEncryption, parameters);
 
             this.forEncryption = forEncryption;
         }
@@ -215,7 +206,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Encodings
             // on encryption, we need to make sure our decrypted block comes back
             // the same size.
             //
-            bool wrongData = (block.Length < (2 * defHash.Length) + 1);
+            // i.e. wrong when block.length < (2 * defHash.length) + 1
+            int wrongMask = (block.Length - ((2 * defHash.Length) + 1)) >> 31;
 
             if (data.Length <= block.Length)
             {
@@ -224,7 +216,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Encodings
             else
             {
                 Array.Copy(data, 0, block, 0, block.Length);
-                wrongData = true;
+                wrongMask |= 1;
             }
 
             //
@@ -252,38 +244,37 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Encodings
             // check the hash of the encoding params.
             // long check to try to avoid this been a source of a timing attack.
             //
-            bool defHashWrong = false;
-
             for (int i = 0; i != defHash.Length; i++)
             {
-                if (defHash[i] != block[defHash.Length + i])
-                {
-                    defHashWrong = true;
-                }
+                wrongMask |= defHash[i] ^ block[defHash.Length + i];
             }
 
             //
             // find the data block
             //
-            int start = block.Length;
+            int start = -1;
 
             for (int index = 2 * defHash.Length; index != block.Length; index++)
             {
-                if (block[index] != 0 & start == block.Length)
-                {
-                    start = index;
-                }
+                int octet = block[index];
+
+                // i.e. mask will be 0xFFFFFFFF if octet is non-zero and start is (still) negative, else 0.
+                int shouldSetMask = (-octet & start) >> 31;
+
+                start += index & shouldSetMask;
             }
 
-            bool dataStartWrong = (start > (block.Length - 1) | block[start] != 1);
+            wrongMask |= start >> 31;
+            ++start;
+            wrongMask |= block[start] ^ 1;
 
-            start++;
-
-            if (defHashWrong | wrongData | dataStartWrong)
+            if (wrongMask != 0)
             {
                 Arrays.Fill(block, 0);
                 throw new InvalidCipherTextException("data wrong");
             }
+
+            ++start;
 
             //
             // extract the data block
@@ -306,7 +297,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Encodings
             {
                 byte[] mask = new byte[length];
                 mgf1Hash.BlockUpdate(Z, zOff, zLen);
-                ((IXof)mgf1Hash).DoFinal(mask, 0, mask.Length);
+                ((IXof)mgf1Hash).OutputFinal(mask, 0, mask.Length);
 
                 return mask;
             }

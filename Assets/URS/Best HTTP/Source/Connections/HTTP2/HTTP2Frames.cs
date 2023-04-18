@@ -85,13 +85,15 @@ namespace BestHTTP.Connections.HTTP2
 
         public override string ToString()
         {
-            return string.Format("[HTTP2FrameHeaderAndPayload Length: {0}, Type: {1}, Flags: {2}, StreamId: {3}, PayloadOffset: {4}, DontUseMemPool: {5}]",
-                this.PayloadLength, this.Type, this.Flags.ToBinaryStr(), this.StreamId, this.PayloadOffset, this.DontUseMemPool);
+            return string.Format("[HTTP2FrameHeaderAndPayload Length: {0}, Type: {1}, Flags: {2}, StreamId: {3}, PayloadOffset: {4}, DontUseMemPool: {5}, Payload: {6}]",
+                this.PayloadLength, this.Type, this.Flags.ToBinaryStr(), this.StreamId, this.PayloadOffset, this.DontUseMemPool,
+                this.Payload == null ? BufferSegment.Empty : new BufferSegment(this.Payload, (int)this.PayloadOffset, (int)this.PayloadLength));
         }
 
         public string PayloadAsHex()
         {
-            System.Text.StringBuilder sb = new System.Text.StringBuilder("[", (int)this.PayloadLength + 1);
+            System.Text.StringBuilder sb = PlatformSupport.Text.StringBuilderPool.Get((int)this.PayloadLength + 2);
+            sb.Append("[");
             if (this.Payload != null && this.PayloadLength > 0)
             {
                 uint idx = this.PayloadOffset;
@@ -101,7 +103,7 @@ namespace BestHTTP.Connections.HTTP2
             }
             sb.Append("]");
 
-            return sb.ToString();
+            return PlatformSupport.Text.StringBuilderPool.ReleaseAndGrab(sb);
         }
     }
 
@@ -122,12 +124,14 @@ namespace BestHTTP.Connections.HTTP2
             string settings = null;
             if (this.Settings != null)
             {
-                System.Text.StringBuilder sb = new System.Text.StringBuilder("[");
+                System.Text.StringBuilder sb = PlatformSupport.Text.StringBuilderPool.Get(this.Settings.Count + 2);
+
+                sb.Append("[");
                 foreach (var kvp in this.Settings)
                     sb.AppendFormat("[{0}: {1}]", kvp.Key, kvp.Value);
                 sb.Append("]");
 
-                settings = sb.ToString();
+                settings = PlatformSupport.Text.StringBuilderPool.ReleaseAndGrab(sb);
             }
 
             return string.Format("[HTTP2SettingsFrame Header: {0}, Flags: {1}, Settings: {2}]", this.Header.ToString(), this.Flags, settings ?? "Empty");

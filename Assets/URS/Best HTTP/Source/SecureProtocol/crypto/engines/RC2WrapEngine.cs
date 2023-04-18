@@ -44,8 +44,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 		//
 		// checksum digest
 		//
-		IDigest sha1 = new Sha1Digest();
-		byte[] digest = new byte[20];
+		private readonly IDigest sha1 = new Sha1Digest();
+		private readonly byte[] digest = new byte[20];
 
 		/**
 			* Method init
@@ -53,22 +53,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 			* @param forWrapping
 			* @param param
 			*/
-        public virtual void Init(
-			bool				forWrapping,
-			ICipherParameters	parameters)
+        public virtual void Init(bool forWrapping, ICipherParameters parameters)
 		{
 			this.forWrapping = forWrapping;
 			this.engine = new CbcBlockCipher(new RC2Engine());
 
-			if (parameters is ParametersWithRandom)
+			if (parameters is ParametersWithRandom pWithR)
 			{
-				ParametersWithRandom pWithR = (ParametersWithRandom)parameters;
 				sr = pWithR.Random;
 				parameters = pWithR.Parameters;
 			}
 			else
 			{
-				sr = new SecureRandom();
+				sr = CryptoServicesRegistrar.GetSecureRandom();
 			}
 
 			if (parameters is ParametersWithIV)

@@ -1,17 +1,13 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.IO;
-using System.Text;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Crmf;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -118,12 +114,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
         private EncryptedValue EncryptData(byte[] data)
         {
             MemoryOutputStream bOut = new MemoryOutputStream();
-            Stream eOut = encryptor.BuildCipher(bOut).Stream;
+            var cipher = encryptor.BuildCipher(bOut);
 
             try
             {
-                eOut.Write(data, 0, data.Length);
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(eOut);
+                using (var eOut = cipher.Stream)
+                {
+                    eOut.Write(data, 0, data.Length);
+                }
             }
             catch (IOException e)
             {

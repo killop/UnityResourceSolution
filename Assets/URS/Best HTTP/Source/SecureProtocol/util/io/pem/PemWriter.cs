@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Encoders;
@@ -12,13 +11,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 	* A generic PEM writer, based on RFC 1421
 	*/
 	public class PemWriter
+		: IDisposable
 	{
 		private const int LineLength = 64;
 
 		private readonly TextWriter	writer;
 		private readonly int		nlLength;
 		private char[]				buf = new char[LineLength];
-		
+
 		/**
 		 * Base constructor.
 		 *
@@ -26,14 +26,29 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 		 */
 		public PemWriter(TextWriter writer)
 		{
-			if (writer == null)
-				throw new ArgumentNullException("writer");
-
-			this.writer = writer;
-			this.nlLength = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine.Length;
+			this.writer = writer ?? throw new ArgumentNullException(nameof(writer));
+            this.nlLength = Environment.NewLine.Length;
 		}
 
-		public TextWriter Writer
+        #region IDisposable
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                writer.Dispose();
+            }
+        }
+
+        #endregion
+
+        public TextWriter Writer
 		{
 			get { return writer; }
 		}
@@ -118,7 +133,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem
 		{
 			writer.WriteLine("-----END " + type + "-----");
 		}
-	}
+    }
 }
 #pragma warning restore
 #endif

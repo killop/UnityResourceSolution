@@ -6,32 +6,41 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.IO
 {
-    public class MacSink
+    public sealed class MacSink
         : BaseOutputStream
     {
-        private readonly IMac mMac;
+        private readonly IMac m_mac;
 
         public MacSink(IMac mac)
         {
-            this.mMac = mac;
+            m_mac = mac;
         }
 
-        public virtual IMac Mac
-        {
-            get { return mMac; }
-        }
+        public IMac Mac => m_mac;
 
-        public override void WriteByte(byte b)
+        public override void Write(byte[] buffer, int offset, int count)
         {
-            mMac.Update(b);
-        }
+            Streams.ValidateBufferArguments(buffer, offset, count);
 
-        public override void Write(byte[] buf, int off, int len)
-        {
-            if (len > 0)
+            if (count > 0)
             {
-                mMac.BlockUpdate(buf, off, len);
+                m_mac.BlockUpdate(buffer, offset, count);
             }
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            if (!buffer.IsEmpty)
+            {
+                m_mac.BlockUpdate(buffer);
+            }
+        }
+#endif
+
+        public override void WriteByte(byte value)
+        {
+            m_mac.Update(value);
         }
     }
 }

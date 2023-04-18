@@ -166,7 +166,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
 
             if (partialBuffer != null)
             {
-                PartialFlush(true);
+                PartialFlushLast();
                 partialBuffer = null;
             }
 
@@ -217,87 +217,108 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
             }
         }
 
-        private void PartialFlush(
-            bool isLast)
+        private void PartialFlush()
         {
-            if (isLast)
-            {
-                WriteNewPacketLength(partialOffset);
-                outStr.Write(partialBuffer, 0, partialOffset);
-            }
-            else
-            {
-                outStr.WriteByte((byte)(0xE0 | partialPower));
-                outStr.Write(partialBuffer, 0, partialBufferLength);
-            }
-
+            outStr.WriteByte((byte)(0xE0 | partialPower));
+            outStr.Write(partialBuffer, 0, partialBufferLength);
             partialOffset = 0;
         }
 
-		private void WritePartial(
-            byte b)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        private void PartialFlush(ref ReadOnlySpan<byte> buffer)
+        {
+            outStr.WriteByte((byte)(0xE0 | partialPower));
+            outStr.Write(buffer[..partialBufferLength]);
+            buffer = buffer[partialBufferLength..];
+        }
+#endif
+
+        private void PartialFlushLast()
+        {
+            WriteNewPacketLength(partialOffset);
+            outStr.Write(partialBuffer, 0, partialOffset);
+            partialOffset = 0;
+        }
+
+        private void PartialWrite(byte[] buffer, int offset, int count)
+        {
+            Streams.ValidateBufferArguments(buffer, offset, count);
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            PartialWrite(buffer.AsSpan(offset, count));
+#else
+            if (partialOffset == partialBufferLength)
+            {
+                PartialFlush();
+            }
+
+            if (count <= (partialBufferLength - partialOffset))
+            {
+                Array.Copy(buffer, offset, partialBuffer, partialOffset, count);
+                partialOffset += count;
+                return;
+            }
+
+            int diff = partialBufferLength - partialOffset;
+            Array.Copy(buffer, offset, partialBuffer, partialOffset, diff);
+            offset += diff;
+            count -= diff;
+            PartialFlush();
+            while (count > partialBufferLength)
+            {
+                Array.Copy(buffer, offset, partialBuffer, 0, partialBufferLength);
+                offset += partialBufferLength;
+                count -= partialBufferLength;
+                PartialFlush();
+            }
+            Array.Copy(buffer, offset, partialBuffer, 0, count);
+            partialOffset = count;
+#endif
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        private void PartialWrite(ReadOnlySpan<byte> buffer)
         {
             if (partialOffset == partialBufferLength)
             {
-                PartialFlush(false);
+                PartialFlush();
             }
 
-			partialBuffer[partialOffset++] = b;
-        }
+            if (buffer.Length <= (partialBufferLength - partialOffset))
+            {
+                buffer.CopyTo(partialBuffer.AsSpan(partialOffset));
+                partialOffset += buffer.Length;
+                return;
+            }
 
-		private void WritePartial(
-            byte[]	buffer,
-            int		off,
-            int		len)
+            int diff = partialBufferLength - partialOffset;
+            buffer[..diff].CopyTo(partialBuffer.AsSpan(partialOffset));
+            buffer = buffer[diff..];
+            PartialFlush();
+            while (buffer.Length > partialBufferLength)
+            {
+                PartialFlush(ref buffer);
+            }
+            buffer.CopyTo(partialBuffer);
+            partialOffset = buffer.Length;
+        }
+#endif
+
+        private void PartialWriteByte(byte value)
         {
             if (partialOffset == partialBufferLength)
             {
-                PartialFlush(false);
+                PartialFlush();
             }
 
-            if (len <= (partialBufferLength - partialOffset))
-            {
-                Array.Copy(buffer, off, partialBuffer, partialOffset, len);
-                partialOffset += len;
-            }
-            else
-            {
-                int diff = partialBufferLength - partialOffset;
-                Array.Copy(buffer, off, partialBuffer, partialOffset, diff);
-                off += diff;
-                len -= diff;
-                PartialFlush(false);
-                while (len > partialBufferLength)
-                {
-                    Array.Copy(buffer, off, partialBuffer, 0, partialBufferLength);
-                    off += partialBufferLength;
-                    len -= partialBufferLength;
-                    PartialFlush(false);
-                }
-                Array.Copy(buffer, off, partialBuffer, 0, len);
-                partialOffset += len;
-            }
+            partialBuffer[partialOffset++] = value;
         }
-        public override void WriteByte(
-			byte value)
+
+        public override void Write(byte[] buffer, int offset, int count)
         {
             if (partialBuffer != null)
             {
-                WritePartial(value);
-            }
-            else
-            {
-                outStr.WriteByte(value);
-            }
-        }
-        public override void Write(
-            byte[]	buffer,
-            int		offset,
-            int		count)
-        {
-            if (partialBuffer != null)
-            {
-                WritePartial(buffer, offset, count);
+                PartialWrite(buffer, offset, count);
             }
             else
             {
@@ -305,8 +326,34 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
             }
         }
 
-		// Additional helper methods to write primitive types
-		internal virtual void WriteShort(
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            if (partialBuffer != null)
+            {
+                PartialWrite(buffer);
+            }
+            else
+            {
+                outStr.Write(buffer);
+            }
+        }
+#endif
+
+        public override void WriteByte(byte value)
+        {
+            if (partialBuffer != null)
+            {
+                PartialWriteByte(value);
+            }
+            else
+            {
+                outStr.WriteByte(value);
+            }
+        }
+
+        // Additional helper methods to write primitive types
+        internal virtual void WriteShort(
 			short n)
 		{
 			this.Write(
@@ -377,32 +424,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
         {
             if (partialBuffer != null)
             {
-                PartialFlush(true);
+                PartialFlushLast();
                 Array.Clear(partialBuffer, 0, partialBuffer.Length);
                 partialBuffer = null;
             }
         }
 
-#if PORTABLE || NETFX_CORE
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
 			    this.Finish();
 			    outStr.Flush();
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(outStr);
+                outStr.Dispose();
             }
             base.Dispose(disposing);
         }
-#else
-        public override void Close()
-        {
-			this.Finish();
-			outStr.Flush();
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(outStr);
-			base.Close();
-        }
-#endif
     }
 }
 #pragma warning restore

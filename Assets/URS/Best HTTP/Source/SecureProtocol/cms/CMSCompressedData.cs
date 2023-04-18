@@ -1,12 +1,11 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Compression;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
@@ -47,7 +46,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
             ContentInfo content = comData.EncapContentInfo;
 
 			Asn1OctetString bytes = (Asn1OctetString) content.Content;
-			ZInputStream zIn = new ZInputStream(bytes.GetOctetStream());
+			Stream zIn = ZLib.DecompressInput(bytes.GetOctetStream());
 
 			try
 			{
@@ -59,7 +58,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			}
 			finally
 			{
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(zIn);
+                zIn.Dispose();
 			}
         }
 
@@ -78,8 +77,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			ContentInfo     content = comData.EncapContentInfo;
 
 			Asn1OctetString bytes = (Asn1OctetString)content.Content;
-
-			ZInputStream zIn = new ZInputStream(new MemoryStream(bytes.GetOctets(), false));
+            Stream zIn = ZLib.DecompressInput(bytes.GetOctetStream());
 
 			try
 			{

@@ -1,11 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 {
@@ -31,7 +30,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 
 			throw new ArgumentException(
 				"Unknown object in 'CertificateValues' factory: "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
 				"obj");
 		}
 
@@ -59,12 +58,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 		}
 
 		public CertificateValues(
-			IEnumerable certificates)
+			IEnumerable<X509CertificateStructure> certificates)
 		{
 			if (certificates == null)
 				throw new ArgumentNullException("certificates");
-			if (!CollectionUtilities.CheckElementsAreOfType(certificates, typeof(X509CertificateStructure)))
-				throw new ArgumentException("Must contain only 'X509CertificateStructure' objects", "certificates");
 
 			this.certificates = new DerSequence(
 				Asn1EncodableVector.FromEnumerable(certificates));

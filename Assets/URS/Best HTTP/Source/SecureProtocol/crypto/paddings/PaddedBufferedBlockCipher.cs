@@ -2,7 +2,7 @@
 #pragma warning disable
 using System;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 
@@ -18,22 +18,25 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 	public class PaddedBufferedBlockCipher
 		: BufferedBlockCipher
 	{
-		private readonly IBlockCipherPadding padding;
+        private readonly IBlockCipherPadding padding;
 
-		/**
+        public PaddedBufferedBlockCipher(IBlockCipher cipher, IBlockCipherPadding padding)
+			: this(EcbBlockCipher.GetBlockCipherMode(cipher), padding)
+        {
+        }
+
+        /**
 		* Create a buffered block cipher with the desired padding.
 		*
 		* @param cipher the underlying block cipher this buffering object wraps.
 		* @param padding the padding type.
 		*/
-		public PaddedBufferedBlockCipher(
-			IBlockCipher		cipher,
-			IBlockCipherPadding	padding)
+        public PaddedBufferedBlockCipher(IBlockCipherMode cipherMode, IBlockCipherPadding padding)
 		{
-			this.cipher = cipher;
+			m_cipherMode = cipherMode;
 			this.padding = padding;
 
-			buf = new byte[cipher.GetBlockSize()];
+			buf = new byte[m_cipherMode.GetBlockSize()];
 			bufOff = 0;
 		}
 
@@ -42,9 +45,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 		*
 		* @param cipher the underlying block cipher this buffering object wraps.
 		*/
-		public PaddedBufferedBlockCipher(
-			IBlockCipher cipher)
-			: this(cipher, new Pkcs7Padding())    { }
+		public PaddedBufferedBlockCipher(IBlockCipherMode cipherMode)
+			: this(cipherMode, new Pkcs7Padding())
+		{
+		}
 
 		/**
 		* initialise the cipher.
@@ -55,23 +59,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 		* @exception ArgumentException if the parameters argument is
 		* inappropriate.
 		*/
-		public override void Init(
-			bool				forEncryption,
-			ICipherParameters	parameters)
+		public override void Init(bool forEncryption, ICipherParameters parameters)
 		{
 			this.forEncryption = forEncryption;
 
 			SecureRandom initRandom = null;
-			if (parameters is ParametersWithRandom)
+			if (parameters is ParametersWithRandom withRandom)
 			{
-				ParametersWithRandom p = (ParametersWithRandom)parameters;
-				initRandom = p.Random;
-				parameters = p.Parameters;
+				initRandom = withRandom.Random;
+				parameters = withRandom.Parameters;
 			}
 
 			Reset();
 			padding.Init(initRandom);
-			cipher.Init(forEncryption, parameters);
+			m_cipherMode.Init(forEncryption, parameters);
 		}
 
 		/**
@@ -112,8 +113,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 		public override int GetUpdateOutputSize(
 			int length)
 		{
-			int total       = length + bufOff;
-			int leftOver    = total % buf.Length;
+			int total = length + bufOff;
+			int leftOver = total % buf.Length;
 
 			if (leftOver == 0)
 			{
@@ -133,16 +134,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 		* @exception DataLengthException if there isn't enough space in out.
 		* @exception InvalidOperationException if the cipher isn't initialised.
 		*/
-		public override int ProcessByte(
-			byte	input,
-			byte[]	output,
-			int		outOff)
+		public override int ProcessByte(byte input, byte[] output, int outOff)
 		{
 			int resultLen = 0;
 
 			if (bufOff == buf.Length)
 			{
-				resultLen = cipher.ProcessBlock(buf, 0, output, outOff);
+				resultLen = m_cipherMode.ProcessBlock(buf, 0, output, outOff);
 				bufOff = 0;
 			}
 
@@ -150,6 +148,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 
 			return resultLen;
 		}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public override int ProcessByte(byte input, Span<byte> output)
+		{
+			int resultLen = 0;
+
+			if (bufOff == buf.Length)
+			{
+				resultLen = m_cipherMode.ProcessBlock(buf, output);
+				bufOff = 0;
+			}
+
+			buf[bufOff++] = input;
+
+			return resultLen;
+		}
+#endif
 
 		/**
 		* process an array of bytes, producing output if necessary.
@@ -163,24 +178,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 		* @exception DataLengthException if there isn't enough space in out.
 		* @exception InvalidOperationException if the cipher isn't initialised.
 		*/
-		public override int ProcessBytes(
-			byte[]	input,
-			int		inOff,
-			int		length,
-			byte[]	output,
-			int		outOff)
+		public override int ProcessBytes(byte[] input, int inOff, int length, byte[] output, int outOff)
 		{
 			if (length < 0)
-			{
 				throw new ArgumentException("Can't have a negative input length!");
-			}
 
 			int blockSize = GetBlockSize();
 			int outLength = GetUpdateOutputSize(length);
 
 			if (outLength > 0)
 			{
-                Check.OutputLength(output, outOff, outLength, "output buffer too short");
+				Check.OutputLength(output, outOff, outLength, "output buffer too short");
 			}
 
 			int resultLen = 0;
@@ -190,7 +198,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 			{
 				Array.Copy(input, inOff, buf, bufOff, gapLen);
 
-				resultLen += cipher.ProcessBlock(buf, 0, output, outOff);
+				resultLen = m_cipherMode.ProcessBlock(buf, 0, output, outOff);
 
 				bufOff = 0;
 				length -= gapLen;
@@ -198,7 +206,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 
 				while (length > buf.Length)
 				{
-					resultLen += cipher.ProcessBlock(input, inOff, output, outOff + resultLen);
+					resultLen += m_cipherMode.ProcessBlock(input, inOff, output, outOff + resultLen);
 
 					length -= blockSize;
 					inOff += blockSize;
@@ -212,7 +220,46 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 			return resultLen;
 		}
 
-		/**
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public override int ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output)
+		{
+			int blockSize = GetBlockSize();
+			int outLength = GetUpdateOutputSize(input.Length);
+
+			if (outLength > 0)
+			{
+				Check.OutputLength(output, outLength, "output buffer too short");
+			}
+
+			int resultLen = 0;
+			int gapLen = buf.Length - bufOff;
+
+			if (input.Length > gapLen)
+			{
+				input[..gapLen].CopyTo(buf.AsSpan(bufOff));
+
+				resultLen = m_cipherMode.ProcessBlock(buf, output);
+
+				bufOff = 0;
+				input = input[gapLen..];
+
+				while (input.Length > buf.Length)
+				{
+					resultLen += m_cipherMode.ProcessBlock(input, output[resultLen..]);
+
+					input = input[blockSize..];
+				}
+			}
+
+			input.CopyTo(buf.AsSpan(bufOff));
+
+			bufOff += input.Length;
+
+			return resultLen;
+		}
+#endif
+
+        /**
 		* Process the last block in the buffer. If the buffer is currently
 		* full and padding needs to be added a call to doFinal will produce
 		* 2 * GetBlockSize() bytes.
@@ -226,11 +273,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 		* initialised.
 		* @exception InvalidCipherTextException if padding is expected and not found.
 		*/
-		public override int DoFinal(
-			byte[]  output,
-			int     outOff)
-		{
-			int blockSize = cipher.GetBlockSize();
+        public override int DoFinal(byte[] output, int outOff)
+        {
+            int blockSize = m_cipherMode.GetBlockSize();
 			int resultLen = 0;
 
 			if (forEncryption)
@@ -244,13 +289,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 						throw new OutputLengthException("output buffer too short");
 					}
 
-					resultLen = cipher.ProcessBlock(buf, 0, output, outOff);
+					resultLen = m_cipherMode.ProcessBlock(buf, 0, output, outOff);
 					bufOff = 0;
 				}
 
 				padding.AddPadding(buf, bufOff);
 
-				resultLen += cipher.ProcessBlock(buf, 0, output, outOff + resultLen);
+				resultLen += m_cipherMode.ProcessBlock(buf, 0, output, outOff + resultLen);
 
 				Reset();
 			}
@@ -258,7 +303,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 			{
 				if (bufOff == blockSize)
 				{
-					resultLen = cipher.ProcessBlock(buf, 0, buf, 0);
+					resultLen = m_cipherMode.ProcessBlock(buf, 0, buf, 0);
 					bufOff = 0;
 				}
 				else
@@ -282,8 +327,62 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 
 			return resultLen;
 		}
-	}
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public override int DoFinal(Span<byte> output)
+		{
+            int blockSize = m_cipherMode.GetBlockSize();
+			int resultLen = 0;
+
+			if (forEncryption)
+			{
+				if (bufOff == blockSize)
+				{
+					if ((2 * blockSize) > output.Length)
+					{
+						Reset();
+
+						throw new OutputLengthException("output buffer too short");
+					}
+
+					resultLen = m_cipherMode.ProcessBlock(buf, output);
+					bufOff = 0;
+				}
+
+				padding.AddPadding(buf, bufOff);
+
+				resultLen += m_cipherMode.ProcessBlock(buf, output[resultLen..]);
+
+				Reset();
+			}
+			else
+			{
+				if (bufOff != blockSize)
+                {
+                    Reset();
+
+                    throw new DataLengthException("last block incomplete in decryption");
+                }
+
+                resultLen = m_cipherMode.ProcessBlock(buf, buf);
+				bufOff = 0;
+
+				try
+				{
+					resultLen -= padding.PadCount(buf);
+
+					buf.AsSpan(0, resultLen).CopyTo(output);
+				}
+				finally
+				{
+					Reset();
+				}
+			}
+
+			return resultLen;
+		}
+#endif
+	}
 }
 #pragma warning restore
 #endif

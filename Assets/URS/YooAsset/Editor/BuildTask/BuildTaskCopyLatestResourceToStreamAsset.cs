@@ -23,19 +23,60 @@ using UnityEditor.Search;
 using Context = System.Collections.Generic.Dictionary<string, object>;
 using MHLab.Patch.Core.IO;
 using MHLab.Patch.Core.Utilities;
+using UnityEditor.Build;
+using UnityEditor;
 
+
+public class StreamingAssetsVersionHook : BuildPlayerProcessor
+{
+    public static bool Enable = false;
+    public static string TargetVersion = null;
+    public override void PrepareForBuild(BuildPlayerContext buildPlayerContext)
+    {
+        if (!string.IsNullOrEmpty(TargetVersion)&& Enable)
+        {
+            var tempFolder = Build.GetBuildInResourceTempFolder();
+            buildPlayerContext.AddAdditionalPathToStreamingAssets(tempFolder, YooAsset.AssetPathHelper.GetURSBuildInResourceFolderName());
+        }
+    }
+}
 public class BuildTaskCopyLatestResourceToStreamAsset : BuildTask
 {
+
+    public bool _useLazyHook = false;
+
+    public BuildTaskCopyLatestResourceToStreamAsset(bool useLazyHook)
+    {
+        _useLazyHook = useLazyHook;
+    }
+
     public override void BeginTask()
     {
         base.BeginTask();
-        CopyLatestResourceToStreamAsset();
+        var targetVersion = GetData<string>(CONTEXT_COPY_STREAM_TARGET_VERSION);
+        StreamingAssetsVersionHook.TargetVersion = targetVersion;
+        StreamingAssetsVersionHook.Enable = _useLazyHook;
+        var streamTarget = YooAsset.AssetPathHelper.GetURSBuildInResourceFolder();
+        if (Directory.Exists(streamTarget))
+        {
+            Directory.Delete(streamTarget,true);
+        }
+        var versionRootDirectory = (string)_context[CONTEXT_VERSION_ROOT_DIRECTORY];
+        // 如果你的unity版本不支持 buildPlayerContext.AddAdditionalPathToStreamingAssets 切换到 CopyLatestResourceToStreamAsset函数就行了
+        if (!string.IsNullOrEmpty(targetVersion) && _useLazyHook)
+        {
+            var tempFolder = Build.GetBuildInResourceTempFolder();
+            BuildTaskCopyLatestResourceToStreamAsset.CopyLatestResourceToStreamAsset(versionRootDirectory,targetVersion, tempFolder, false);
+        }
+        else 
+        {
+            CopyLatestResourceToStreamAsset(versionRootDirectory,targetVersion, YooAsset.AssetPathHelper.GetURSBuildInResourceFolder(), true);
+        }
         this.FinishTask();
     }
-    public void CopyLatestResourceToStreamAsset()
+    public static void CopyLatestResourceToStreamAsset(string versionRootDirectory,string targetVersion, string targetFolder,bool freshAssetDataBase)
     {
-        var targetVersionCode = GetData<string>(CONTEXT_COPY_STREAM_TARGET_VERSION);
-        var versionRootDirectory = Build.GetVersionRoot();
+        var targetVersionCode = targetVersion;
         var di = new DirectoryInfo(versionRootDirectory);
         foreach (DirectoryInfo subDirectory in di.GetDirectories())
         {
@@ -54,25 +95,27 @@ public class BuildTaskCopyLatestResourceToStreamAsset : BuildTask
                         var fm = FileManifest.Deserialize(json);
                         List<FileMeta> fileMetas = new List<FileMeta>();
                         fm.GetFileMetaByTag(new string[] { URSRuntimeSetting.instance.BuildinTag }, ref fileMetas);
-                        var streamSandboxFolderName = YooAsset.AssetPathHelper.GetStreamingSandboxDirectory();
-                        if (Directory.Exists(streamSandboxFolderName))
+                        if (Directory.Exists((string)targetFolder))
                         {
-                            Directory.Delete(streamSandboxFolderName, true);
+                            Directory.Delete((string)targetFolder, true);
                         }
                         for (int i = 0; i < fileMetas.Count; i++)
                         {
                             string rlPath = fileMetas[i].RelativePath;
                             string srcPath = $"{versionDirectory}/{rlPath}";
-                            string dstPath = $"{streamSandboxFolderName}/{rlPath}";
+                            string dstPath = $"{targetFolder}/{rlPath}";
                             var dstDirectoryName = Path.GetDirectoryName(dstPath);
                             Directory.CreateDirectory(dstDirectoryName);
                             File.Copy(srcPath, dstPath);
                         }
                         FileManifest fileManifest = new FileManifest(fileMetas.ToArray());
-                        string buildinFileManifestPath = $"{streamSandboxFolderName}/{URSRuntimeSetting.instance.FileManifestFileName}";
+                        string buildinFileManifestPath = $"{targetFolder}/{URSRuntimeSetting.instance.FileManifestFileName}";
                         FileManifest.Serialize(buildinFileManifestPath, fileManifest, true);
-                        UnityEditor.AssetDatabase.Refresh();
-                        UnityEditor.AssetDatabase.SaveAssets();
+                        if (freshAssetDataBase)
+                        {
+                            UnityEditor.AssetDatabase.Refresh();
+                            UnityEditor.AssetDatabase.SaveAssets();
+                        }
                     }
                     break;
                 }

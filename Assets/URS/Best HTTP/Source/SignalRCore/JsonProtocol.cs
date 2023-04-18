@@ -163,14 +163,22 @@ namespace BestHTTP.SignalRCore
                     break;
 
                 case MessageTypes.Ping:
-                    result = this.Encoder.Encode<PingMessage>(new PingMessage());
+                    //result = this.Encoder.Encode<PingMessage>(new PingMessage());
+                    // fast path to encode a well-known json string
+                    result = EncodeKnown("{\"type\":6}");
                     break;
 
                 case MessageTypes.Close:
                     if (!string.IsNullOrEmpty(message.error))
+                    {
                         result = this.Encoder.Encode<CloseWithErrorMessage>(new CloseWithErrorMessage() { error = message.error });
+                    }
                     else
-                        result = this.Encoder.Encode<CloseMessage>(new CloseMessage());
+                    {
+                        //result = this.Encoder.Encode<CloseMessage>(new CloseMessage());
+                        // fast path to encode a well-known json string
+                        result = EncodeKnown("{\"type\":7}");
+                    }
                     break;
             }
 
@@ -178,6 +186,15 @@ namespace BestHTTP.SignalRCore
                 HTTPManager.Logger.Verbose("JsonProtocol", "EncodeMessage - json: " + System.Text.Encoding.UTF8.GetString(result.Data, 0, result.Count - 1));
 
             return result;
+        }
+
+        private BufferSegment EncodeKnown(string json)
+        {
+            int len = System.Text.Encoding.UTF8.GetByteCount(json);
+            byte[] buffer = BufferPool.Get(len + 1, true);
+            System.Text.Encoding.UTF8.GetBytes(json, 0, json.Length, buffer, 0);
+            buffer[len] = (byte)JsonProtocol.Separator;
+            return new BufferSegment(buffer, 0, len + 1);
         }
 
         public object[] GetRealArguments(Type[] argTypes, object[] arguments)

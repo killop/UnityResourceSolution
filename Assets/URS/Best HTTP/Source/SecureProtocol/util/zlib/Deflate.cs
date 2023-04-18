@@ -84,7 +84,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
             config_table[9]=new Config(32, 258,  258, 4096, SLOW);
         }
 
-        private static readonly String[] z_errmsg = {
+        private static readonly string[] z_errmsg = {
                                                "need dictionary",     // Z_NEED_DICT       2
                                                "stream end",          // Z_STREAM_END      1
                                                "",                    // Z_OK              0
@@ -260,9 +260,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
         internal short[] dyn_dtree;       // distance tree
         internal short[] bl_tree;         // Huffman tree for bit lengths
 
-        internal ZTree l_desc=new ZTree();  // desc for literal tree
-        internal ZTree d_desc=new ZTree();  // desc for distance tree
-        internal ZTree bl_desc=new ZTree(); // desc for bit length tree
+        internal Tree l_desc=new Tree();  // desc for literal tree
+        internal Tree d_desc=new Tree();  // desc for distance tree
+        internal Tree bl_desc=new Tree(); // desc for bit length tree
 
         // number of codes at each bit length for an optimal tree
         internal short[] bl_count=new short[MAX_BITS+1];
@@ -477,7 +477,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
             // requires that at least 4 bit length codes be sent. (appnote.txt says
             // 3 but the actual value used is 4.)
             for (max_blindex = BL_CODES-1; max_blindex >= 3; max_blindex--) {
-                if (bl_tree[ZTree.bl_order[max_blindex]*2+1] != 0) break;
+                if (bl_tree[Tree.bl_order[max_blindex]*2+1] != 0) break;
             }
             // Update opt_len to include the bit length tree and counts
             opt_len += 3*(max_blindex+1) + 5+5+4;
@@ -496,7 +496,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
             send_bits(dcodes-1,   5);
             send_bits(blcodes-4,  4); // not -3 as stated in appnote.txt
             for (rank = 0; rank < blcodes; rank++) {
-                send_bits(bl_tree[ZTree.bl_order[rank]*2+1], 3);
+                send_bits(bl_tree[Tree.bl_order[rank]*2+1], 3);
             }
             send_tree(dyn_ltree, lcodes-1); // literal tree
             send_tree(dyn_dtree, dcodes-1); // distance tree
@@ -650,8 +650,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
                 matches++;
                 // Here, lc is the match length - MIN_MATCH
                 dist--;             // dist = match distance - 1
-                dyn_ltree[(ZTree._length_code[lc]+LITERALS+1)*2]++;
-                dyn_dtree[ZTree.d_code(dist)*2]++;
+                dyn_ltree[(Tree._length_code[lc]+LITERALS+1)*2]++;
+                dyn_dtree[Tree.d_code(dist)*2]++;
             }
 
             if ((last_lit & 0x1fff) == 0 && level > 2) {
@@ -661,7 +661,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
                 int dcode;
                 for (dcode = 0; dcode < D_CODES; dcode++) {
                     out_length += (int)((int)dyn_dtree[dcode*2] *
-                        (5L+ZTree.extra_dbits[dcode]));
+                        (5L+Tree.extra_dbits[dcode]));
                 }
                 out_length >>= 3;
                 if ((matches < (last_lit/2)) && out_length < in_length/2) return true;
@@ -692,21 +692,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
                     } 
                     else{
                         // Here, lc is the match length - MIN_MATCH
-                        code = ZTree._length_code[lc];
+                        code = Tree._length_code[lc];
 
                         send_code(code+LITERALS+1, ltree); // send the length code
-                        extra = ZTree.extra_lbits[code];
+                        extra = Tree.extra_lbits[code];
                         if(extra != 0){
-                            lc -= ZTree.base_length[code];
+                            lc -= Tree.base_length[code];
                             send_bits(lc, extra);       // send the extra length bits
                         }
                         dist--; // dist is now the match distance - 1
-                        code = ZTree.d_code(dist);
+                        code = Tree.d_code(dist);
 
                         send_code(code, dtree);       // send the distance code
-                        extra = ZTree.extra_dbits[code];
+                        extra = Tree.extra_dbits[code];
                         if (extra != 0) {
-                            dist -= ZTree.base_dist[code];
+                            dist -= Tree.base_dist[code];
                             send_bits(dist, extra);   // send the extra distance bits
                         }
                     } // literal or match pair ?

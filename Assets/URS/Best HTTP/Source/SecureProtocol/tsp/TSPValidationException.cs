@@ -1,6 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.Runtime.Serialization;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 {
@@ -10,37 +11,39 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 	 * If a failure code is associated with the exception it can be retrieved using
 	 * the getFailureCode() method.</p>
 	 */
-#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || PORTABLE || NETFX_CORE)
     [Serializable]
-#endif
     public class TspValidationException
 		: TspException
 	{
-		private int failureCode;
+		protected readonly int m_failureCode;
 
-		public TspValidationException(
-			string message)
-			: base(message)
+		public TspValidationException(string message)
+			: this(message, -1)
 		{
-			this.failureCode = -1;
 		}
 
-		public TspValidationException(
-			string	message,
-			int		failureCode)
+		public TspValidationException(string message, int failureCode)
 			: base(message)
 		{
-			this.failureCode = failureCode;
+			m_failureCode = failureCode;
 		}
 
-		/**
-		 * Return the failure code associated with this exception - if one is set.
-		 *
-		 * @return the failure code if set, -1 otherwise.
-		 */
+		protected TspValidationException(SerializationInfo info, StreamingContext context)
+			: base(info, context)
+		{
+			m_failureCode = info.GetInt32("failureCode");
+		}
+
+		public override void GetObjectData(SerializationInfo info, StreamingContext context)
+		{
+			base.GetObjectData(info, context);
+			info.AddValue("failureCode", m_failureCode);
+		}
+
+		/// <returns>The failure code associated with this exception, if one is set.</returns>
 		public int FailureCode
 		{
-			get { return failureCode; }
+			get { return m_failureCode; }
 		}
 	}
 }

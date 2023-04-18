@@ -10,6 +10,7 @@ using System.Net.Security;
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls;
 using BestHTTP.Connections.TLS;
+using System.Threading;
 #endif
 
 #if NETFX_CORE
@@ -19,7 +20,7 @@ using BestHTTP.Connections.TLS;
     using TcpClient = BestHTTP.PlatformSupport.TcpClient.WinRT.TcpClient;
 
     //Disable CD4014: Because this call is not awaited, execution of the current method continues before the call is completed. Consider applying the 'await' operator to the result of the call.
-#pragma warning disable 4014
+    #pragma warning disable 4014
 #else
     using TcpClient = BestHTTP.PlatformSupport.TcpClient.General.TcpClient;
     using System.Security.Cryptography.X509Certificates;
@@ -48,7 +49,7 @@ namespace BestHTTP.Connections
             string negotiatedProtocol = HTTPProtocolFactory.W3C_HTTP1;
 
             Uri uri =
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
                 request.HasProxy ? request.Proxy.Address :
 #endif
                 request.CurrentUri;
@@ -184,7 +185,7 @@ namespace BestHTTP.Connections
                 /*if (Stream.CanTimeout)
                     Stream.ReadTimeout = Stream.WriteTimeout = (int)Request.Timeout.TotalMilliseconds;*/
 
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
                 if (request.HasProxy)
                 {
                     try
@@ -284,7 +285,36 @@ namespace BestHTTP.Connections
                             });
 
                         if (!sslStream.IsAuthenticated)
+                        {
+#if !BESTHTTP_DISABLE_HTTP2 && !BESTHTTP_DISABLE_ALTERNATE_SSL && false
+                            List<SslApplicationProtocol> protocols = new List<SslApplicationProtocol>();
+                            SupportedProtocols protocol = HTTPProtocolFactory.GetProtocolFromUri(request.CurrentUri);
+                            if (protocol == SupportedProtocols.HTTP && request.IsKeepAlive)
+                            {
+                                // http/2 over tls (https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids)
+                                protocols.Add(new SslApplicationProtocol(HTTPProtocolFactory.W3C_HTTP2));
+                            }
+                            protocols.Add(new SslApplicationProtocol(HTTPProtocolFactory.W3C_HTTP1));
+
+                            SslClientAuthenticationOptions options = new SslClientAuthenticationOptions();
+                            options.ApplicationProtocols = protocols;
+                            options.TargetHost = request.CurrentUri.Host;
+                            var task = sslStream.AuthenticateAsClientAsync(options, default(System.Threading.CancellationToken));
+                            task.Wait();
+
+                            try
+                            {
+                                negotiatedProtocol = System.Text.Encoding.UTF8.GetString(sslStream.NegotiatedApplicationProtocol.Protocol.Span);
+                            }
+                            catch (Exception ex)
+                            {
+                                HTTPManager.Logger.Exception(nameof(TCPConnector), "Accessing SslStream's NegotiatedApplicationProtocol throwed an exception, falling back using HTTP/1.1", ex, request.Context);
+                                negotiatedProtocol = HTTPProtocolFactory.W3C_HTTP1;
+                            }
+#else
                             sslStream.AuthenticateAsClient(request.CurrentUri.Host);
+#endif
+                        }
                         Stream = sslStream;
 #else
                         Stream = Client.GetStream();
@@ -312,6 +342,17 @@ namespace BestHTTP.Connections
                 finally
                 {
                     Stream = null;
+                }
+
+                try
+                {
+                    if (TopmostStream != null)
+                        TopmostStream.Close();
+                }
+                catch { }
+                finally
+                {
+                    TopmostStream = null;
                 }
 
                 try

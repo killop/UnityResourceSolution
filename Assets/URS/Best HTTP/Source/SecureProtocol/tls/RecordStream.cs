@@ -266,6 +266,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         /// <exception cref="IOException"/>
         internal void WriteRecord(short contentType, byte[] plaintext, int plaintextOffset, int plaintextLength)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            WriteRecord(contentType, plaintext.AsSpan(plaintextOffset, plaintextLength));
+#else
             // Never send anything until a valid ClientHello has been received
             if (m_writeVersion == null)
                 return;
@@ -296,6 +299,58 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             TlsUtilities.WriteUint16(ciphertextLength, encoded.buf, encoded.off + RecordFormat.LengthOffset);
 
             // TODO[tls-port] Can we support interrupted IO on .NET?
+            try
+            {
+                m_output.Write(encoded.buf, encoded.off, encoded.len);
+            }
+            //catch (InterruptedIOException e)
+            //{
+            //    throw new TlsFatalAlert(AlertDescription.internal_error, e);
+            //}
+            finally
+            {
+                if (encoded.fromBufferPool)
+                    BufferPool.Release(encoded.buf);
+            }
+
+            m_output.Flush();
+#endif
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        /// <exception cref="IOException"/>
+        internal void WriteRecord(short contentType, ReadOnlySpan<byte> plaintext)
+        {
+            // Never send anything until a valid ClientHello has been received
+            if (m_writeVersion == null)
+                return;
+
+            /*
+             * RFC 5246 6.2.1 The length should not exceed 2^14.
+             */
+            CheckLength(plaintext.Length, m_plaintextLimit, AlertDescription.internal_error);
+
+            /*
+             * RFC 5246 6.2.1 Implementations MUST NOT send zero-length fragments of Handshake, Alert,
+             * or ChangeCipherSpec content types.
+             */
+            if (plaintext.Length < 1 && contentType != ContentType.application_data)
+                throw new TlsFatalAlert(AlertDescription.internal_error);
+
+            long seqNo=m_writeSeqNo.NextValue(AlertDescription.internal_error);
+            ProtocolVersion recordVersion = m_writeVersion;
+
+            TlsEncodeResult encoded = m_writeCipher.EncodePlaintext(seqNo, contentType, recordVersion,
+                RecordFormat.FragmentOffset, plaintext);
+
+            int ciphertextLength = encoded.len - RecordFormat.FragmentOffset;
+            TlsUtilities.CheckUint16(ciphertextLength);
+
+            TlsUtilities.WriteUint8(encoded.recordType, encoded.buf, encoded.off + RecordFormat.TypeOffset);
+            TlsUtilities.WriteVersion(recordVersion, encoded.buf, encoded.off + RecordFormat.VersionOffset);
+            TlsUtilities.WriteUint16(ciphertextLength, encoded.buf, encoded.off + RecordFormat.LengthOffset);
+
+            // TODO[tls-port] Can we support interrupted IO on .NET?
             //try
             //{
                 m_output.Write(encoded.buf, encoded.off, encoded.len);
@@ -307,6 +362,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
             m_output.Flush();
         }
+#endif
 
         /// <exception cref="IOException"/>
         internal void Close()
@@ -316,7 +372,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             IOException io = null;
             try
             {
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(m_input);
+                m_input.Dispose();
             }
             catch (IOException e)
             {
@@ -325,7 +381,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
             try
             {
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(m_output);
+                m_output.Dispose();
             }
             catch (IOException e)
             {
@@ -486,12 +542,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
             internal void Reset()
             {
-                if (m_buf != m_header)
-                    BufferPool.Release(m_buf);
+                    if (m_buf != m_header)
+                        BufferPool.Release(m_buf);
 
-                m_buf = m_header;
-                m_pos = 0;
-            }
+                    m_buf = m_header;
+                    m_pos = 0;
+                }
 
             private void Resize(int length)
             {
@@ -503,6 +559,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
                     byte[] tmp = BufferPool.Get(length, true);
                     Array.Copy(m_buf, 0, tmp, 0, m_pos);
+
+                    if (m_buf != m_header)
+                        BufferPool.Release(m_buf);
                     m_buf = tmp;
                 }
             }

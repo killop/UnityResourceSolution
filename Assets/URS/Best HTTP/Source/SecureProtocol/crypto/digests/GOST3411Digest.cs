@@ -93,10 +93,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			byteCount++;
 		}
 
-		public void BlockUpdate(
-			byte[]	input,
-			int		inOff,
-			int		length)
+		public void BlockUpdate(byte[] input, int inOff, int length)
 		{
 			while ((xBufOff != 0) && (length > 0))
 			{
@@ -105,7 +102,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 				length--;
 			}
 
-			while (length > xBuf.Length)
+			while (length >= xBuf.Length)
 			{
 				Array.Copy(input, inOff, xBuf, 0, xBuf.Length);
 
@@ -124,6 +121,34 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 				length--;
 			}
 		}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public void BlockUpdate(ReadOnlySpan<byte> input)
+		{
+			while ((xBufOff != 0) && (input.Length > 0))
+			{
+				Update(input[0]);
+				input = input[1..];
+			}
+
+			while (input.Length >= xBuf.Length)
+			{
+				input[..xBuf.Length].CopyTo(xBuf.AsSpan());
+
+				sumByteArray(xBuf); // calc sum M
+				processBlock(xBuf, 0);
+				input = input[xBuf.Length..];
+				byteCount += (uint)xBuf.Length;
+			}
+
+			// load in the remainder.
+			while (input.Length > 0)
+			{
+				Update(input[0]);
+				input = input[1..];
+			}
+		}
+#endif
 
 		// (i + 1 + 4(k - 1)) = 8i + k      i = 0-3, k = 1-8
 		private byte[] K = new byte[32];
@@ -236,7 +261,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			Array.Copy(S, 0, H, 0, H.Length);
 		}
 
-		private void finish()
+		private void Finish()
 		{
 			ulong bitCount = byteCount * 8;
 			Pack.UInt64_To_LE(bitCount, L);
@@ -250,11 +275,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			processBlock(Sum, 0);
 		}
 
-		public int DoFinal(
-			byte[]  output,
-			int     outOff)
+		public int DoFinal(byte[] output, int outOff)
 		{
-			finish();
+			Finish();
 
 			H.CopyTo(output, outOff);
 
@@ -262,6 +285,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 
 			return DIGEST_LENGTH;
 		}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public int DoFinal(Span<byte> output)
+		{
+			Finish();
+
+			H.CopyTo(output);
+
+			Reset();
+
+			return DIGEST_LENGTH;
+		}
+#endif
 
 		/**
 		* reset the chaining variables to the IV values.

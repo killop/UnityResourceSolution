@@ -184,7 +184,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 			else
 			{
 				throw new ArgumentException(
-					"Invalid parameter passed to HC128 init - " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters),
+					"Invalid parameter passed to HC128 init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters),
 					"parameters");
 			}
 
@@ -223,6 +223,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 				output[outOff + i] = (byte)(input[inOff + i] ^ GetByte());
 			}
 		}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            if (!initialised)
+                throw new InvalidOperationException(AlgorithmName + " not initialised");
+
+            Check.OutputLength(output, input.Length, "output buffer too short");
+
+            for (int i = 0; i < input.Length; i++)
+            {
+                output[i] = (byte)(input[i] ^ GetByte());
+            }
+        }
+#endif
 
         public virtual void Reset()
 		{

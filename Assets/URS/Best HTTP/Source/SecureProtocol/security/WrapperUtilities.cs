@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Kisa;
@@ -11,77 +11,65 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
 {
     /// <remarks>
     ///  Utility class for creating IWrapper objects from their names/Oids
     /// </remarks>
-    public sealed class WrapperUtilities
+    public static class WrapperUtilities
     {
         private enum WrapAlgorithm { AESWRAP, CAMELLIAWRAP, DESEDEWRAP, RC2WRAP, SEEDWRAP,
             DESEDERFC3211WRAP, AESRFC3211WRAP, CAMELLIARFC3211WRAP };
 
-        private WrapperUtilities()
-        {
-        }
-
-        private static readonly IDictionary algorithms = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
-        //private static readonly IDictionary oids = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+        private static readonly IDictionary<string, string> Algorithms =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         static WrapperUtilities()
         {
             // Signal to obfuscation tools not to change enum constants
-            ((WrapAlgorithm)Enums.GetArbitraryValue(typeof(WrapAlgorithm))).ToString();
+            Enums.GetArbitraryValue<WrapAlgorithm>().ToString();
 
-            algorithms[NistObjectIdentifiers.IdAes128Wrap.Id] = "AESWRAP";
-            algorithms[NistObjectIdentifiers.IdAes192Wrap.Id] = "AESWRAP";
-            algorithms[NistObjectIdentifiers.IdAes256Wrap.Id] = "AESWRAP";
+            Algorithms[NistObjectIdentifiers.IdAes128Wrap.Id] = "AESWRAP";
+            Algorithms[NistObjectIdentifiers.IdAes192Wrap.Id] = "AESWRAP";
+            Algorithms[NistObjectIdentifiers.IdAes256Wrap.Id] = "AESWRAP";
 
-            algorithms[NttObjectIdentifiers.IdCamellia128Wrap.Id] = "CAMELLIAWRAP";
-            algorithms[NttObjectIdentifiers.IdCamellia192Wrap.Id] = "CAMELLIAWRAP";
-            algorithms[NttObjectIdentifiers.IdCamellia256Wrap.Id] = "CAMELLIAWRAP";
+            Algorithms[NttObjectIdentifiers.IdCamellia128Wrap.Id] = "CAMELLIAWRAP";
+            Algorithms[NttObjectIdentifiers.IdCamellia192Wrap.Id] = "CAMELLIAWRAP";
+            Algorithms[NttObjectIdentifiers.IdCamellia256Wrap.Id] = "CAMELLIAWRAP";
 
-            algorithms[PkcsObjectIdentifiers.IdAlgCms3DesWrap.Id] = "DESEDEWRAP";
-            algorithms["TDEAWRAP"] = "DESEDEWRAP";
+            Algorithms[PkcsObjectIdentifiers.IdAlgCms3DesWrap.Id] = "DESEDEWRAP";
+            Algorithms["TDEAWRAP"] = "DESEDEWRAP";
 
-            algorithms[PkcsObjectIdentifiers.IdAlgCmsRC2Wrap.Id] = "RC2WRAP";
+            Algorithms[PkcsObjectIdentifiers.IdAlgCmsRC2Wrap.Id] = "RC2WRAP";
 
-            algorithms[KisaObjectIdentifiers.IdNpkiAppCmsSeedWrap.Id] = "SEEDWRAP";
+            Algorithms[KisaObjectIdentifiers.IdNpkiAppCmsSeedWrap.Id] = "SEEDWRAP";
         }
 
-        public static IWrapper GetWrapper(
-            DerObjectIdentifier oid)
+        public static IWrapper GetWrapper(DerObjectIdentifier oid)
         {
             return GetWrapper(oid.Id);
         }
 
-        public static IWrapper GetWrapper(
-            string algorithm)
+        public static IWrapper GetWrapper(string algorithm)
         {
-            string upper = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm);
-            string mechanism = (string)algorithms[upper];
-
-            if (mechanism == null)
-            {
-                mechanism = upper;
-            }
+            string mechanism = CollectionUtilities.GetValueOrKey(Algorithms, algorithm).ToUpperInvariant();
 
             try
             {
-                WrapAlgorithm wrapAlgorithm = (WrapAlgorithm)Enums.GetEnumValue(
-                    typeof(WrapAlgorithm), mechanism);
+                WrapAlgorithm wrapAlgorithm = Enums.GetEnumValue<WrapAlgorithm>(mechanism);
 
                 switch (wrapAlgorithm)
                 {
-                    case WrapAlgorithm.AESWRAP:				return new AesWrapEngine();
-                    case WrapAlgorithm.CAMELLIAWRAP:		return new CamelliaWrapEngine();
-                    case WrapAlgorithm.DESEDEWRAP:			return new DesEdeWrapEngine();
-                    case WrapAlgorithm.RC2WRAP:				return new RC2WrapEngine();
-                    case WrapAlgorithm.SEEDWRAP:			return new SeedWrapEngine();
-                    case WrapAlgorithm.DESEDERFC3211WRAP:	return new Rfc3211WrapEngine(new DesEdeEngine());
-                    case WrapAlgorithm.AESRFC3211WRAP:		return new Rfc3211WrapEngine(new AesEngine());
-                    case WrapAlgorithm.CAMELLIARFC3211WRAP:	return new Rfc3211WrapEngine(new CamelliaEngine());
+                case WrapAlgorithm.AESWRAP:				return new AesWrapEngine();
+                case WrapAlgorithm.CAMELLIAWRAP:		return new CamelliaWrapEngine();
+                case WrapAlgorithm.DESEDEWRAP:			return new DesEdeWrapEngine();
+                case WrapAlgorithm.RC2WRAP:				return new RC2WrapEngine();
+                case WrapAlgorithm.SEEDWRAP:			return new SeedWrapEngine();
+                case WrapAlgorithm.DESEDERFC3211WRAP:	return new Rfc3211WrapEngine(new DesEdeEngine());
+                case WrapAlgorithm.AESRFC3211WRAP:		return new Rfc3211WrapEngine(AesUtilities.CreateEngine());
+                case WrapAlgorithm.CAMELLIARFC3211WRAP:	return new Rfc3211WrapEngine(new CamelliaEngine());
                 }
             }
             catch (ArgumentException)
@@ -97,10 +85,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Security
             throw new SecurityUtilityException("Wrapper " + algorithm + " not recognised.");
         }
 
-        public static string GetAlgorithmName(
-            DerObjectIdentifier oid)
+        public static string GetAlgorithmName(DerObjectIdentifier oid)
         {
-            return (string) algorithms[oid.Id];
+            return CollectionUtilities.GetValueOrNull(Algorithms, oid.Id);
         }
 
         private class BufferedCipherWrapper

@@ -1,9 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -27,23 +25,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
         {
             return recoveredMessage;
         }
-
-
-        public const int TrailerImplicit = 0xBC;
-
-        public const int TrailerRipeMD160 = 0x31CC;
-
-        public const int TrailerRipeMD128 = 0x32CC;
-
-        public const int TrailerSha1 = 0x33CC;
-
-        public const int TrailerSha256 = 0x34CC;
-
-        public const int TrailerSha512 = 0x35CC;
-
-        public const int TrailerSha384 = 0x36CC;
-
-        public const int TrailerWhirlpool = 0x37CC;
 
         private IDigest digest;
         private IAsymmetricBlockCipher cipher;
@@ -130,42 +111,36 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
         /// <exception cref="ArgumentException">if wrong parameter type or a fixed
         /// salt is passed in which is the wrong length.
         /// </exception>
-        public virtual void Init(
-            bool				forSigning,
-            ICipherParameters	parameters)
+        public virtual void Init(bool forSigning, ICipherParameters parameters)
         {
             RsaKeyParameters kParam;
-            if (parameters is ParametersWithRandom)
+            if (parameters is ParametersWithRandom withRandom)
             {
-                ParametersWithRandom p = (ParametersWithRandom) parameters;
-
-                kParam = (RsaKeyParameters) p.Parameters;
+                kParam = (RsaKeyParameters)withRandom.Parameters;
 
                 if (forSigning)
                 {
-                    random = p.Random;
+                    random = withRandom.Random;
                 }
             }
-            else if (parameters is ParametersWithSalt)
+            else if (parameters is ParametersWithSalt withSalt)
             {
                 if (!forSigning)
-                    throw new ArgumentException("ParametersWithSalt only valid for signing", "parameters");
+                    throw new ArgumentException("ParametersWithSalt only valid for signing", nameof(parameters));
 
-                ParametersWithSalt p = (ParametersWithSalt) parameters;
-
-                kParam = (RsaKeyParameters) p.Parameters;
-                standardSalt = p.GetSalt();
+                kParam = (RsaKeyParameters)withSalt.Parameters;
+                standardSalt = withSalt.GetSalt();
 
                 if (standardSalt.Length != saltLength)
                     throw new ArgumentException("Fixed salt is of wrong length");
             }
             else
             {
-                kParam = (RsaKeyParameters) parameters;
+                kParam = (RsaKeyParameters)parameters;
 
                 if (forSigning)
                 {
-                    random = new SecureRandom();
+                    random = CryptoServicesRegistrar.GetSecureRandom();
                 }
             }
 
@@ -311,27 +286,46 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
             }
         }
 
-        /// <summary> update the internal digest with the byte array in</summary>
-        public virtual void BlockUpdate(
-            byte[]	input,
-            int		inOff,
-            int		length)
+        public virtual void BlockUpdate(byte[] input, int inOff, int inLen)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            BlockUpdate(input.AsSpan(inOff, inLen));
+#else
             if (preSig == null)
             {
-                while (length > 0 && messageLength < mBuf.Length)
+                while (inLen > 0 && messageLength < mBuf.Length)
                 {
                     this.Update(input[inOff]);
                     inOff++;
-                    length--;
+                    inLen--;
                 }
             }
 
-            if (length > 0)
+            if (inLen > 0)
             {
-                digest.BlockUpdate(input, inOff, length);
+                digest.BlockUpdate(input, inOff, inLen);
+            }
+#endif
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            if (preSig == null)
+            {
+                while (!input.IsEmpty && messageLength < mBuf.Length)
+                {
+                    this.Update(input[0]);
+                    input = input[1..];
+                }
+            }
+
+            if (!input.IsEmpty)
+            {
+                digest.BlockUpdate(input);
             }
         }
+#endif
 
         /// <summary> reset the internal state</summary>
         public virtual void Reset()

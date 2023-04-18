@@ -4,11 +4,12 @@ using System;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto
 {
-    public sealed class TlsEncodeResult
+    public readonly struct TlsEncodeResult
     {
         public readonly byte[] buf;
         public readonly int off, len;
         public readonly short recordType;
+        public readonly bool fromBufferPool;
 
         public TlsEncodeResult(byte[] buf, int off, int len, short recordType)
         {
@@ -16,6 +17,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto
             this.off = off;
             this.len = len;
             this.recordType = recordType;
+            this.fromBufferPool = false;
+        }
+
+        public TlsEncodeResult(byte[] buf, int off, int len, short recordType, bool fromPool)
+        {
+            this.buf = buf;
+            this.off = off;
+            this.len = len;
+            this.recordType = recordType;
+            this.fromBufferPool = fromPool;
         }
     }
 }

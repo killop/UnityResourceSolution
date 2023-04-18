@@ -4,20 +4,19 @@ using Bewildered.SmartLibrary;
 using System.IO;
 using System;
 
-public class BuilTaskAppId : BuildTask
+public class BuildTaskChannelId : BuildTask
 {
     public override void BeginTask()
     {
         base.BeginTask();
-        var streamSandboxFolderName = YooAsset.AssetPathHelper.GetStreamingSandboxDirectory();
-      
-        var appFilePath = $"{YooAsset.AssetPathHelper.GetStreamingSandboxDirectory()}/{URSRuntimeSetting.instance.AppIdFileName}" ;
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(appFilePath));
-        if (File.Exists(appFilePath))
+        var channelFilePath = $"{YooAsset.AssetPathHelper.GetBuildInChannelFilePath()}" ;
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(channelFilePath));
+        if (File.Exists(channelFilePath))
         {
-            File.Delete(appFilePath);
+            File.Delete(channelFilePath);
         }
-        File.WriteAllText(appFilePath, URSEditorUserSettings.instance.AppId);
+        var channel = GetData<string>(CONTEXT_CHANNEL);
+        File.WriteAllText(channelFilePath, channel);
         UnityEditor.AssetDatabase.Refresh();
         UnityEditor.AssetDatabase.SaveAssets();
         this.FinishTask();

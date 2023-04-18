@@ -14,6 +14,7 @@ using UnityEditor.Build.Reporting;
 using UnityEditor.Callbacks;
 using UnityEditor.SceneManagement;
 using Debug = UnityEngine.Debug;
+using NinjaBeats;
 
 public class BuildTaskBuildPlayer : BuildTask
 {
@@ -148,12 +149,12 @@ public class BuildTaskBuildPlayer : BuildTask
     {
         if (buildTarget == BuildTarget.iOS)
         {
-            var CHANNEL = EditorUtils.CommandLineGetArgValue(nameof(Enum_Build_CommandLine_Arg.CHANNEL));
-            if (string.IsNullOrEmpty(CHANNEL))
-                CHANNEL = "dev_ios";
+            var HESDK_CHANNEL = EditorUtils.CommandLineGetArgValue(nameof(CommandLine.Enum_Build_CommandLine_Arg.HESDK_CHANNEL));
+            if (string.IsNullOrEmpty(HESDK_CHANNEL))
+                HESDK_CHANNEL = "dev_ios";
 
             var productName = PlayerSettings.productName;
-            var APP_IDENTIFIER = EditorUtils.CommandLineGetArgValue(nameof(Enum_Build_CommandLine_Arg.APP_IDENTIFIER));
+            var APP_IDENTIFIER = EditorUtils.CommandLineGetArgValue(nameof(CommandLine.Enum_Build_CommandLine_Arg.APP_IDENTIFIER));
             if (!string.IsNullOrEmpty(APP_IDENTIFIER) && APP_IDENTIFIER.IndexOf('.') != -1)
                 productName = APP_IDENTIFIER.Substring(APP_IDENTIFIER.LastIndexOf('.') + 1);
 
@@ -170,7 +171,7 @@ public class BuildTaskBuildPlayer : BuildTask
             var MMNViOSCoreHapticsInterfacePath = Path.Combine(pathToBuiltProject, "Libraries/Packages/NiceVibrations/Common/Plugins/iOS/Swift/MMNViOSCoreHapticsInterface.mm");
             var MMNViOSCoreHapticsInterface = File.ReadAllText(MMNViOSCoreHapticsInterfacePath);
             MMNViOSCoreHapticsInterface = MMNViOSCoreHapticsInterface.Replace("\"UnityFramework/UnityFramework-Swift.h\"",
-                $"<{productName}_UnityFramework_{CHANNEL}/{productName}_UnityFramework_{CHANNEL}-Swift.h>");
+                $"<{productName}_UnityFramework_{HESDK_CHANNEL}/{productName}_UnityFramework_{HESDK_CHANNEL}-Swift.h>");
             File.WriteAllText(MMNViOSCoreHapticsInterfacePath, MMNViOSCoreHapticsInterface);
 #endif
         }
@@ -180,7 +181,7 @@ public class BuildTaskBuildPlayer : BuildTask
     {   
         if (EditorUserBuildSettings.exportAsGoogleAndroidProject && target == BuildTarget.Android)
         {
-            if (EditorUtils.CommandLineHasArg(nameof(Enum_Build_CommandLine_Arg.ONLY_EXPORT_PROJECT)))
+            if (EditorUtils.CommandLineHasArg(nameof(CommandLine.Enum_Build_CommandLine_Arg.ONLY_EXPORT_PROJECT)))
                 return true;
             
 #if UNITY_EDITOR_WIN || UNITY_EDITOR_OSX

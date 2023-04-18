@@ -3,18 +3,14 @@
 using System;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Sec;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.TeleTrust;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.EC;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Multiplier;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 {
@@ -89,7 +85,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 
             if (this.random == null)
             {
-                this.random = new SecureRandom();
+                this.random = CryptoServicesRegistrar.GetSecureRandom();
             }
         }
 
@@ -135,16 +131,44 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
             return new FixedPointCombMultiplier();
         }
 
+        internal static X9ECParameters FindECCurveByName(string name)
+        {
+            X9ECParameters ecP = CustomNamedCurves.GetByName(name);
+            if (ecP == null)
+            {
+                ecP = ECNamedCurveTable.GetByName(name);
+            }
+            return ecP;
+        }
+
+        internal static X9ECParametersHolder FindECCurveByNameLazy(string name)
+        {
+            X9ECParametersHolder holder = CustomNamedCurves.GetByNameLazy(name);
+            if (holder == null)
+            {
+                holder = ECNamedCurveTable.GetByNameLazy(name);
+            }
+            return holder;
+        }
+
         internal static X9ECParameters FindECCurveByOid(DerObjectIdentifier oid)
         {
-            // TODO ECGost3410NamedCurves support (returns ECDomainParameters though)
-
             X9ECParameters ecP = CustomNamedCurves.GetByOid(oid);
             if (ecP == null)
             {
                 ecP = ECNamedCurveTable.GetByOid(oid);
             }
             return ecP;
+        }
+
+        internal static X9ECParametersHolder FindECCurveByOidLazy(DerObjectIdentifier oid)
+        {
+            X9ECParametersHolder holder = CustomNamedCurves.GetByOidLazy(oid);
+            if (holder == null)
+            {
+                holder = ECNamedCurveTable.GetByOidLazy(oid);
+            }
+            return holder;
         }
 
         internal static ECPublicKeyParameters GetCorrespondingPublicKey(

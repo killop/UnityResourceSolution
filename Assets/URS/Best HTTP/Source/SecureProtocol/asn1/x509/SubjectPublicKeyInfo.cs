@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
@@ -78,19 +77,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
         public Asn1Object ParsePublicKey()
         {
             return Asn1Object.FromByteArray(keyData.GetOctets());
-        }
-
-		/**
-         * for when the public key is an encoded object - if the bitstring
-         * can't be decoded this routine raises an IOException.
-         *
-         * @exception IOException - if the bit string doesn't represent a Der
-         * encoded object.
-         */
-
-        public Asn1Object GetPublicKey()
-        {
-			return Asn1Object.FromByteArray(keyData.GetOctets());
         }
 
 		/**

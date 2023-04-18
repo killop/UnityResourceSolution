@@ -118,6 +118,12 @@ namespace BestHTTP.SocketIO3.Parsers
                     (eventName, args) = ReadData(manager, packet, payload);
                     break;
 
+                case SocketIOEventTypes.BinaryAck:
+                    // Save payload until all attachments arrive
+                    if (packet.AttachementCount > 0)
+                        packet.DecodedArg = payload;
+                    break;
+
                 default:
                     // Array
                     (eventName, args) = ReadData(manager, packet, payload);
@@ -218,6 +224,7 @@ namespace BestHTTP.SocketIO3.Parsers
                     break;
 
                 case SocketIOEventTypes.Ack:
+                case SocketIOEventTypes.BinaryAck:
                     eventName = IncomingPacket.GenerateAcknowledgementNameFromId(packet.Id);
                     subscription = socket.GetSubscription(eventName);
 

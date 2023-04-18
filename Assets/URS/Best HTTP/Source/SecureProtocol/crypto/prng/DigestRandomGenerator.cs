@@ -14,7 +14,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Prng
 	 * Internal access to the digest is synchronized so a single one of these can be shared.
 	 * </p>
 	 */
-	public class DigestRandomGenerator
+	public sealed class DigestRandomGenerator
 		: IRandomGenerator
 	{
 		private const long CYCLE_COUNT = 10;
@@ -25,8 +25,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Prng
 		private byte[]	state;
 		private byte[]	seed;
 
-		public DigestRandomGenerator(
-			IDigest digest)
+		public DigestRandomGenerator(IDigest digest)
 		{
 			this.digest = digest;
 
@@ -37,8 +36,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Prng
 			this.stateCounter = 1;
 		}
 
-		public void AddSeedMaterial(
-			byte[] inSeed)
+		public void AddSeedMaterial(byte[] inSeed)
 		{
 			lock (this)
 			{
@@ -51,8 +49,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Prng
 			}
 		}
 
-		public void AddSeedMaterial(
-			long rSeed)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void AddSeedMaterial(ReadOnlySpan<byte> inSeed)
+        {
+            lock (this)
+            {
+                if (!inSeed.IsEmpty)
+                {
+                    DigestUpdate(inSeed);
+                }
+                DigestUpdate(seed);
+                DigestDoFinal(seed);
+            }
+        }
+#endif
+
+        public void AddSeedMaterial(long rSeed)
 		{
 			lock (this)
 			{
@@ -62,17 +74,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Prng
 			}
 		}
 
-		public void NextBytes(
-			byte[] bytes)
+		public void NextBytes(byte[] bytes)
 		{
 			NextBytes(bytes, 0, bytes.Length);
 		}
 
-		public void NextBytes(
-			byte[]	bytes,
-			int		start,
-			int		len)
+		public void NextBytes(byte[] bytes, int start, int len)
 		{
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+			NextBytes(bytes.AsSpan(start, len));
+#else
 			lock (this)
 			{
 				int stateOff = 0;
@@ -90,7 +101,30 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Prng
 					bytes[i] = state[stateOff++];
 				}
 			}
+#endif
 		}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public void NextBytes(Span<byte> bytes)
+		{
+			lock (this)
+			{
+				int stateOff = 0;
+
+				GenerateState();
+
+				for (int i = 0; i < bytes.Length; ++i)
+				{
+					if (stateOff == state.Length)
+					{
+						GenerateState();
+						stateOff = 0;
+					}
+					bytes[i] = state[stateOff++];
+				}
+			}
+		}
+#endif
 
 		private void CycleSeed()
 		{
@@ -112,23 +146,42 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Prng
 			}
 		}
 
-		private void DigestAddCounter(long seedVal)
-		{
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        private void DigestAddCounter(long seedVal)
+        {
+            Span<byte> bytes = stackalloc byte[8];
+            Pack.UInt64_To_LE((ulong)seedVal, bytes);
+            digest.BlockUpdate(bytes);
+        }
+
+        private void DigestUpdate(ReadOnlySpan<byte> inSeed)
+        {
+            digest.BlockUpdate(inSeed);
+        }
+
+        private void DigestDoFinal(Span<byte> result)
+        {
+            digest.DoFinal(result);
+        }
+#else
+        private void DigestAddCounter(long seedVal)
+        {
             byte[] bytes = new byte[8];
             Pack.UInt64_To_LE((ulong)seedVal, bytes);
             digest.BlockUpdate(bytes, 0, bytes.Length);
-		}
+        }
 
-        private void DigestUpdate(byte[] inSeed)
+		private void DigestUpdate(byte[] inSeed)
 		{
 			digest.BlockUpdate(inSeed, 0, inSeed.Length);
 		}
 
-		private void DigestDoFinal(byte[] result)
+        private void DigestDoFinal(byte[] result)
 		{
 			digest.DoFinal(result, 0);
 		}
-	}
+#endif
+    }
 }
 #pragma warning restore
 #endif

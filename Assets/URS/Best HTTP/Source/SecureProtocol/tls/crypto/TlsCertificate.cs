@@ -23,7 +23,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto
 
         /// <param name="signatureScheme"><see cref="SignatureScheme"/></param>
         /// <exception cref="IOException"/>
-        TlsVerifier CreateVerifier(int signatureScheme);
+        Tls13Verifier CreateVerifier(int signatureScheme);
 
         /// <exception cref="IOException"/>
         byte[] GetEncoded();

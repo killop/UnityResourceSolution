@@ -17,5 +17,7 @@ namespace YooAsset
         /// 获取资源依赖的所有AssetBundle列表
         /// </summary>
         List<FileMeta> GetAllDependencieBundleRelativePaths(string assetPath);
-	}
+
+        void  SearchLocalSecurityBundleHardDiskFileByPath(string relativePath,out HardiskFileSearchResult mainResult,out List<HardiskFileSearchResult> dependency, bool skipDownloadFolder = true);
+    }
 }

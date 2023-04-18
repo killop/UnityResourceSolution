@@ -2,7 +2,6 @@
 #pragma warning disable
 using System;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC;
@@ -16,7 +15,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
      * EC-DSA as described in X9.62
      */
     public class ECDsaSigner
-        : IDsaExt
+        : IDsa
     {
         private static readonly BigInteger Eight = BigInteger.ValueOf(8);
 
@@ -242,7 +241,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Signers
 
         protected virtual SecureRandom InitSecureRandom(bool needed, SecureRandom provided)
         {
-            return !needed ? null : (provided != null) ? provided : new SecureRandom();
+            return !needed ? null : CryptoServicesRegistrar.GetSecureRandom(provided);
         }
     }
 }

@@ -1,6 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Agreement.Srp;
@@ -28,8 +29,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
     {
         private readonly SecureRandom m_entropySource;
 
+        public BcTlsCrypto()
+            : this(CryptoServicesRegistrar.GetSecureRandom())
+        {
+        }
+
         public BcTlsCrypto(SecureRandom entropySource)
         {
+            if (entropySource == null)
+                throw new ArgumentNullException(nameof(entropySource));
+
             this.m_entropySource = entropySource;
         }
 
@@ -43,9 +52,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             get { return m_entropySource; }
         }
 
-        public override TlsCertificate CreateCertificate(byte[] encoding)
+        public override TlsCertificate CreateCertificate(short type, byte[] encoding)
         {
+            switch (type)
+            {
+            case CertificateType.X509:
             return new BcTlsCertificate(this, encoding);
+            case CertificateType.RawPublicKey:
+                return new BcTlsRawKeyCertificate(this, encoding);
+            default:
+                throw new TlsFatalAlert(AlertDescription.internal_error);
+            }
         }
 
         public override TlsCipher CreateCipher(TlsCryptoParameters cryptoParams, int encryptionAlgorithm,
@@ -141,9 +158,34 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
 
         public override TlsNonceGenerator CreateNonceGenerator(byte[] additionalSeedMaterial)
         {
-            IDigest digest = CreateDigest(CryptoHashAlgorithm.sha256);
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return CreateNonceGenerator(Spans.FromNullableReadOnly(additionalSeedMaterial));
+#else
+            int cryptoHashAlgorithm = CryptoHashAlgorithm.sha256;
+            IDigest digest = CreateDigest(cryptoHashAlgorithm);
 
-            byte[] seed = new byte[digest.GetDigestSize()];
+            int seedLength = TlsCryptoUtilities.GetHashOutputSize(cryptoHashAlgorithm);
+            byte[] seed = new byte[seedLength];
+            SecureRandom.NextBytes(seed);
+
+            DigestRandomGenerator randomGenerator = new DigestRandomGenerator(digest);
+            randomGenerator.AddSeedMaterial(additionalSeedMaterial);
+            randomGenerator.AddSeedMaterial(seed);
+
+            return new BcTlsNonceGenerator(randomGenerator);
+#endif
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override TlsNonceGenerator CreateNonceGenerator(ReadOnlySpan<byte> additionalSeedMaterial)
+        {
+            int cryptoHashAlgorithm = CryptoHashAlgorithm.sha256;
+            IDigest digest = CreateDigest(cryptoHashAlgorithm);
+
+            int seedLength = TlsCryptoUtilities.GetHashOutputSize(cryptoHashAlgorithm);
+            Span<byte> seed = seedLength <= 128
+                ? stackalloc byte[seedLength]
+                : new byte[seedLength];
             SecureRandom.NextBytes(seed);
 
             DigestRandomGenerator randomGenerator = new DigestRandomGenerator(digest);
@@ -152,44 +194,43 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
 
             return new BcTlsNonceGenerator(randomGenerator);
         }
+#endif
 
-        public override bool HasAllRawSignatureAlgorithms()
+        public override bool HasAnyStreamVerifiers(IList<SignatureAndHashAlgorithm> signatureAndHashAlgorithms)
         {
-            // TODO[RFC 8422] Revisit the need to buffer the handshake for "Intrinsic" hash signatures
-            return !HasSignatureAlgorithm(SignatureAlgorithm.ed25519)
-                && !HasSignatureAlgorithm(SignatureAlgorithm.ed448);
-        }
-
-        public override bool HasDHAgreement()
+            foreach (SignatureAndHashAlgorithm algorithm in signatureAndHashAlgorithms)
         {
+                switch (SignatureScheme.From(algorithm))
+                {
+                case SignatureScheme.ed25519:
+                case SignatureScheme.ed448:
             return true;
         }
-
-        public override bool HasECDHAgreement()
-        {
-            return true;
-        }
-
-        public override bool HasEncryptionAlgorithm(int encryptionAlgorithm)
-        {
-            switch (encryptionAlgorithm)
-            {
-            case EncryptionAlgorithm.DES40_CBC:
-            case EncryptionAlgorithm.DES_CBC:
-            case EncryptionAlgorithm.IDEA_CBC:
-            case EncryptionAlgorithm.RC2_CBC_40:
-            case EncryptionAlgorithm.RC4_128:
-            case EncryptionAlgorithm.RC4_40:
-                return false;
-
-            default:
-                return true;
             }
+            return false;
+        }
+
+        public override bool HasAnyStreamVerifiersLegacy(short[] clientCertificateTypes)
+            {
+                return false;
         }
 
         public override bool HasCryptoHashAlgorithm(int cryptoHashAlgorithm)
         {
+            switch (cryptoHashAlgorithm)
+            {
+            case CryptoHashAlgorithm.md5:
+            case CryptoHashAlgorithm.sha1:
+            case CryptoHashAlgorithm.sha224:
+            case CryptoHashAlgorithm.sha256:
+            case CryptoHashAlgorithm.sha384:
+            case CryptoHashAlgorithm.sha512:
+            case CryptoHashAlgorithm.sm3:
             return true;
+
+            default:
+                return false;
+            }
         }
 
         public override bool HasCryptoSignatureAlgorithm(int cryptoSignatureAlgorithm)
@@ -221,9 +262,85 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             }
         }
 
-        public override bool HasMacAlgorithm(int macAlgorithm)
+        public override bool HasDHAgreement()
         {
             return true;
+        }
+
+        public override bool HasECDHAgreement()
+        {
+            return true;
+        }
+
+        public override bool HasEncryptionAlgorithm(int encryptionAlgorithm)
+        {
+            switch (encryptionAlgorithm)
+            {
+            case EncryptionAlgorithm.AES_128_CBC:
+            case EncryptionAlgorithm.AES_128_CCM:
+            case EncryptionAlgorithm.AES_128_CCM_8:
+            case EncryptionAlgorithm.AES_128_GCM:
+            case EncryptionAlgorithm.AES_256_CBC:
+            case EncryptionAlgorithm.AES_256_CCM:
+            case EncryptionAlgorithm.AES_256_CCM_8:
+            case EncryptionAlgorithm.AES_256_GCM:
+            case EncryptionAlgorithm.ARIA_128_CBC:
+            case EncryptionAlgorithm.ARIA_128_GCM:
+            case EncryptionAlgorithm.ARIA_256_CBC:
+            case EncryptionAlgorithm.ARIA_256_GCM:
+            case EncryptionAlgorithm.CAMELLIA_128_CBC:
+            case EncryptionAlgorithm.CAMELLIA_128_GCM:
+            case EncryptionAlgorithm.CAMELLIA_256_CBC:
+            case EncryptionAlgorithm.CAMELLIA_256_GCM:
+            case EncryptionAlgorithm.CHACHA20_POLY1305:
+            case EncryptionAlgorithm.cls_3DES_EDE_CBC:
+            case EncryptionAlgorithm.NULL:
+            case EncryptionAlgorithm.SEED_CBC:
+            case EncryptionAlgorithm.SM4_CBC:
+            case EncryptionAlgorithm.SM4_CCM:
+            case EncryptionAlgorithm.SM4_GCM:
+                return true;
+
+            case EncryptionAlgorithm.DES_CBC:
+            case EncryptionAlgorithm.DES40_CBC:
+            case EncryptionAlgorithm.IDEA_CBC:
+            case EncryptionAlgorithm.RC2_CBC_40:
+            case EncryptionAlgorithm.RC4_128:
+            case EncryptionAlgorithm.RC4_40:
+            default:
+                return false;
+            }
+        }
+
+        public override bool HasHkdfAlgorithm(int cryptoHashAlgorithm)
+        {
+            switch (cryptoHashAlgorithm)
+            {
+            case CryptoHashAlgorithm.sha256:
+            case CryptoHashAlgorithm.sha384:
+            case CryptoHashAlgorithm.sha512:
+            case CryptoHashAlgorithm.sm3:
+                return true;
+
+            default:
+                return false;
+            }
+        }
+
+        public override bool HasMacAlgorithm(int macAlgorithm)
+        {
+            switch (macAlgorithm)
+            {
+            case MacAlgorithm.hmac_md5:
+            case MacAlgorithm.hmac_sha1:
+            case MacAlgorithm.hmac_sha256:
+            case MacAlgorithm.hmac_sha384:
+            case MacAlgorithm.hmac_sha512:
+            return true;
+
+            default:
+                return false;
+            }
         }
 
         public override bool HasNamedGroup(int namedGroup)
@@ -425,8 +542,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
         protected virtual TlsAeadCipher CreateCipher_Aes_Ccm(TlsCryptoParameters cryptoParams, int cipherKeySize,
             int macSize)
         {
-            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), true);
-            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Ccm(), false);
+            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), true);
+            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_Aes_Ccm(), false);
 
             return new TlsAeadCipher(cryptoParams, encrypt, decrypt, cipherKeySize, macSize, TlsAeadCipher.AEAD_CCM);
         }
@@ -434,8 +551,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
         protected virtual TlsAeadCipher CreateCipher_Aes_Gcm(TlsCryptoParameters cryptoParams, int cipherKeySize,
             int macSize)
         {
-            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Gcm(), true);
-            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_Aes_Gcm(), false);
+            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_Aes_Gcm(), true);
+            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_Aes_Gcm(), false);
 
             return new TlsAeadCipher(cryptoParams, encrypt, decrypt, cipherKeySize, macSize, TlsAeadCipher.AEAD_GCM);
         }
@@ -443,8 +560,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
         protected virtual TlsAeadCipher CreateCipher_Aria_Gcm(TlsCryptoParameters cryptoParams, int cipherKeySize,
             int macSize)
         {
-            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_Aria_Gcm(), true);
-            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_Aria_Gcm(), false);
+            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_Aria_Gcm(), true);
+            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_Aria_Gcm(), false);
 
             return new TlsAeadCipher(cryptoParams, encrypt, decrypt, cipherKeySize, macSize, TlsAeadCipher.AEAD_GCM);
         }
@@ -452,8 +569,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
         protected virtual TlsAeadCipher CreateCipher_Camellia_Gcm(TlsCryptoParameters cryptoParams, int cipherKeySize,
             int macSize)
         {
-            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_Camellia_Gcm(), true);
-            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_Camellia_Gcm(), false);
+            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_Camellia_Gcm(), true);
+            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_Camellia_Gcm(), false);
 
             return new TlsAeadCipher(cryptoParams, encrypt, decrypt, cipherKeySize, macSize, TlsAeadCipher.AEAD_GCM);
         }
@@ -472,16 +589,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
 
         protected virtual TlsAeadCipher CreateCipher_SM4_Ccm(TlsCryptoParameters cryptoParams)
         {
-            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_SM4_Ccm(), true);
-            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_SM4_Ccm(), false);
+            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_SM4_Ccm(), true);
+            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_SM4_Ccm(), false);
 
             return new TlsAeadCipher(cryptoParams, encrypt, decrypt, 16, 16, TlsAeadCipher.AEAD_CCM);
         }
 
         protected virtual TlsAeadCipher CreateCipher_SM4_Gcm(TlsCryptoParameters cryptoParams)
         {
-            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_SM4_Gcm(), true);
-            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadBlockCipher_SM4_Gcm(), false);
+            BcTlsAeadCipherImpl encrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_SM4_Gcm(), true);
+            BcTlsAeadCipherImpl decrypt = new BcTlsAeadCipherImpl(CreateAeadCipher_SM4_Gcm(), false);
 
             return new TlsAeadCipher(cryptoParams, encrypt, decrypt, 16, 16, TlsAeadCipher.AEAD_GCM);
         }
@@ -494,8 +611,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
 
         protected virtual IBlockCipher CreateAesEngine()
         {
-            //return new AesEngine();
-            return new AesFastEngine();
+            return AesUtilities.CreateEngine();
         }
 
         protected virtual IBlockCipher CreateAriaEngine()
@@ -523,50 +639,61 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             return new SM4Engine();
         }
 
-        protected virtual IAeadBlockCipher CreateCcmMode(IBlockCipher engine)
+        protected virtual IAeadCipher CreateCcmMode(IBlockCipher engine)
         {
             return new CcmBlockCipher(engine);
         }
 
-        protected virtual IAeadBlockCipher CreateGcmMode(IBlockCipher engine)
+        protected virtual IAeadCipher CreateGcmMode(IBlockCipher engine)
         {
             // TODO Consider allowing custom configuration of multiplier
             return new GcmBlockCipher(engine);
         }
 
-        protected virtual IAeadBlockCipher CreateAeadBlockCipher_Aes_Ccm()
+        protected virtual IAeadCipher CreateAeadCipher_Aes_Ccm()
         {
             return CreateCcmMode(CreateAesEngine());
         }
 
-        protected virtual IAeadBlockCipher CreateAeadBlockCipher_Aes_Gcm()
+        protected virtual IAeadCipher CreateAeadCipher_Aes_Gcm()
         {
             return CreateGcmMode(CreateAesEngine());
         }
 
-        protected virtual IAeadBlockCipher CreateAeadBlockCipher_Aria_Gcm()
+        protected virtual IAeadCipher CreateAeadCipher_Aria_Gcm()
         {
             return CreateGcmMode(CreateAriaEngine());
         }
 
-        protected virtual IAeadBlockCipher CreateAeadBlockCipher_Camellia_Gcm()
+        protected virtual IAeadCipher CreateAeadCipher_Camellia_Gcm()
         {
             return CreateGcmMode(CreateCamelliaEngine());
         }
 
-        protected virtual IAeadBlockCipher CreateAeadBlockCipher_SM4_Ccm()
+        protected virtual IAeadCipher CreateAeadCipher_SM4_Ccm()
         {
             return CreateCcmMode(CreateSM4Engine());
         }
 
-        protected virtual IAeadBlockCipher CreateAeadBlockCipher_SM4_Gcm()
+        protected virtual IAeadCipher CreateAeadCipher_SM4_Gcm()
         {
             return CreateGcmMode(CreateSM4Engine());
         }
 
         public override TlsHmac CreateHmac(int macAlgorithm)
         {
+            switch (macAlgorithm)
+            {
+            case MacAlgorithm.hmac_md5:
+            case MacAlgorithm.hmac_sha1:
+            case MacAlgorithm.hmac_sha256:
+            case MacAlgorithm.hmac_sha384:
+            case MacAlgorithm.hmac_sha512:
             return CreateHmacForHash(TlsCryptoUtilities.GetHashForHmac(macAlgorithm));
+
+            default:
+                throw new ArgumentException("invalid MacAlgorithm: " + macAlgorithm);
+            }
         }
 
         public override TlsHmac CreateHmacForHash(int cryptoHashAlgorithm)

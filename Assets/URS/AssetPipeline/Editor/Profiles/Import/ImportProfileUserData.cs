@@ -75,6 +75,7 @@ namespace Daihenka.AssetPipeline.Import
             ParseUserData();
         }
 
+        public AssetImporter GetAssetImporter() { return m_Importer; } 
         void ParseUserData()
         {
             GetImporterJson();

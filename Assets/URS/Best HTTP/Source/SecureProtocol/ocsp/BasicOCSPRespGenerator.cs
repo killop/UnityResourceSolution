@@ -1,18 +1,17 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 {
@@ -21,7 +20,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 	 */
 	public class BasicOcspRespGenerator
 	{
-		private readonly IList list = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+		private readonly List<ResponseObject> list = new List<ResponseObject>();
 
 		private X509Extensions responseExtensions;
 		private RespID responderID;
@@ -30,34 +29,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 		{
 			internal CertificateID         certId;
 			internal CertStatus            certStatus;
-			internal DerGeneralizedTime    thisUpdate;
-			internal DerGeneralizedTime    nextUpdate;
+			internal Asn1GeneralizedTime   thisUpdate;
+			internal Asn1GeneralizedTime   nextUpdate;
 			internal X509Extensions        extensions;
 
-			public ResponseObject(
+			internal ResponseObject(
 				CertificateID		certId,
 				CertificateStatus	certStatus,
 				DateTime			thisUpdate,
-				X509Extensions		extensions)
-				: this(certId, certStatus, new DerGeneralizedTime(thisUpdate), null, extensions)
-			{
-			}
-
-			public ResponseObject(
-				CertificateID		certId,
-				CertificateStatus	certStatus,
-				DateTime			thisUpdate,
-				DateTime			nextUpdate,
-				X509Extensions		extensions)
-				: this(certId, certStatus, new DerGeneralizedTime(thisUpdate), new DerGeneralizedTime(nextUpdate), extensions)
-			{
-			}
-
-			private ResponseObject(
-				CertificateID		certId,
-				CertificateStatus	certStatus,
-				DerGeneralizedTime	thisUpdate,
-				DerGeneralizedTime	nextUpdate,
+				DateTime?			nextUpdate,
 				X509Extensions		extensions)
 			{
 				this.certId = certId;
@@ -78,11 +58,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 						:	null;
 
 					this.certStatus = new CertStatus(
-						new RevokedInfo(new DerGeneralizedTime(rs.RevocationTime), revocationReason));
+						new RevokedInfo(new Asn1GeneralizedTime(rs.RevocationTime), revocationReason));
 				}
 
-				this.thisUpdate = thisUpdate;
-				this.nextUpdate = nextUpdate;
+				this.thisUpdate = new DerGeneralizedTime(thisUpdate);
+				this.nextUpdate = nextUpdate.HasValue ? new DerGeneralizedTime(nextUpdate.Value) : null;
 
 				this.extensions = extensions;
 			}
@@ -121,7 +101,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 			CertificateID		certID,
 			CertificateStatus	certStatus)
 		{
-			list.Add(new ResponseObject(certID, certStatus, DateTime.UtcNow, null));
+			list.Add(new ResponseObject(certID, certStatus, DateTime.UtcNow, null, null));
 		}
 
 		/**
@@ -136,7 +116,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 			CertificateStatus	certStatus,
 			X509Extensions		singleExtensions)
 		{
-			list.Add(new ResponseObject(certID, certStatus, DateTime.UtcNow, singleExtensions));
+			list.Add(new ResponseObject(certID, certStatus, DateTime.UtcNow, null, singleExtensions));
 		}
 
 		/**
@@ -150,7 +130,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 		public void AddResponse(
 			CertificateID		certID,
 			CertificateStatus	certStatus,
-			DateTime			nextUpdate,
+			DateTime?			nextUpdate,
 			X509Extensions		singleExtensions)
 		{
 			list.Add(new ResponseObject(certID, certStatus, DateTime.UtcNow, nextUpdate, singleExtensions));
@@ -169,7 +149,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 			CertificateID		certID,
 			CertificateStatus	certStatus,
 			DateTime			thisUpdate,
-			DateTime			nextUpdate,
+			DateTime?			nextUpdate,
 			X509Extensions		singleExtensions)
 		{
 			list.Add(new ResponseObject(certID, certStatus, thisUpdate, nextUpdate, singleExtensions));
@@ -208,20 +188,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 				}
 			}
 
-			ResponseData tbsResp = new ResponseData(responderID.ToAsn1Object(), new DerGeneralizedTime(producedAt), new DerSequence(responses), responseExtensions);
-			DerBitString bitSig = null;
+			ResponseData tbsResp = new ResponseData(responderID.ToAsn1Object(), new Asn1GeneralizedTime(producedAt),
+				new DerSequence(responses), responseExtensions);
+			DerBitString bitSig;
 
 			try
 			{
-                IStreamCalculator streamCalculator = signatureCalculator.CreateCalculator();
+                IStreamCalculator<IBlockResult> streamCalculator = signatureCalculator.CreateCalculator();
+				using (Stream sigStream = streamCalculator.Stream)
+				{
+					tbsResp.EncodeTo(sigStream, Asn1Encodable.Der);
+				}
 
-				byte[] encoded = tbsResp.GetDerEncoded();
-
-                streamCalculator.Stream.Write(encoded, 0, encoded.Length);
-
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(streamCalculator.Stream);
-
-                bitSig = new DerBitString(((IBlockResult)streamCalculator.GetResult()).Collect());
+				bitSig = new DerBitString(streamCalculator.GetResult().Collect());
 			}
 			catch (Exception e)
 			{
@@ -233,14 +212,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 			DerSequence chainSeq = null;
 			if (chain != null && chain.Length > 0)
 			{
-				Asn1EncodableVector v = new Asn1EncodableVector();
+				Asn1EncodableVector v = new Asn1EncodableVector(chain.Length);
 				try
 				{
 					for (int i = 0; i != chain.Length; i++)
 					{
-						v.Add(
-							X509CertificateStructure.GetInstance(
-								Asn1Object.FromByteArray(chain[i].GetEncoded())));
+						v.Add(chain[i].CertificateStructure);
 					}
 				}
 				catch (IOException e)
@@ -307,7 +284,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 		 *
 		 * @return an IEnumerable containing recognised names.
 		 */
-        public IEnumerable SignatureAlgNames
+        public IEnumerable<string> SignatureAlgNames
 		{
 			get { return OcspUtilities.AlgNames; }
 		}

@@ -1,6 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
@@ -12,7 +13,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
     public class DerBmpString
 		: DerStringBase
     {
-        private readonly string str;
+        internal class Meta : Asn1UniversalType
+        {
+            internal static readonly Asn1UniversalType Instance = new Meta();
+
+            private Meta() : base(typeof(DerBmpString), Asn1Tags.BmpString) {}
+
+            internal override Asn1Object FromImplicitPrimitive(DerOctetString octetString)
+            {
+                return CreatePrimitive(octetString.GetOctets());
+            }
+        }
 
 		/**
          * return a BMP string from the given object.
@@ -20,62 +31,67 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
          * @param obj the object we want converted.
          * @exception ArgumentException if the object cannot be converted.
          */
-        public static DerBmpString GetInstance(
-            object obj)
+        public static DerBmpString GetInstance(object obj)
         {
-            if (obj == null || obj is DerBmpString)
+            if (obj == null)
+                return null;
+
+            if (obj is DerBmpString derBmpString)
+                return derBmpString;
+
+            if (obj is IAsn1Convertible asn1Convertible)
             {
-                return (DerBmpString)obj;
+                Asn1Object asn1Object = asn1Convertible.ToAsn1Object();
+                if (asn1Object is DerBmpString converted)
+                    return converted;
+            }
+            else if (obj is byte[] bytes)
+            {
+                try
+                {
+                    return (DerBmpString)Meta.Instance.FromByteArray(bytes);
+                }
+                catch (IOException e)
+                {
+                    throw new ArgumentException("failed to construct BMP string from byte[]: " + e.Message);
+                }
             }
 
-            throw new ArgumentException("illegal object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
         /**
          * return a BMP string from a tagged object.
          *
-         * @param obj the tagged object holding the object we want
-         * @param explicitly true if the object is meant to be explicitly
-         *              tagged false otherwise.
-         * @exception ArgumentException if the tagged object cannot
-         *              be converted.
+         * @param taggedObject the tagged object holding the object we want
+         * @param declaredExplicit true if the object is meant to be explicitly tagged false otherwise.
+         * @exception ArgumentException if the tagged object cannot be converted.
          */
-        public static DerBmpString GetInstance(
-            Asn1TaggedObject	obj,
-            bool				isExplicit)
+        public static DerBmpString GetInstance(Asn1TaggedObject taggedObject, bool declaredExplicit)
         {
-			Asn1Object o = obj.GetObject();
-
-			if (isExplicit || o is DerBmpString)
-			{
-				return GetInstance(o);
-			}
-
-			return new DerBmpString(Asn1OctetString.GetInstance(o).GetOctets());
+            return (DerBmpString)Meta.Instance.GetContextInstance(taggedObject, declaredExplicit);
         }
 
-		/**
-         * basic constructor - byte encoded string.
-         */
+        private readonly string m_str;
 
-        public DerBmpString(byte[] str)
+        internal DerBmpString(byte[] contents)
         {
-			if (str == null)
-				throw new ArgumentNullException("str");
+			if (null == contents)
+				throw new ArgumentNullException("contents");
 
-            int byteLen = str.Length;
+            int byteLen = contents.Length;
             if (0 != (byteLen & 1))
-                throw new ArgumentException("malformed BMPString encoding encountered", "str");
+                throw new ArgumentException("malformed BMPString encoding encountered", "contents");
 
             int charLen = byteLen / 2;
             char[] cs = new char[charLen];
 
             for (int i = 0; i != charLen; i++)
             {
-                cs[i] = (char)((str[2 * i] << 8) | (str[2 * i + 1] & 0xff));
+                cs[i] = (char)((contents[2 * i] << 8) | (contents[2 * i + 1] & 0xff));
             }
 
-            this.str = new string(cs);
+            m_str = new string(cs);
         }
 
         internal DerBmpString(char[] str)
@@ -83,7 +99,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             if (str == null)
                 throw new ArgumentNullException("str");
 
-            this.str = new string(str);
+            m_str = new string(str);
         }
 
         /**
@@ -94,42 +110,59 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 			if (str == null)
 				throw new ArgumentNullException("str");
 
-            this.str = str;
+            m_str = str;
         }
 
         public override string GetString()
         {
-            return str;
+            return m_str;
         }
 
-		protected override bool Asn1Equals(
-			Asn1Object asn1Object)
+        protected override bool Asn1Equals(Asn1Object asn1Object)
         {
-			DerBmpString other = asn1Object as DerBmpString;
-
-			if (other == null)
-				return false;
-
-			return this.str.Equals(other.str);
+            DerBmpString that = asn1Object as DerBmpString;
+            return null != that
+                && this.m_str.Equals(that.m_str);
         }
 
-        internal override int EncodedLength(bool withID)
+        protected override int Asn1GetHashCode()
         {
-            return Asn1OutputStream.GetLengthOfEncodingDL(withID, str.Length * 2);
+            return m_str.GetHashCode();
         }
 
-		internal override void Encode(Asn1OutputStream asn1Out, bool withID)
+        internal override IAsn1Encoding GetEncoding(int encoding)
         {
-            char[] c = str.ToCharArray();
+            return new PrimitiveEncoding(Asn1Tags.Universal, Asn1Tags.BmpString, GetContents());
+        }
+
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
+        {
+            return new PrimitiveEncoding(tagClass, tagNo, GetContents());
+        }
+
+        private byte[] GetContents()
+        {
+            char[] c = m_str.ToCharArray();
             byte[] b = new byte[c.Length * 2];
 
-			for (int i = 0; i != c.Length; i++)
+            for (int i = 0; i != c.Length; i++)
             {
                 b[2 * i] = (byte)(c[i] >> 8);
                 b[2 * i + 1] = (byte)c[i];
             }
 
-            asn1Out.WriteEncodingDL(withID, Asn1Tags.BmpString, b);
+            return b;
+        }
+
+        internal static DerBmpString CreatePrimitive(byte[] contents)
+        {
+            return new DerBmpString(contents);
+        }
+
+        internal static DerBmpString CreatePrimitive(char[] str)
+        {
+            // TODO[asn1] Asn1InputStream has a validator/converter that should be unified in this class somehow
+            return new DerBmpString(str);
         }
     }
 }

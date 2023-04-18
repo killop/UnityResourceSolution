@@ -99,18 +99,41 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 
             for (int i = 0; i < len; i++)
             {
-                s = P[(s + P[n & 0xff]) & 0xff];
-                byte z = P[(P[(P[s & 0xff]) & 0xff] + 1) & 0xff];
+                byte pn = P[n];
+                s = P[(s + pn) & 0xff];
+                byte ps = P[s];
+                byte z = P[(P[ps] + 1) & 0xff];
                 // encryption
-                byte temp = P[n & 0xff];
-                P[n & 0xff] = P[s & 0xff];
-                P[s & 0xff] = temp;
-                n = (byte) ((n + 1) & 0xff);
+                P[n] = ps;
+                P[s] = pn;
+                n = (byte)(n + 1);
 
                 // xor
-                output[i + outOff] = (byte) (input[i + inOff] ^ z);
+                output[i + outOff] = (byte)(input[i + inOff] ^ z);
             }
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            Check.OutputLength(output, input.Length, "output buffer too short");
+
+            for (int i = 0; i < input.Length; i++)
+            {
+                byte pn = P[n];
+                s = P[(s + pn) & 0xff];
+                byte ps = P[s];
+                byte z = P[(P[ps] + 1) & 0xff];
+                // encryption
+                P[n] = ps;
+                P[s] = pn;
+                n = (byte)(n + 1);
+
+                // xor
+                output[i] = (byte)(input[i] ^ z);
+            }
+        }
+#endif
 
         public virtual void Reset()
         {

@@ -70,7 +70,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             }
             else
             {
-                throw new ArgumentException("'privateKey' type not supported: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(privateKey));
+                throw new ArgumentException("'privateKey' type not supported: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(privateKey));
             }
 
             return signer;

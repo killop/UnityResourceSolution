@@ -63,7 +63,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 
         public void BlockUpdate(byte[] input, int inOff, int len)
         {
-            Check.DataLength(input, inOff, len, "Input buffer too short");
+            Check.DataLength(input, inOff, len, "input buffer too short");
 
             if (paddedKey == null)
                 throw new InvalidOperationException(AlgorithmName + " not initialised");
@@ -71,6 +71,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
             engine.BlockUpdate(input, inOff, len);
             inputLength += (ulong)len;
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            if (paddedKey == null)
+                throw new InvalidOperationException(AlgorithmName + " not initialised");
+
+            engine.BlockUpdate(input);
+            inputLength += (ulong)input.Length;
+        }
+#endif
 
         public void Update(byte input)
         {
@@ -80,10 +91,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 
         public int DoFinal(byte[] output, int outOff)
         {
-            Check.OutputLength(output, outOff, macSize, "Output buffer too short");
-
             if (paddedKey == null)
                 throw new InvalidOperationException(AlgorithmName + " not initialised");
+
+            Check.OutputLength(output, outOff, macSize, "output buffer too short");
 
             Pad();
 
@@ -93,6 +104,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 
             return engine.DoFinal(output, outOff);
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int DoFinal(Span<byte> output)
+        {
+            if (paddedKey == null)
+                throw new InvalidOperationException(AlgorithmName + " not initialised");
+
+            Check.OutputLength(output, macSize, "output buffer too short");
+
+            Pad();
+
+            engine.BlockUpdate(invertedKey);
+
+            inputLength = 0;
+
+            return engine.DoFinal(output);
+        }
+#endif
 
         public void Reset()
         {

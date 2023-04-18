@@ -67,8 +67,7 @@ namespace BestHTTP
     }
 
     public delegate void OnRequestFinishedDelegate(HTTPRequest originalRequest, HTTPResponse response);
-    public delegate void OnDownloadProgressDelegate(HTTPRequest originalRequest, long downloaded, long downloadLength);
-    public delegate void OnUploadProgressDelegate(HTTPRequest originalRequest, long uploaded, long uploadLength);
+    public delegate void OnProgressDelegate(HTTPRequest originalRequest, long progress, long length);
     public delegate bool OnBeforeRedirectionDelegate(HTTPRequest originalRequest, HTTPResponse response, Uri redirectUri);
     public delegate void OnHeaderEnumerationDelegate(string header, List<string> values);
     public delegate void OnBeforeHeaderSendDelegate(HTTPRequest req);
@@ -102,6 +101,7 @@ namespace BestHTTP
                                                           HTTPMethods.Merge.ToString().ToUpper(),
                                                           HTTPMethods.Options.ToString().ToUpper(),
                                                           HTTPMethods.Connect.ToString().ToUpper(),
+                                                          HTTPMethods.Query.ToString().ToUpper()
                                                       };
 
         /// <summary>
@@ -146,7 +146,7 @@ namespace BestHTTP
         /// <summary>
         /// Called after data sent out to the wire.
         /// </summary>
-        public OnUploadProgressDelegate OnUploadProgress;
+        public OnProgressDelegate OnUploadProgress;
 
         /// <summary>
         /// Indicates that the connection should be open after the response received. If its true, then the internal TCP connections will be reused if it's possible. Default value is true.
@@ -288,7 +288,7 @@ namespace BestHTTP
         /// The first parameter is the original HTTTPRequest object itself, the second parameter is the downloaded bytes while the third parameter is the content length.
         /// <remarks>There are download modes where we can't figure out the exact length of the final content. In these cases we just guarantee that the third parameter will be at least the size of the second one.</remarks>
         /// </summary>
-        public OnDownloadProgressDelegate OnDownloadProgress;
+        public OnProgressDelegate OnDownloadProgress;
 
         /// <summary>
         /// Indicates that the request is redirected. If a request is redirected, the connection that served it will be closed regardless of the value of IsKeepAlive.
@@ -311,7 +311,7 @@ namespace BestHTTP
         /// </summary>
         public HTTPResponse Response { get; internal set; }
 
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
         /// <summary>
         /// Response from the Proxy server. It's null with transparent proxies.
         /// </summary>
@@ -333,7 +333,7 @@ namespace BestHTTP
         /// </summary>
         public Credentials Credentials { get; set; }
 
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
         /// <summary>
         /// True, if there is a Proxy object.
         /// </summary>
@@ -641,7 +641,7 @@ namespace BestHTTP
 
             this.EnableSafeReadOnUnknownContentLength = true;
 
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
             this.Proxy = HTTPManager.Proxy;
 #endif
 
@@ -911,14 +911,9 @@ namespace BestHTTP
             if (IsRedirected && !HasHeader("Referer"))
                 AddHeader("Referer", Uri.ToString());
 
-            if (!HasHeader("Accept-Encoding"))
-#if BESTHTTP_DISABLE_GZIP
-              AddHeader("Accept-Encoding", "identity");
-#else
-              AddHeader("Accept-Encoding", "gzip, identity");
-#endif
+            Decompression.DecompressorFactory.SetupHeaders(this);
 
-            #if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
             if (!HTTPProtocolFactory.IsSecureProtocol(this.CurrentUri) && HasProxy && !HasHeader("Proxy-Connection"))
                 AddHeader("Proxy-Connection", IsKeepAlive ? "Keep-Alive" : "Close");
             #endif
@@ -968,17 +963,19 @@ namespace BestHTTP
             // Always set the Content-Length header if possible
             // http://tools.ietf.org/html/rfc2616#section-4.4 : For compatibility with HTTP/1.0 applications, HTTP/1.1 requests containing a message-body MUST include a valid Content-Length header field unless the server is known to be HTTP/1.1 compliant.
             // 2018.06.03: Changed the condition so that content-length header will be included for zero length too.
+            // 2022.05.25: Don't send a Content-Length (: 0) header if there's an Upgrade header. Upgrade is set for websocket, and it might be not true that the client doesn't send any bytes.
             if (
 #if !UNITY_WEBGL || UNITY_EDITOR
                 contentLength >= 0
 #else
                 contentLength != -1
 #endif
-                && !HasHeader("Content-Length"))
+                && !HasHeader("Content-Length")
+                && !HasHeader("Upgrade"))
                 SetHeader("Content-Length", contentLength.ToString());
 
 #if !UNITY_WEBGL || UNITY_EDITOR
-            #if !BESTHTTP_DISABLE_PROXY
+            #if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
             // Proxy Authentication
             if (!HTTPProtocolFactory.IsSecureProtocol(this.CurrentUri) && HasProxy && Proxy.Credentials != null)
             {
@@ -1117,7 +1114,7 @@ namespace BestHTTP
                     if (string.IsNullOrEmpty(header) || values == null)
                         return;
 
-                    byte[] headerName = string.Concat(header, ": ").GetASCIIBytes();
+                    var headerName = string.Concat(header, ": ").GetASCIIBytes();
 
                     for (int i = 0; i < values.Count; ++i)
                     {
@@ -1130,10 +1127,10 @@ namespace BestHTTP
                         if (HTTPManager.Logger.Level <= Logger.Loglevels.Information)
                             VerboseLogging("Header - '" + header + "': '" + values[i] + "'");
 
-                        byte[] valueBytes = values[i].GetASCIIBytes();
+                        var valueBytes = values[i].GetASCIIBytes();
 
-                        stream.WriteArray(headerName);
-                        stream.WriteArray(valueBytes);
+                        stream.WriteBufferSegment(headerName);
+                        stream.WriteBufferSegment(valueBytes);
                         stream.WriteArray(EOL);
 
                         BufferPool.Release(valueBytes);
@@ -1174,7 +1171,7 @@ namespace BestHTTP
             return null;
         }
 
-        internal struct UploadStreamInfo
+        public struct UploadStreamInfo
         {
             public readonly Stream Stream;
             public readonly long Length;
@@ -1229,7 +1226,7 @@ namespace BestHTTP
             // Under WEBGL EnumerateHeaders and GetEntityBody are used instead of this function.
 #if !UNITY_WEBGL || UNITY_EDITOR
             string requestPathAndQuery =
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
                     HasProxy ? this.Proxy.GetRequestPath(CurrentUri) :
 #endif
                     CurrentUri.GetRequestPathAndQueryURL();
@@ -1244,8 +1241,8 @@ namespace BestHTTP
             //  it should have enough room for UploadChunkSize data and additional chunk information.
             using (WriteOnlyBufferedStream bufferStream = new WriteOnlyBufferedStream(stream, (int)(UploadChunkSize * 1.5f)))
             {
-                byte[] requestLineBytes = requestLine.GetASCIIBytes();
-                bufferStream.WriteArray(requestLineBytes);
+                var requestLineBytes = requestLine.GetASCIIBytes();
+                bufferStream.WriteBufferSegment(requestLineBytes);
                 bufferStream.WriteArray(EOL);
 
                 BufferPool.Release(requestLineBytes);
@@ -1296,8 +1293,8 @@ namespace BestHTTP
                         // If we don't know the size, send as chunked
                         if (!UseUploadStreamLength)
                         {
-                            byte[] countBytes = count.ToString("X").GetASCIIBytes();
-                            bufferStream.WriteArray(countBytes);
+                            var countBytes = count.ToString("X").GetASCIIBytes();
+                            bufferStream.WriteBufferSegment(countBytes);
                             bufferStream.WriteArray(EOL);
 
                             BufferPool.Release(countBytes);
@@ -1394,6 +1391,7 @@ namespace BestHTTP
         public HTTPRequest Send()
         {
             this.IsCancellationRequested = false;
+            this.Exception = null;
 
             return HTTPManager.SendRequest(this);
         }
@@ -1452,6 +1450,7 @@ namespace BestHTTP
 
             this.IsRedirected = false;
             this.RedirectCount = 0;
+            this.Exception = null;
         }
 
         private void VerboseLogging(string str)

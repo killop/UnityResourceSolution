@@ -13,8 +13,11 @@ namespace YooAsset
 		{
 			if (IsValid)
 			{
+				UnityEngine.Profiling.Profiler.BeginSample(" SceneOperationHandle "+ this.AssetPath);
 				_callback?.Invoke(this);
-			}
+				UnityEngine.Profiling.Profiler.EndSample();
+
+            }
 		}
 
 		/// <summary>

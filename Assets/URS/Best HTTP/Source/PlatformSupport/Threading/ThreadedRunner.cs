@@ -9,6 +9,19 @@ namespace BestHTTP.PlatformSupport.Threading
 {
     public static class ThreadedRunner
     {
+        public static void SetThreadName(string name)
+        {
+            try
+            {
+                System.Threading.Thread.CurrentThread.Name = name;
+            }
+            catch(Exception ex)
+            {
+                if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                    HTTPManager.Logger.Exception("ThreadedRunner", "SetThreadName", ex);
+            }
+        }
+
         public static void RunShortLiving<T>(Action<T> job, T param)
         {
 #if NETFX_CORE

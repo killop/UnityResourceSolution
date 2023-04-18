@@ -50,7 +50,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
                 return new IssuingDistributionPoint((Asn1Sequence) obj);
             }
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		/**
@@ -194,56 +194,46 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 
 		public override string ToString()
 		{
-			string sep = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine;
 			StringBuilder buf = new StringBuilder();
-
-			buf.Append("IssuingDistributionPoint: [");
-			buf.Append(sep);
+			buf.AppendLine("IssuingDistributionPoint: [");
 			if (_distributionPoint != null)
 			{
-				appendObject(buf, sep, "distributionPoint", _distributionPoint.ToString());
+				AppendObject(buf, "distributionPoint", _distributionPoint.ToString());
 			}
 			if (_onlyContainsUserCerts)
 			{
-				appendObject(buf, sep, "onlyContainsUserCerts", _onlyContainsUserCerts.ToString());
+				AppendObject(buf, "onlyContainsUserCerts", _onlyContainsUserCerts.ToString());
 			}
 			if (_onlyContainsCACerts)
 			{
-				appendObject(buf, sep, "onlyContainsCACerts", _onlyContainsCACerts.ToString());
+				AppendObject(buf, "onlyContainsCACerts", _onlyContainsCACerts.ToString());
 			}
 			if (_onlySomeReasons != null)
 			{
-				appendObject(buf, sep, "onlySomeReasons", _onlySomeReasons.ToString());
+				AppendObject(buf, "onlySomeReasons", _onlySomeReasons.ToString());
 			}
 			if (_onlyContainsAttributeCerts)
 			{
-				appendObject(buf, sep, "onlyContainsAttributeCerts", _onlyContainsAttributeCerts.ToString());
+				AppendObject(buf, "onlyContainsAttributeCerts", _onlyContainsAttributeCerts.ToString());
 			}
 			if (_indirectCRL)
 			{
-				appendObject(buf, sep, "indirectCRL", _indirectCRL.ToString());
+				AppendObject(buf, "indirectCRL", _indirectCRL.ToString());
 			}
-			buf.Append("]");
-			buf.Append(sep);
+			buf.AppendLine("]");
 			return buf.ToString();
 		}
 
-		private void appendObject(
-			StringBuilder	buf,
-			string			sep,
-			string			name,
-			string			val)
+		private void AppendObject(StringBuilder buf, string name, string val)
 		{
 			string indent = "    ";
-
 			buf.Append(indent);
 			buf.Append(name);
-			buf.Append(":");
-			buf.Append(sep);
+			buf.AppendLine(":");
 			buf.Append(indent);
 			buf.Append(indent);
 			buf.Append(val);
-			buf.Append(sep);
+			buf.AppendLine();
 		}
 	}
 }

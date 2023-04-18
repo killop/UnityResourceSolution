@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -11,7 +11,6 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.IO;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
@@ -20,8 +19,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 	{
 		internal static readonly CmsEnvelopedHelper Instance = new CmsEnvelopedHelper();
 
-		private static readonly IDictionary KeySizes = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
-		private static readonly IDictionary BaseCipherNames = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+		private static readonly IDictionary<string, int> KeySizes = new Dictionary<string, int>();
+		private static readonly IDictionary<string, string> BaseCipherNames = new Dictionary<string, string>();
 
 		static CmsEnvelopedHelper()
 		{
@@ -78,35 +77,32 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			}
 		}
 
-		internal string GetRfc3211WrapperName(
-			string oid)
+		internal string GetRfc3211WrapperName(string oid)
 		{
 			if (oid == null)
-				throw new ArgumentNullException("oid");
+				throw new ArgumentNullException(nameof(oid));
 
-			string alg = (string) BaseCipherNames[oid];
-
-			if (alg == null)
-				throw new ArgumentException("no name for " + oid, "oid");
+			if (!BaseCipherNames.TryGetValue(oid, out var alg))
+				throw new ArgumentException("no name for " + oid, nameof(oid));
 
 			return alg + "RFC3211Wrap";
 		}
 
-		internal int GetKeySize(
-			string oid)
+		internal int GetKeySize(string oid)
 		{
-			if (!KeySizes.Contains(oid))
-			{
-				throw new ArgumentException("no keysize for " + oid, "oid");
-			}
+			if (oid == null)
+				throw new ArgumentNullException(nameof(oid));
 
-			return (int) KeySizes[oid];
+			if (!KeySizes.TryGetValue(oid, out var keySize))
+				throw new ArgumentException("no keysize for " + oid, "oid");
+
+			return keySize;
 		}
 
 		internal static RecipientInformationStore BuildRecipientInformationStore(
 			Asn1Set recipientInfos, CmsSecureReadable secureReadable)
 		{
-			IList infos = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+			var infos = new List<RecipientInformation>();
 			for (int i = 0; i != recipientInfos.Count; i++)
 			{
 				RecipientInfo info = RecipientInfo.GetInstance(recipientInfos[i]);
@@ -116,25 +112,25 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			return new RecipientInformationStore(infos);
 		}
 
-		private static void ReadRecipientInfo(
-			IList infos, RecipientInfo info, CmsSecureReadable secureReadable)
+		private static void ReadRecipientInfo(IList<RecipientInformation> infos, RecipientInfo info,
+			CmsSecureReadable secureReadable)
 		{
 			Asn1Encodable recipInfo = info.Info;
-			if (recipInfo is KeyTransRecipientInfo)
+			if (recipInfo is KeyTransRecipientInfo keyTransRecipientInfo)
 			{
-				infos.Add(new KeyTransRecipientInformation((KeyTransRecipientInfo)recipInfo, secureReadable));
+				infos.Add(new KeyTransRecipientInformation(keyTransRecipientInfo, secureReadable));
 			}
-			else if (recipInfo is KekRecipientInfo)
+			else if (recipInfo is KekRecipientInfo kekRecipientInfo)
 			{
-				infos.Add(new KekRecipientInformation((KekRecipientInfo)recipInfo, secureReadable));
+				infos.Add(new KekRecipientInformation(kekRecipientInfo, secureReadable));
 			}
-			else if (recipInfo is KeyAgreeRecipientInfo)
+			else if (recipInfo is KeyAgreeRecipientInfo keyAgreeRecipientInfo)
 			{
-				KeyAgreeRecipientInformation.ReadRecipientInfo(infos, (KeyAgreeRecipientInfo)recipInfo, secureReadable);
+				KeyAgreeRecipientInformation.ReadRecipientInfo(infos, keyAgreeRecipientInfo, secureReadable);
 			}
-			else if (recipInfo is PasswordRecipientInfo)
+			else if (recipInfo is PasswordRecipientInfo passwordRecipientInfo)
 			{
-				infos.Add(new PasswordRecipientInformation((PasswordRecipientInfo)recipInfo, secureReadable));
+				infos.Add(new PasswordRecipientInformation(passwordRecipientInfo, secureReadable));
 			}
 		}
 

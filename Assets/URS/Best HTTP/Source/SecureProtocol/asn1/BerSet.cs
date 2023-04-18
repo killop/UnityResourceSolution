@@ -16,13 +16,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             return elementVector.Count < 1 ? Empty : new BerSet(elementVector);
 		}
 
-        internal static new BerSet FromVector(Asn1EncodableVector elementVector, bool needsSorting)
-		{
-            return elementVector.Count < 1 ? Empty : new BerSet(elementVector, needsSorting);
-		}
-
 		/**
-         * create an empty sequence
+         * create an empty set
          */
         public BerSet()
             : base()
@@ -37,6 +32,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
         {
         }
 
+        public BerSet(params Asn1Encodable[] elements)
+            : base(elements, false)
+        {
+        }
+
         /**
          * create a set containing a vector of objects.
          */
@@ -45,26 +45,27 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
         {
         }
 
-        internal BerSet(Asn1EncodableVector elementVector, bool needsSorting)
-            : base(elementVector, needsSorting)
+        internal BerSet(bool isSorted, Asn1Encodable[] elements)
+            : base(isSorted, elements)
         {
         }
 
-        internal override int EncodedLength(bool withID)
+        internal override IAsn1Encoding GetEncoding(int encoding)
         {
-            throw BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException("BerSet.EncodedLength");
+            if (Asn1OutputStream.EncodingBer != encoding)
+                return base.GetEncoding(encoding);
+
+            return new ConstructedILEncoding(Asn1Tags.Universal, Asn1Tags.Set,
+                Asn1OutputStream.GetContentsEncodings(encoding, elements));
         }
 
-        internal override void Encode(Asn1OutputStream asn1Out, bool withID)
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
         {
-            if (asn1Out.IsBer)
-            {
-                asn1Out.WriteEncodingIL(withID, Asn1Tags.Constructed | Asn1Tags.Set, elements);
-            }
-            else
-            {
-                base.Encode(asn1Out, withID);
-            }
+            if (Asn1OutputStream.EncodingBer != encoding)
+                return base.GetEncodingImplicit(encoding, tagClass, tagNo);
+
+            return new ConstructedILEncoding(tagClass, tagNo,
+                Asn1OutputStream.GetContentsEncodings(encoding, elements));
         }
     }
 }

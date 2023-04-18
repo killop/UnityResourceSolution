@@ -2,6 +2,7 @@
 #pragma warning disable
 using System;
 
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
@@ -61,12 +62,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			return DigestLength;
 		}
 
-		internal override void ProcessWord(
-            byte[] input,
-            int inOff)
+		internal override void ProcessWord(byte[] input, int inOff)
         {
-            X[xOff++] = (input[inOff] & 0xff) | ((input[inOff + 1] & 0xff) << 8)
-                | ((input[inOff + 2] & 0xff) << 16) | ((input[inOff + 3] & 0xff) << 24);
+            X[xOff++] = (int)Pack.LE_To_UInt32(input, inOff);
 
             if (xOff == 16)
             {
@@ -74,7 +72,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             }
         }
 
-		internal override void ProcessLength(
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        internal override void ProcessWord(ReadOnlySpan<byte> word)
+        {
+            X[xOff++] = (int)Pack.LE_To_UInt32(word);
+
+            if (xOff == 16)
+            {
+                ProcessBlock();
+            }
+        }
+#endif
+
+        internal override void ProcessLength(
             long bitLength)
         {
             if (xOff > 14)
@@ -86,33 +96,37 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             X[15] = (int)((ulong) bitLength >> 32);
         }
 
-        private void UnpackWord(
-            int word,
-            byte[] outBytes,
-            int outOff)
-        {
-            outBytes[outOff]     = (byte)word;
-            outBytes[outOff + 1] = (byte)((uint) word >> 8);
-            outBytes[outOff + 2] = (byte)((uint) word >> 16);
-            outBytes[outOff + 3] = (byte)((uint) word >> 24);
-        }
-
-        public override int DoFinal(
-            byte[] output,
-            int outOff)
+        public override int DoFinal(byte[] output, int outOff)
         {
             Finish();
 
-            UnpackWord(H0, output, outOff);
-            UnpackWord(H1, output, outOff + 4);
-            UnpackWord(H2, output, outOff + 8);
-            UnpackWord(H3, output, outOff + 12);
-            UnpackWord(H4, output, outOff + 16);
+            Pack.UInt32_To_LE((uint)H0, output, outOff);
+            Pack.UInt32_To_LE((uint)H1, output, outOff + 4);
+            Pack.UInt32_To_LE((uint)H2, output, outOff + 8);
+            Pack.UInt32_To_LE((uint)H3, output, outOff + 12);
+            Pack.UInt32_To_LE((uint)H4, output, outOff + 16);
 
             Reset();
 
             return DigestLength;
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int DoFinal(Span<byte> output)
+        {
+            Finish();
+
+            Pack.UInt32_To_LE((uint)H0, output);
+            Pack.UInt32_To_LE((uint)H1, output[4..]);
+            Pack.UInt32_To_LE((uint)H2, output[8..]);
+            Pack.UInt32_To_LE((uint)H3, output[12..]);
+            Pack.UInt32_To_LE((uint)H4, output[16..]);
+
+            Reset();
+
+            return DigestLength;
+        }
+#endif
 
         /**
         * reset the chaining variables to the IV values.
@@ -441,9 +455,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 
 			CopyIn(d);
 		}
-
     }
-
 }
 #pragma warning restore
 #endif

@@ -1,11 +1,11 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 {
@@ -37,7 +37,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
          */
         private static readonly byte[] DecodingTable = new byte[128];
         private static readonly string DefaultVersion = "2y";
-        private static readonly ISet AllowedVersions = new HashSet();
+        private static readonly HashSet<string> AllowedVersions = new HashSet<string>();
 
         static OpenBsdBCrypt()
         {
@@ -169,18 +169,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
             if (!AllowedVersions.Contains(version))
                 throw new ArgumentException("Bcrypt version '" + version + "' is not supported by this implementation", "bcryptString");
 
-            int cost = 0;
+            int cost;
             try
             {
-                cost = Int32.Parse(bcryptString.Substring(4, 2));
+                cost = int.Parse(bcryptString.Substring(4, 2));
             }
             catch (Exception nfe)
             {
-#if PORTABLE || NETFX_CORE
-                throw new ArgumentException("Invalid cost factor: " + bcryptString.Substring(4, 2), "bcryptString");
-#else
                 throw new ArgumentException("Invalid cost factor: " + bcryptString.Substring(4, 2), "bcryptString", nfe);
-#endif
             }
             if (cost < 4 || cost > 31)
                 throw new ArgumentException("Invalid cost factor: " + cost + ", 4 < cost < 31 expected.");

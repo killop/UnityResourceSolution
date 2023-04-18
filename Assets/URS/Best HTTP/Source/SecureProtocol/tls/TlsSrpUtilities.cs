@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
@@ -12,13 +12,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
     public abstract class TlsSrpUtilities
     {
         /// <exception cref="IOException"/>
-        public static void AddSrpExtension(IDictionary extensions, byte[] identity)
+        public static void AddSrpExtension(IDictionary<int, byte[]> extensions, byte[] identity)
         {
             extensions[ExtensionType.srp] = CreateSrpExtension(identity);
         }
 
         /// <exception cref="IOException"/>
-        public static byte[] GetSrpExtension(IDictionary extensions)
+        public static byte[] GetSrpExtension(IDictionary<int, byte[]> extensions)
         {
             byte[] extensionData = TlsUtilities.GetExtensionData(extensions, ExtensionType.srp);
             return extensionData == null ? null : ReadSrpExtension(extensionData);

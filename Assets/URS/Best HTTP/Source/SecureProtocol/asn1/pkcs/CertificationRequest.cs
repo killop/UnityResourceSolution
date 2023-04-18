@@ -26,13 +26,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
 		public static CertificationRequest GetInstance(
 			object obj)
 		{
-			if (obj is CertificationRequest)
+            if (obj == null)
+                return null;
+            if (obj is CertificationRequest)
 				return (CertificationRequest)obj;
-
-			if (obj != null)
-				return new CertificationRequest((Asn1Sequence)obj);
-
-			return null;
+            return new CertificationRequest(Asn1Sequence.GetInstance(obj));
 		}
 
 		protected CertificationRequest()
@@ -49,9 +47,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
             this.sigBits = signature;
         }
 
-
-        public CertificationRequest(
-            Asn1Sequence seq)
+        internal CertificationRequest(Asn1Sequence seq)
         {
 			if (seq.Count != 3)
 				throw new ArgumentException("Wrong number of elements in sequence", "seq");

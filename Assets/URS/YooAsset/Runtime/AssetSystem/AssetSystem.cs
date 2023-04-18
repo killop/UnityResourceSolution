@@ -46,6 +46,9 @@ namespace YooAsset
 			foreach (var loader in _loaders)
 			{
 				loader.Update();
+				
+				if (FpsHelper.instance.needWait)
+					break;
 			}
 
 			// 更新资源提供者
@@ -57,9 +60,11 @@ namespace YooAsset
 				var provider = _providers[i];
 				if (provider.IsSceneProvider())
 				{
+                    UnityEngine.Profiling.Profiler.BeginSample("IsSceneProvider.Update");
 					provider.Update();
-				}
-				else
+                    UnityEngine.Profiling.Profiler.EndSample();
+                }
+				else if (!FpsHelper.instance.needWait)
 				{
 					if (loadingCount < AssetLoadingMaxNumber)
 						provider.Update();
@@ -149,7 +154,7 @@ namespace YooAsset
 		/// </summary>
 		/// <param name="assetPath">资源路径</param>
 		/// <param name="assetType">资源类型</param>
-		public static AssetOperationHandle LoadAssetAsync(string assetPath, System.Type assetType)
+		public static AssetOperationHandle LoadAssetAsync(string assetPath, System.Type assetType,bool requireLocalSecurity=false, bool skipDownloadFolder = true)
 		{
 			ProviderBase provider = TryGetProvider(assetPath);
 			if (provider == null)
@@ -157,7 +162,7 @@ namespace YooAsset
 				if (SimulationOnEditor)
 					provider = new DatabaseAssetProvider(assetPath, assetType);
 				else
-					provider = new BundledAssetProvider(assetPath, assetType);
+					provider = new BundledAssetProvider(assetPath, assetType, requireLocalSecurity, skipDownloadFolder);
                 provider.InitSpawnDebugInfo();
                 _providers.Add(provider);
 			}
@@ -206,6 +211,24 @@ namespace YooAsset
 			}
 			return result;
 		}
+		internal static void CreateLocalSecurityAssetBundleLoader(
+			string assetPath,
+			out AssetBundleLoader mainloader,
+			out List<AssetBundleLoader> dependencyLoaders,
+			bool skipDownloadFolder= true)
+        {
+			BundleServices.SearchLocalSecurityBundleHardDiskFileByPath(assetPath, out var mainHardiskFileSearchResult,out var dependencyHardiskFileSearchResults, skipDownloadFolder);
+            mainloader = CreateAssetBundleLoaderInternal(mainHardiskFileSearchResult);
+            dependencyLoaders = new List<AssetBundleLoader>();
+            if (dependencyHardiskFileSearchResults != null)
+            {
+                foreach (var dp in dependencyHardiskFileSearchResults)
+                {
+                    AssetBundleLoader dependLoader = CreateAssetBundleLoaderInternal(dp);
+                    dependencyLoaders.Add(dependLoader);
+                }
+            }
+        }
         public static HardiskFileSearchResult SearchFile(string fileRelativePath) {
 
             var searchResult = BundleServices.SearchHardiskFileByPath(fileRelativePath);

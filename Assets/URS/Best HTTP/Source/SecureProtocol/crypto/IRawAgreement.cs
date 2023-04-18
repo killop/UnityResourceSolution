@@ -11,6 +11,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
         int AgreementSize { get; }
 
         void CalculateAgreement(ICipherParameters publicKey, byte[] buf, int off);
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        void CalculateAgreement(ICipherParameters publicKey, Span<byte> output);
+#endif
     }
 }
 #pragma warning restore

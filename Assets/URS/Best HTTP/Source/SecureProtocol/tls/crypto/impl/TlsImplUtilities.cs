@@ -58,21 +58,28 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl
         {
             SecurityParameters securityParameters = cryptoParams.SecurityParameters;
             TlsSecret master_secret = securityParameters.MasterSecret;
+            int prfAlgorithm = securityParameters.PrfAlgorithm;
             byte[] seed = Arrays.Concatenate(securityParameters.ServerRandom, securityParameters.ClientRandom);
-            return Prf(securityParameters, master_secret, ExporterLabel.key_expansion, seed, length).Extract();
+            return master_secret.DeriveUsingPrf(prfAlgorithm, ExporterLabel.key_expansion, seed, length).Extract();
         }
 
-        public static TlsSecret Prf(SecurityParameters securityParameters, TlsSecret secret, string asciiLabel,
-            byte[] seed, int length)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public static void CalculateKeyBlock(TlsCryptoParameters cryptoParams, Span<byte> keyBlock)
         {
-            return secret.DeriveUsingPrf(securityParameters.PrfAlgorithm, asciiLabel, seed, length);
-        }
+            SecurityParameters securityParameters = cryptoParams.SecurityParameters;
+            TlsSecret master_secret = securityParameters.MasterSecret;
+            int prfAlgorithm = securityParameters.PrfAlgorithm;
 
-        public static TlsSecret Prf(TlsCryptoParameters cryptoParams, TlsSecret secret, string asciiLabel, byte[] seed,
-            int length)
-        {
-            return Prf(cryptoParams.SecurityParameters, secret, asciiLabel, seed, length);
+            Span<byte> cr = securityParameters.ClientRandom, sr = securityParameters.ServerRandom;
+            Span<byte> seed = stackalloc byte[sr.Length + cr.Length];
+            sr.CopyTo(seed);
+            cr.CopyTo(seed[sr.Length..]);
+
+            TlsSecret derived = master_secret.DeriveUsingPrf(prfAlgorithm, ExporterLabel.key_expansion, seed,
+                keyBlock.Length);
+            derived.ExtractTo(keyBlock);
         }
+#endif
     }
 }
 #pragma warning restore

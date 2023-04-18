@@ -1,6 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Crmf;
@@ -39,15 +40,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
         {
             IMacFactory fact = generator.Build(password);
 
-            IStreamCalculator calc = fact.CreateCalculator();
             byte[] d = _pubKeyInfo.GetDerEncoded();
-            calc.Stream.Write(d, 0, d.Length);
-            calc.Stream.Flush();
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(calc.Stream);
+
+            IStreamCalculator<IBlockResult> calc = fact.CreateCalculator();
+            using (var stream = calc.Stream)
+            {
+                stream.Write(d, 0, d.Length);
+            }
 
             this._publicKeyMAC = new PKMacValue(
                 (AlgorithmIdentifier)fact.AlgorithmDetails,
-                new DerBitString(((IBlockResult)calc.GetResult()).Collect()));
+                new DerBitString(calc.GetResult().Collect()));
 
             return this;
         }
@@ -60,32 +63,30 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
             }
 
             PopoSigningKeyInput popo;
-            byte[] b;
-            IStreamCalculator calc = signer.CreateCalculator();
-            if (_certRequest != null)
-            {
-                popo = null;
-                b = _certRequest.GetDerEncoded();
-                calc.Stream.Write(b, 0, b.Length);
 
-            }
-            else if (_name != null)
+            IStreamCalculator<IBlockResult> calc = signer.CreateCalculator();
+            using (Stream sigStream = calc.Stream)
             {
-                popo = new PopoSigningKeyInput(_name, _pubKeyInfo);
-                b = popo.GetDerEncoded();
-                calc.Stream.Write(b, 0, b.Length);
-            }
-            else
-            {
-                popo = new PopoSigningKeyInput(_publicKeyMAC, _pubKeyInfo);
-                b = popo.GetDerEncoded();
-                calc.Stream.Write(b, 0, b.Length);
+                if (_certRequest != null)
+                {
+                    popo = null;
+                    _certRequest.EncodeTo(sigStream, Asn1Encodable.Der);
+                }
+                else if (_name != null)
+                {
+                    popo = new PopoSigningKeyInput(_name, _pubKeyInfo);
+                    popo.EncodeTo(sigStream, Asn1Encodable.Der);
+                }
+                else
+                {
+                    popo = new PopoSigningKeyInput(_publicKeyMAC, _pubKeyInfo);
+                    popo.EncodeTo(sigStream, Asn1Encodable.Der);
+                }
             }
 
-            calc.Stream.Flush();
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(calc.Stream);
-            DefaultSignatureResult res = (DefaultSignatureResult)calc.GetResult();
-            return new PopoSigningKey(popo, (AlgorithmIdentifier)signer.AlgorithmDetails, new DerBitString(res.Collect()));
+            var signature = calc.GetResult().Collect();
+
+            return new PopoSigningKey(popo, (AlgorithmIdentifier)signer.AlgorithmDetails, new DerBitString(signature));
         }
     }
 }

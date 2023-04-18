@@ -27,6 +27,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
             Array.Copy(buf, off, data, 0, KeySize);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public Ed25519PublicKeyParameters(ReadOnlySpan<byte> buf)
+            : base(false)
+        {
+            if (buf.Length != KeySize)
+                throw new ArgumentException("must have length " + KeySize, nameof(buf));
+
+            buf.CopyTo(data);
+        }
+#endif
+
         public Ed25519PublicKeyParameters(Stream input)
             : base(false)
         {
@@ -39,6 +50,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
             Array.Copy(data, 0, buf, off, KeySize);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void Encode(Span<byte> buf)
+        {
+            data.CopyTo(buf);
+        }
+#endif
+
         public byte[] GetEncoded()
         {
             return Arrays.Clone(data);
@@ -47,7 +65,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
         private static byte[] Validate(byte[] buf)
         {
             if (buf.Length != KeySize)
-                throw new ArgumentException("must have length " + KeySize, "buf");
+                throw new ArgumentException("must have length " + KeySize, nameof(buf));
 
             return buf;
         }

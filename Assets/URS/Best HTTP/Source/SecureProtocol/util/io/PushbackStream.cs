@@ -3,52 +3,83 @@
 using System;
 using System.IO;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Utilities;
-
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO
 {
 	public class PushbackStream
 		: FilterStream
 	{
-		private int buf = -1;
+		private int m_buf = -1;
 
-		public PushbackStream(
-			Stream s)
+		public PushbackStream(Stream s)
 			: base(s)
 		{
 		}
 
-		public override int ReadByte()
-		{
-			if (buf != -1)
+#if NETCOREAPP2_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER || (UNITY_2021_2_OR_NEWER && (NET_STANDARD_2_0 || NET_STANDARD_2_1))
+        public override void CopyTo(Stream destination, int bufferSize)
+        {
+			if (m_buf != -1)
 			{
-				int tmp = buf;
-				buf = -1;
+				destination.WriteByte((byte)m_buf);
+                m_buf = -1;
+            }
+
+            s.CopyTo(destination, bufferSize);
+        }
+#endif
+
+        public override int Read(byte[] buffer, int offset, int count)
+		{
+			Streams.ValidateBufferArguments(buffer, offset, count);
+
+			if (m_buf != -1)
+			{
+				if (count < 1)
+					return 0;
+
+				buffer[offset] = (byte)m_buf;
+				m_buf = -1;
+				return 1;
+			}
+
+			return s.Read(buffer, offset, count);
+		}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int Read(Span<byte> buffer)
+        {
+			if (m_buf != -1)
+			{
+                if (buffer.IsEmpty)
+                    return 0;
+
+                buffer[0] = (byte)m_buf;
+                m_buf = -1;
+                return 1;
+            }
+
+            return s.Read(buffer);
+        }
+#endif
+
+        public override int ReadByte()
+		{
+			if (m_buf != -1)
+			{
+				int tmp = m_buf;
+				m_buf = -1;
 				return tmp;
 			}
 
 			return base.ReadByte();
 		}
 
-		public override int Read(byte[] buffer, int offset, int count)
-		{
-			if (buf != -1 && count > 0)
-			{
-				// TODO Can this case be made more efficient?
-				buffer[offset] = (byte) buf;
-				buf = -1;
-				return 1;
-			}
-
-			return base.Read(buffer, offset, count);
-		}
-
 		public virtual void Unread(int b)
 		{
-			if (buf != -1)
+			if (m_buf != -1)
 				throw new InvalidOperationException("Can only push back one byte");
 
-			buf = b & 0xFF;
+			m_buf = b & 0xFF;
 		}
 	}
 }

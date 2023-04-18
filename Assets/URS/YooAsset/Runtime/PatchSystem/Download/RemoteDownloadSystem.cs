@@ -45,7 +45,7 @@ namespace YooAsset
 		/// 开始下载资源文件
 		/// 注意：只有第一次请求的参数才是有效的
 		/// </summary>
-		public static RemoteDownloader BeginDownload(UpdateEntry updateEntry, int failedTryAgain, int timeout = 60)
+		public static RemoteDownloader BeginDownload(UpdateEntry updateEntry, int failedTryAgain, int timeout = 700)
 		{
 			// 查询存在的下载器
 			if (_downloaderDic.TryGetValue(updateEntry.GetRemoteDownloadURL(), out var downloader))

@@ -13,29 +13,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
     internal abstract class AbstractTlsContext
         : TlsContext
     {
-        private static long counter = Times.NanoTime();
+        private static long counter = DateTime.UtcNow.Ticks;
 
-#if NETCF_1_0
-        private static object counterLock = new object();
-        private static long NextCounterValue()
-        {
-            lock (counterLock)
-            {
-                return ++counter;
-            }
-        }
-#else
         private static long NextCounterValue()
         {
             return Interlocked.Increment(ref counter);
         }
-#endif
 
         private static TlsNonceGenerator CreateNonceGenerator(TlsCrypto crypto, int connectionEnd)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            Span<byte> additionalSeedMaterial = stackalloc byte[16];
+            Pack.UInt64_To_BE((ulong)NextCounterValue(), additionalSeedMaterial);
+            Pack.UInt64_To_BE((ulong)DateTime.UtcNow.Ticks, additionalSeedMaterial[8..]);
+#else
             byte[] additionalSeedMaterial = new byte[16];
             Pack.UInt64_To_BE((ulong)NextCounterValue(), additionalSeedMaterial, 0);
-            Pack.UInt64_To_BE((ulong)Times.NanoTime(), additionalSeedMaterial, 8);
+            Pack.UInt64_To_BE((ulong)DateTime.UtcNow.Ticks, additionalSeedMaterial, 8);
+#endif
             additionalSeedMaterial[0] &= 0x7F;
             additionalSeedMaterial[0] |= (byte)(connectionEnd << 7);
 
@@ -196,6 +191,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
             SecurityParameters securityParameters = SecurityParameters;
 
+            if (ChannelBinding.tls_exporter == channelBinding)
+                return ExportKeyingMaterial("EXPORTER-Channel-Binding", TlsUtilities.EmptyBytes, 32);
+
             if (TlsUtilities.IsTlsV13(securityParameters.NegotiatedVersion))
                 return null;
 
@@ -276,8 +274,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 throw new ArgumentException("must have length less than 2^16 (or be null)", "context");
             }
 
-            return TlsCryptoUtilities.HkdfExpandLabel(secret, cryptoHashAlgorithm, asciiLabel, context, length)
-                .Extract();
+            TlsHash exporterHash = Crypto.CreateHash(cryptoHashAlgorithm);
+            byte[] emptyTranscriptHash = exporterHash.CalculateHash();
+
+            TlsSecret exporterSecret = TlsUtilities.DeriveSecret(SecurityParameters, secret, asciiLabel,
+                emptyTranscriptHash);
+
+            byte[] exporterContext = emptyTranscriptHash;
+            if (context.Length > 0)
+            {
+                exporterHash.Update(context, 0, context.Length);
+                exporterContext = exporterHash.CalculateHash();
+            }
+
+            return TlsCryptoUtilities
+                .HkdfExpandLabel(exporterSecret, cryptoHashAlgorithm, "exporter", exporterContext, length).Extract();
         }
 
         protected virtual TlsSecret CheckEarlyExportSecret(TlsSecret secret)

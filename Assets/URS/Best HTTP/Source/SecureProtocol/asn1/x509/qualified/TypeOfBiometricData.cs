@@ -48,7 +48,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.Qualified
                 return new TypeOfBiometricData(BiometricDataOid);
             }
 
-			throw new ArgumentException("unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("unknown object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public TypeOfBiometricData(

@@ -45,7 +45,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
                 return new DistributionPointName((Asn1TaggedObject) obj);
             }
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
         public DistributionPointName(
@@ -94,41 +94,32 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 
 		public override string ToString()
 		{
-			string sep = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine;
 			StringBuilder buf = new StringBuilder();
-			buf.Append("DistributionPointName: [");
-			buf.Append(sep);
+			buf.AppendLine("DistributionPointName: [");
 			if (type == FullName)
 			{
-				appendObject(buf, sep, "fullName", name.ToString());
+				AppendObject(buf, "fullName", name.ToString());
 			}
 			else
 			{
-				appendObject(buf, sep, "nameRelativeToCRLIssuer", name.ToString());
+				AppendObject(buf, "nameRelativeToCRLIssuer", name.ToString());
 			}
-			buf.Append("]");
-			buf.Append(sep);
+			buf.AppendLine("]");
 			return buf.ToString();
 		}
 
-		private void appendObject(
-			StringBuilder	buf,
-			string			sep,
-			string			name,
-			string			val)
+		private void AppendObject(StringBuilder buf, string name, string val)
 		{
 			string indent = "    ";
-
 			buf.Append(indent);
 			buf.Append(name);
-			buf.Append(":");
-			buf.Append(sep);
+			buf.AppendLine(":");
 			buf.Append(indent);
 			buf.Append(indent);
 			buf.Append(val);
-			buf.Append(sep);
-		}
-	}
+            buf.AppendLine();
+        }
+    }
 }
 #pragma warning restore
 #endif

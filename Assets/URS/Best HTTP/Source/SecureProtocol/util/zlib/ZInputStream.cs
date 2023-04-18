@@ -39,11 +39,13 @@ using System;
 using System.Diagnostics;
 using System.IO;
 
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
+
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib
 {
-	public class ZInputStream
-		: Stream
-	{
+    public class ZInputStream
+        : BaseInputStream
+    {
         private static ZStream GetDefaultZStream(bool nowrap)
         {
             ZStream z = new ZStream();
@@ -53,32 +55,32 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib
 
         private const int BufferSize = 4096;
 
-		protected ZStream z;
-		protected int flushLevel = JZlib.Z_NO_FLUSH;
-		// TODO Allow custom buf
-		protected byte[] buf = new byte[BufferSize];
-		protected byte[] buf1 = new byte[1];
-		protected bool compress;
+        protected ZStream z;
+        protected int flushLevel = JZlib.Z_NO_FLUSH;
+        // TODO Allow custom buf
+        protected byte[] buf = new byte[BufferSize];
+        protected byte[] buf1 = new byte[1];
+        protected bool compress;
 
-		protected Stream input;
-		protected bool closed;
+        protected Stream input;
+        protected bool closed;
 
-		private bool nomoreinput = false;
+        private bool nomoreinput = false;
 
-		public ZInputStream(Stream input)
-			: this(input, false)
-		{
-		}
+        public ZInputStream(Stream input)
+            : this(input, false)
+        {
+        }
 
-		public ZInputStream(Stream input, bool nowrap)
+        public ZInputStream(Stream input, bool nowrap)
             : this(input, GetDefaultZStream(nowrap))
-		{
-		}
+        {
+        }
 
         public ZInputStream(Stream input, ZStream z)
-			: base()
-		{
-			Debug.Assert(input.CanRead);
+            : base()
+        {
+            Debug.Assert(input.CanRead);
 
             if (z == null)
             {
@@ -94,149 +96,117 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib
             this.compress = (z.istate == null);
             this.z = z;
             this.z.next_in = buf;
-			this.z.next_in_index = 0;
-			this.z.avail_in = 0;
-		}
+            this.z.next_in_index = 0;
+            this.z.avail_in = 0;
+        }
 
         public ZInputStream(Stream input, int level)
             : this(input, level, false)
-		{
+        {
         }
 
         public ZInputStream(Stream input, int level, bool nowrap)
-		{
-			Debug.Assert(input.CanRead);
-			
-			this.input = input;
+        {
+            Debug.Assert(input.CanRead);
+
+            this.input = input;
             this.compress = true;
             this.z = new ZStream();
-			this.z.deflateInit(level, nowrap);
-			this.z.next_in = buf;
-			this.z.next_in_index = 0;
-			this.z.avail_in = 0;
-		}
+            this.z.deflateInit(level, nowrap);
+            this.z.next_in = buf;
+            this.z.next_in_index = 0;
+            this.z.avail_in = 0;
+        }
 
-		/*public int available() throws IOException {
-		return inf.finished() ? 0 : 1;
-		}*/
-
-		public sealed override bool CanRead { get { return !closed; } }
-		public sealed override bool CanSeek { get { return false; } }
-		public sealed override bool CanWrite { get { return false; } }
-
-#if PORTABLE || NETFX_CORE
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-			    if (closed)
-                    return;
-
-                closed = true;
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(input);
+			    if (!closed)
+                {
+                    closed = true;
+                    input.Dispose();
+                }
             }
             base.Dispose(disposing);
         }
-#else
-        public override void Close()
-		{
-            if (closed)
-                return;
 
-            closed = true;
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(input);
-            base.Close();
-		}
-#endif
+        public virtual int FlushMode
+        {
+            get { return flushLevel; }
+            set { this.flushLevel = value; }
+        }
 
-		public sealed override void Flush() {}
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            Streams.ValidateBufferArguments(buffer, offset, count);
 
-		public virtual int FlushMode
-		{
-			get { return flushLevel; }
-			set { this.flushLevel = value; }
-		}
+            if (count == 0)
+                return 0;
 
-		public sealed override long Length { get { throw new NotSupportedException(); } }
-		public sealed override long Position
-		{
-			get { throw new NotSupportedException(); }
-			set { throw new NotSupportedException(); }
-		}
+            z.next_out = buffer;
+            z.next_out_index = offset;
+            z.avail_out = count;
 
-		public override int Read(byte[]	b, int off, int len)
-		{
-			if (len==0)
-				return 0;
+            int err;
+            do
+            {
+                if (z.avail_in == 0 && !nomoreinput)
+                {
+                    // if buffer is empty and more input is available, refill it
+                    z.next_in_index = 0;
+                    z.avail_in = input.Read(buf, 0, buf.Length); //(bufsize<z.avail_out ? bufsize : z.avail_out));
 
-			z.next_out = b;
-			z.next_out_index = off;
-			z.avail_out = len;
+                    if (z.avail_in <= 0)
+                    {
+                        z.avail_in = 0;
+                        nomoreinput = true;
+                    }
+                }
 
-			int err;
-			do
-			{
-				if (z.avail_in == 0 && !nomoreinput)
-				{
-					// if buffer is empty and more input is available, refill it
-					z.next_in_index = 0;
-					z.avail_in = input.Read(buf, 0, buf.Length); //(bufsize<z.avail_out ? bufsize : z.avail_out));
+                err = compress
+                    ? z.deflate(flushLevel)
+                    : z.inflate(flushLevel);
 
-					if (z.avail_in <= 0)
-					{
-						z.avail_in = 0;
-						nomoreinput = true;
-					}
-				}
+                if (nomoreinput && err == JZlib.Z_BUF_ERROR)
+                    return 0;
+                if (err != JZlib.Z_OK && err != JZlib.Z_STREAM_END)
+                    // TODO
+                    //throw new ZStreamException((compress ? "de" : "in") + "flating: " + z.msg);
+                    throw new IOException((compress ? "de" : "in") + "flating: " + z.msg);
+                if ((nomoreinput || err == JZlib.Z_STREAM_END) && z.avail_out == count)
+                    return 0;
+            }
+            while (z.avail_out == count && err == JZlib.Z_OK);
+            //Console.Error.WriteLine("("+(len-z.avail_out)+")");
+            return count - z.avail_out;
+        }
 
-				err = compress
-					?	z.deflate(flushLevel)
-					:	z.inflate(flushLevel);
+        public override int ReadByte()
+        {
+            if (Read(buf1, 0, 1) <= 0)
+                return -1;
+            return buf1[0];
+        }
 
-				if (nomoreinput && err == JZlib.Z_BUF_ERROR)
-					return 0;
-				if (err != JZlib.Z_OK && err != JZlib.Z_STREAM_END)
-					// TODO
-//					throw new ZStreamException((compress ? "de" : "in") + "flating: " + z.msg);
-					throw new IOException((compress ? "de" : "in") + "flating: " + z.msg);
-				if ((nomoreinput || err == JZlib.Z_STREAM_END) && z.avail_out == len)
-					return 0;
-			} 
-			while(z.avail_out == len && err == JZlib.Z_OK);
-			//Console.Error.WriteLine("("+(len-z.avail_out)+")");
-			return len - z.avail_out;
-		}
+        //  public long skip(long n) throws IOException {
+        //    int len=512;
+        //    if(n<len)
+        //      len=(int)n;
+        //    byte[] tmp=new byte[len];
+        //    return((long)read(tmp));
+        //  }
 
-		public override int ReadByte()
-		{
-			if (Read(buf1, 0, 1) <= 0)
-				return -1;
-			return buf1[0];
-		}
+        public virtual long TotalIn
+        {
+            get { return z.total_in; }
+        }
 
-//  public long skip(long n) throws IOException {
-//    int len=512;
-//    if(n<len)
-//      len=(int)n;
-//    byte[] tmp=new byte[len];
-//    return((long)read(tmp));
-//  }
-
-		public sealed override long Seek(long offset, SeekOrigin origin) { throw new NotSupportedException(); }
-		public sealed override void SetLength(long value) { throw new NotSupportedException(); }
-
-		public virtual long TotalIn
-		{
-			get { return z.total_in; }
-		}
-
-		public virtual long TotalOut
-		{
-			get { return z.total_out; }
-		}
-
-		public sealed override void Write(byte[] buffer, int offset, int count) { throw new NotSupportedException(); }
-	}
+        public virtual long TotalOut
+        {
+            get { return z.total_out; }
+        }
+    }
 }
 #pragma warning restore
 #endif

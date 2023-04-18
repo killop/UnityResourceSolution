@@ -45,7 +45,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			if (obj is Asn1TaggedObject)
 				return new Evidence(Asn1TaggedObject.GetInstance(obj));
 
-			throw new ArgumentException("Unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("Unknown object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
         public static Evidence GetInstance(Asn1TaggedObject obj, bool isExplicit)

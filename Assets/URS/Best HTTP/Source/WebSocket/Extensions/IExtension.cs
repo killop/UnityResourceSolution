@@ -1,5 +1,6 @@
-﻿#if !BESTHTTP_DISABLE_WEBSOCKET && (!UNITY_WEBGL || UNITY_EDITOR)
+#if !BESTHTTP_DISABLE_WEBSOCKET && (!UNITY_WEBGL || UNITY_EDITOR)
 
+using BestHTTP.PlatformSupport.Memory;
 using BestHTTP.WebSocket.Frames;
 
 namespace BestHTTP.WebSocket.Extensions
@@ -16,7 +17,7 @@ namespace BestHTTP.WebSocket.Extensions
         /// If the websocket upgrade succeded it will call this function to be able to parse the server's negotiation
         /// response. Inside this function the IsEnabled should be set.
         /// </summary>
-        bool ParseNegotiation(WebSocketResponse resp);
+        bool ParseNegotiation(HTTPResponse resp);
 
         /// <summary>
         /// This function should return a new header flag based on the inFlag parameter. The extension should set only the
@@ -29,12 +30,12 @@ namespace BestHTTP.WebSocket.Extensions
         /// </summary>
         /// <param name="writer"></param>
         /// <returns></returns>
-        byte[] Encode(WebSocketFrame writer);
+        BufferSegment Encode(WebSocketFrame writer);
 
         /// <summary>
         /// This function can be used the decode the server-sent data.
         /// </summary>
-        byte[] Decode(byte header, byte[] data, int length);
+        BufferSegment Decode(byte header, BufferSegment data);
     }
 }
 

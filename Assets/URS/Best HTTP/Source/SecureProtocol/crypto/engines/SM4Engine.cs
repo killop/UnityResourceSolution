@@ -126,7 +126,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
         {
             KeyParameter keyParameter = parameters as KeyParameter;
             if (null == keyParameter)
-                throw new ArgumentException("invalid parameter passed to SM4 init - " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters), "parameters");
+                throw new ArgumentException("invalid parameter passed to SM4 init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters), "parameters");
 
             byte[] key = keyParameter.GetKey();
             if (key.Length != 16)
@@ -143,11 +143,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
         public virtual string AlgorithmName
         {
             get { return "SM4"; }
-        }
-
-        public virtual bool IsPartialBlockOkay
-        {
-            get { return false; }
         }
 
         public virtual int GetBlockSize()
@@ -184,9 +179,36 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             return BlockSize;
         }
 
-        public virtual void Reset()
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual int ProcessBlock(ReadOnlySpan<byte> input, Span<byte> output)
         {
+            if (null == rk)
+                throw new InvalidOperationException("SM4 not initialised");
+
+            Check.DataLength(input, BlockSize, "input buffer too short");
+            Check.OutputLength(output, BlockSize, "output buffer too short");
+
+            uint X0 = Pack.BE_To_UInt32(input);
+            uint X1 = Pack.BE_To_UInt32(input[4..]);
+            uint X2 = Pack.BE_To_UInt32(input[8..]);
+            uint X3 = Pack.BE_To_UInt32(input[12..]);
+
+            for (int i = 0; i < 32; i += 4)
+            {
+                X0 ^= T(X1 ^ X2 ^ X3 ^ rk[i    ]);  // F0
+                X1 ^= T(X2 ^ X3 ^ X0 ^ rk[i + 1]);  // F1
+                X2 ^= T(X3 ^ X0 ^ X1 ^ rk[i + 2]);  // F2
+                X3 ^= T(X0 ^ X1 ^ X2 ^ rk[i + 3]);  // F3
+            }
+
+            Pack.UInt32_To_BE(X3, output);
+            Pack.UInt32_To_BE(X2, output[4..]);
+            Pack.UInt32_To_BE(X1, output[8..]);
+            Pack.UInt32_To_BE(X0, output[12..]);
+
+            return BlockSize;
         }
+#endif
     }
 }
 #pragma warning restore

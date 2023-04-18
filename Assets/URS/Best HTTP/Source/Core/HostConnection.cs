@@ -56,9 +56,10 @@ namespace BestHTTP.Core
                 HTTPManager.Logger.Information(typeof(HostConnection).Name, string.Format("AddProtocol({0}) - changing from {1} to {2}", this.VariantId, oldProtocol, protocolSupport), this.Context);
 
                 HostManager.Save();
-
-                TryToSendQueuedRequests();
             }
+
+            if (protocolSupport == HostProtocolSupport.HTTP2)
+                TryToSendQueuedRequests();
         }
 
         internal HostConnection Send(HTTPRequest request)

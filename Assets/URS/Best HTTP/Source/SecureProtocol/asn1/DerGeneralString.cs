@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Text;
+using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
@@ -10,78 +10,110 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
     public class DerGeneralString
         : DerStringBase
     {
-        private readonly string str;
-
-        public static DerGeneralString GetInstance(
-            object obj)
+        internal class Meta : Asn1UniversalType 
         {
-            if (obj == null || obj is DerGeneralString)
+            internal static readonly Asn1UniversalType Instance = new Meta();
+
+            private Meta() : base(typeof(DerGeneralString), Asn1Tags.GeneralString) {}
+
+            internal override Asn1Object FromImplicitPrimitive(DerOctetString octetString)
             {
-                return (DerGeneralString) obj;
+                return CreatePrimitive(octetString.GetOctets());
+            }
+        }
+
+        public static DerGeneralString GetInstance(object obj)
+        {
+            if (obj == null)
+                return null;
+
+            if (obj is DerGeneralString derGeneralString)
+                return derGeneralString;
+
+            if (obj is IAsn1Convertible asn1Convertible)
+            {
+                Asn1Object asn1Object = asn1Convertible.ToAsn1Object();
+                if (asn1Object is DerGeneralString converted)
+                    return converted;
+            }
+            else if (obj is byte[] bytes)
+            {
+                try
+                {
+                    return (DerGeneralString)Meta.Instance.FromByteArray(bytes);
+                }
+                catch (IOException e)
+                {
+                    throw new ArgumentException("failed to construct general string from byte[]: " + e.Message);
+                }
             }
 
-			throw new ArgumentException("illegal object in GetInstance: "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
-        public static DerGeneralString GetInstance(
-            Asn1TaggedObject	obj,
-            bool				isExplicit)
+        public static DerGeneralString GetInstance(Asn1TaggedObject taggedObject, bool declaredExplicit)
         {
-			Asn1Object o = obj.GetObject();
-
-			if (isExplicit || o is DerGeneralString)
-			{
-				return GetInstance(o);
-			}
-
-			return new DerGeneralString(((Asn1OctetString)o).GetOctets());
+            return (DerGeneralString)Meta.Instance.GetContextInstance(taggedObject, declaredExplicit);
         }
 
-        public DerGeneralString(
-			byte[] str)
-			: this(Strings.FromAsciiByteArray(str))
-        {
-        }
+        private readonly byte[] m_contents;
 
-		public DerGeneralString(
-			string str)
+		public DerGeneralString(string str)
         {
 			if (str == null)
 				throw new ArgumentNullException("str");
 
-			this.str = str;
+			m_contents = Strings.ToAsciiByteArray(str);
+        }
+
+        public DerGeneralString(byte[] contents)
+            : this(contents, true)
+        {
+        }
+
+        internal DerGeneralString(byte[] contents, bool clone)
+        {
+            if (null == contents)
+                throw new ArgumentNullException("contents");
+
+            m_contents = clone ? Arrays.Clone(contents) : contents;
         }
 
         public override string GetString()
         {
-            return str;
+            return Strings.FromAsciiByteArray(m_contents);
         }
 
 		public byte[] GetOctets()
         {
-            return Strings.ToAsciiByteArray(str);
+            return Arrays.Clone(m_contents);
         }
 
-        internal override int EncodedLength(bool withID)
+        internal override IAsn1Encoding GetEncoding(int encoding)
         {
-            return Asn1OutputStream.GetLengthOfEncodingDL(withID, str.Length);
+            return new PrimitiveEncoding(Asn1Tags.Universal, Asn1Tags.GeneralString, m_contents);
         }
 
-        internal override void Encode(Asn1OutputStream asn1Out, bool withID)
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
         {
-            asn1Out.WriteEncodingDL(withID, Asn1Tags.GeneralString, GetOctets());
+            return new PrimitiveEncoding(tagClass, tagNo, m_contents);
         }
 
-		protected override bool Asn1Equals(
-			Asn1Object asn1Object)
+        protected override bool Asn1Equals(Asn1Object asn1Object)
         {
-			DerGeneralString other = asn1Object as DerGeneralString;
+            DerGeneralString that = asn1Object as DerGeneralString;
+            return null != that
+                && Arrays.AreEqual(this.m_contents, that.m_contents);
+        }
 
-			if (other == null)
-				return false;
+        protected override int Asn1GetHashCode()
+        {
+            return Arrays.GetHashCode(m_contents);
+        }
 
-			return this.str.Equals(other.str);
+        internal static DerGeneralString CreatePrimitive(byte[] contents)
+        {
+            return new DerGeneralString(contents, false);
         }
     }
 }

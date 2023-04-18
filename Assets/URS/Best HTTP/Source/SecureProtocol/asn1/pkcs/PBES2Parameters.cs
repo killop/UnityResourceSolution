@@ -26,9 +26,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
             this.scheme = encScheme;
         }
 
-
-        public PbeS2Parameters(
-            Asn1Sequence seq)
+        private PbeS2Parameters(Asn1Sequence seq)
         {
             if (seq.Count != 2)
                 throw new ArgumentException("Wrong number of elements in sequence", "seq");

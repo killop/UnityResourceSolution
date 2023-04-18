@@ -1,11 +1,12 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 {
@@ -73,25 +74,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 		/// </summary>
 		public const int PARAM_TYPE_OUTPUT = 63;
 
-		private IDictionary parameters;
+		private IDictionary<int, byte[]> m_parameters;
 
 		public SkeinParameters()
-			: this(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable())
-
+			: this(new Dictionary<int, byte[]>())
 		{
 		}
 
-		private SkeinParameters(IDictionary parameters)
+		private SkeinParameters(IDictionary<int, byte[]> parameters)
 		{
-			this.parameters = parameters;
+			this.m_parameters = parameters;
 		}
 
 		/// <summary>
 		/// Obtains a map of type (int) to value (byte[]) for the parameters tracked in this object.
 		/// </summary>
-		public IDictionary GetParameters()
+		public IDictionary<int, byte[]> GetParameters()
 		{
-			return parameters;
+			return m_parameters;
 		}
 
 		/// <summary>
@@ -101,7 +101,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 		/// <returns>The key.</returns>
 		public byte[] GetKey()
 		{
-			return (byte[])parameters[PARAM_TYPE_KEY];
+			return CollectionUtilities.GetValueOrNull(m_parameters, PARAM_TYPE_KEY);
 		}
 
 		/// <summary>
@@ -110,7 +110,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 		/// </summary>
 		public byte[] GetPersonalisation()
 		{
-			return (byte[])parameters[PARAM_TYPE_PERSONALISATION];
+			return CollectionUtilities.GetValueOrNull(m_parameters, PARAM_TYPE_PERSONALISATION);
 		}
 
 		/// <summary>
@@ -119,7 +119,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 		/// </summary>
 		public byte[] GetPublicKey()
 		{
-			return (byte[])parameters[PARAM_TYPE_PUBLIC_KEY];
+			return CollectionUtilities.GetValueOrNull(m_parameters, PARAM_TYPE_PUBLIC_KEY);
 		}
 
 		/// <summary>
@@ -128,7 +128,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 		/// </summary>
 		public byte[] GetKeyIdentifier()
 		{
-			return (byte[])parameters[PARAM_TYPE_KEY_IDENTIFIER];
+			return CollectionUtilities.GetValueOrNull(m_parameters, PARAM_TYPE_KEY_IDENTIFIER);
 		}
 
 		/// <summary>
@@ -137,7 +137,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 		/// </summary>
 		public byte[] GetNonce()
 		{
-			return (byte[])parameters[PARAM_TYPE_NONCE];
+			return CollectionUtilities.GetValueOrNull(m_parameters, PARAM_TYPE_NONCE);
 		}
 
 		/// <summary>
@@ -145,30 +145,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 		/// </summary>
 		public class Builder
 		{
-			private IDictionary parameters = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+			private Dictionary<int, byte[]> m_parameters;
 
 			public Builder()
 			{
+				m_parameters = new Dictionary<int, byte[]>();
 			}
 
-			public Builder(IDictionary paramsMap)
+			public Builder(IDictionary<int, byte[]> paramsMap)
 			{
-				IEnumerator keys = paramsMap.Keys.GetEnumerator();
-				while (keys.MoveNext())
-				{
-					int key = (int)keys.Current;
-					parameters.Add(key, paramsMap[key]);
-				}
+				m_parameters = new Dictionary<int, byte[]>(paramsMap);
 			}
 
 			public Builder(SkeinParameters parameters)
+				: this(parameters.m_parameters)
 			{
-				IEnumerator keys = parameters.parameters.Keys.GetEnumerator();
-				while (keys.MoveNext())
-				{
-					int key = (int)keys.Current;
-					this.parameters.Add(key, parameters.parameters[key]);
-				}
 			}
 
 			/// <summary>
@@ -200,7 +191,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 					throw new ArgumentException("Parameter type " + PARAM_TYPE_CONFIG
 					                            + " is reserved for internal use.");
 				}
-				this.parameters.Add(type, value);
+				m_parameters.Add(type, value);
 				return this;
 			}
 
@@ -236,14 +227,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 				try
 				{
 					MemoryStream bout = new MemoryStream();
-					StreamWriter outBytes = new StreamWriter(bout, System.Text.Encoding.UTF8);
-					outBytes.Write(date.ToString("YYYYMMDD", CultureInfo.InvariantCulture));
-					outBytes.Write(" ");
-					outBytes.Write(emailAddress);
-					outBytes.Write(" ");
-					outBytes.Write(distinguisher);
-                    BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(outBytes);
-					return Set(PARAM_TYPE_PERSONALISATION, bout.ToArray());
+					using (var outBytes = new StreamWriter(bout, System.Text.Encoding.UTF8))
+					{
+                        outBytes.Write(date.ToString("YYYYMMDD", CultureInfo.InvariantCulture));
+                        outBytes.Write(" ");
+                        outBytes.Write(emailAddress);
+                        outBytes.Write(" ");
+                        outBytes.Write(distinguisher);
+                    }
+                    return Set(PARAM_TYPE_PERSONALISATION, bout.ToArray());
 				}
 				catch (IOException e)
 				{
@@ -281,7 +273,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 			/// </summary>
 			public SkeinParameters Build()
 			{
-				return new SkeinParameters(parameters);
+				return new SkeinParameters(m_parameters);
 			}
 		}
 	}

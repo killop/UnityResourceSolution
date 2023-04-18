@@ -402,7 +402,19 @@ namespace BestHTTP.Extensions
         public byte[] ToArray(bool canBeLarger)
         {
             int l = length - initialIndex;
-            byte[] outBuffer = l > 0 ? BufferPool.Get(l, canBeLarger) : BufferPool.NoData;
+            byte[] outBuffer = null;
+
+            if (l > 0)
+            {
+                if (canBeLarger)
+                    outBuffer = BufferPool.Get(l, true);
+                else
+                    outBuffer = new byte[l];
+            }
+            else
+            {
+                outBuffer = BufferPool.NoData;
+            }
 
             if (internalBuffer != null)
                 Buffer.BlockCopy(internalBuffer, initialIndex, outBuffer, 0, l);

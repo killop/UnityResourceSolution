@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
@@ -22,7 +21,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
             if (obj is Asn1Sequence)
                 return new ContentInfo((Asn1Sequence) obj);
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
         public static ContentInfo GetInstance(Asn1TaggedObject obj, bool isExplicit)

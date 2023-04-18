@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -206,7 +206,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 	            }
 	        }
 
-			throw new ArgumentException("unknown object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("unknown object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public static GeneralName GetInstance(
@@ -321,7 +321,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 
 		private void parseIPv4Mask(string mask, byte[] addr, int offset)
 		{
-			int maskVal = Int32.Parse(mask);
+			int maskVal = int.Parse(mask);
 
 			for (int i = 0; i != maskVal; i++)
 			{
@@ -333,14 +333,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 		{
 			foreach (string token in ip.Split('.', '/'))
 			{
-				addr[offset++] = (byte)Int32.Parse(token);
+				addr[offset++] = (byte)int.Parse(token);
 			}
 		}
 
 		private int[] parseMask(string mask)
 		{
 			int[] res = new int[8];
-			int   maskVal = Int32.Parse(mask);
+			int maskVal = int.Parse(mask);
 
 			for (int i = 0; i != maskVal; i++)
 			{
@@ -360,16 +360,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 
 		private int[] parseIPv6(string ip)
 		{
-			if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(ip, "::"))
+			if (Org.BouncyCastle.Utilities.Platform.StartsWith(ip, "::"))
 			{
 				ip = ip.Substring(1);
 			}
-			else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EndsWith(ip, "::"))
+			else if (Org.BouncyCastle.Utilities.Platform.EndsWith(ip, "::"))
 			{
 				ip = ip.Substring(0, ip.Length - 1);
 			}
 
-			IEnumerator sEnum = ip.Split(':').GetEnumerator();
+			IEnumerable<string> split = ip.Split(':');
+			var sEnum = split.GetEnumerator();
 
 			int index = 0;
 			int[] val = new int[8];
@@ -378,7 +379,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 
 			while (sEnum.MoveNext())
 			{
-				string e = (string) sEnum.Current;
+				string e = sEnum.Current;
 
 				if (e.Length == 0)
 				{
@@ -389,14 +390,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 				{
 					if (e.IndexOf('.') < 0)
 					{
-						val[index++] = Int32.Parse(e, NumberStyles.AllowHexSpecifier);
+						val[index++] = int.Parse(e, NumberStyles.AllowHexSpecifier);
 					}
 					else
 					{
 						string[] tokens = e.Split('.');
 
-						val[index++] = (Int32.Parse(tokens[0]) << 8) | Int32.Parse(tokens[1]);
-						val[index++] = (Int32.Parse(tokens[2]) << 8) | Int32.Parse(tokens[3]);
+						val[index++] = (int.Parse(tokens[0]) << 8) | int.Parse(tokens[1]);
+						val[index++] = (int.Parse(tokens[2]) << 8) | int.Parse(tokens[3]);
 					}
 				}
 			}

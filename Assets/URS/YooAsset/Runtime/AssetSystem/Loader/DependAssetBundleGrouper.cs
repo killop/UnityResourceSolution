@@ -15,11 +15,14 @@ namespace YooAsset
 		{
 			_dependBundles = AssetSystem.CreateDependAssetBundleLoaders(assetPath);
 		}
-
-		/// <summary>
-		/// 是否已经完成（无论成功或失败）
-		/// </summary>
-		public bool IsDone()
+        public DependAssetBundleGrouper(List<AssetBundleLoader> dependBundles)
+        {
+            _dependBundles = dependBundles;
+        }
+        /// <summary>
+        /// 是否已经完成（无论成功或失败）
+        /// </summary>
+        public bool IsDone()
 		{
 			foreach (var loader in _dependBundles)
 			{

@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using Daihenka.AssetPipeline.Import;
+using NinjaBeats;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
+using NinjaBeats.ReflectionHelper;
 
 namespace Daihenka.AssetPipeline.Processors
 {
@@ -20,14 +22,18 @@ namespace Daihenka.AssetPipeline.Processors
             if (DummyImporter == null)
                 return;
             
-            foreach (var platform in UnityEditorDynamic.Build_BuildPlatforms.instance.GetValidPlatforms())
+            foreach (var _platform in UnityEditor_Build_BuildPlatforms.instance.GetValidPlatforms())
             {
-                var platformName = (string)UnityEditorDynamic.Reflection_BuildPlatform_name.GetValue((object)platform);
+                var platform = new UnityEditor_Build_BuildPlatform(_platform);
+                var platformName = platform.name;
                 var setting = m_SettingList?.Find(x => x.name == platformName);
-                if (setting != null)
-                    DummyImporter.SetPlatformTextureSettings(setting);
-                else
-                    DummyImporter.ClearPlatformTextureSettings(platformName);
+                if (setting == null)
+                {
+                    setting = new TextureImporterPlatformSettings();
+                    setting.name = platformName;
+                    setting.overridden = false;
+                }
+                DummyImporter.SetPlatformTextureSettings(setting);
             }
         }
 
@@ -39,22 +45,77 @@ namespace Daihenka.AssetPipeline.Processors
             m_SettingList ??= new();
             m_SettingList.Clear();
             
-            foreach (var platform in UnityEditorDynamic.Build_BuildPlatforms.instance.GetValidPlatforms())
+            foreach (var _platform in UnityEditor_Build_BuildPlatforms.instance.GetValidPlatforms())
             {
-                var platformName = (string)UnityEditorDynamic.Reflection_BuildPlatform_name.GetValue((object)platform);
+                var platform = new UnityEditor_Build_BuildPlatform(_platform);
+                var platformName = platform.name;
                 var setting = DummyImporter.GetPlatformTextureSettings(platformName);
                 if (setting != null)
                     m_SettingList.Add(setting);
             }
         }
-        
+
+        public override bool IsConfigOK(AssetImporter importer)
+        {
+            if (importer == null) return false;
+            var ti = importer as TextureImporter;
+            if (ti==null) return false;
+            if (m_SettingList == null || m_SettingList.Count == 0) return true;
+            
+            for (int i = 0; i < m_SettingList.Count; i++)
+            {
+                var myConfig= m_SettingList[i];
+                var currentSetting = ti.GetPlatformTextureSettings(myConfig.name);
+                if (currentSetting == null) { 
+                    return false;
+                }
+                if (myConfig.overridden != currentSetting.overridden) {
+                    return false;
+                }
+                if (myConfig.maxTextureSize != currentSetting.maxTextureSize)
+                {
+                    return false;
+                }
+                if (myConfig.resizeAlgorithm != currentSetting.resizeAlgorithm)
+                {
+                    return false;
+                }
+                if (myConfig.format != currentSetting.format)
+                {
+                    return false;
+                }
+                if (myConfig.textureCompression != currentSetting.textureCompression)
+                {
+                    return false;
+                }
+                if (myConfig.compressionQuality != currentSetting.compressionQuality)
+                {
+                    return false;
+                }
+                if (myConfig.crunchedCompression != currentSetting.crunchedCompression)
+                {
+                    return false;
+                }
+                if (myConfig.allowsAlphaSplitting != currentSetting.allowsAlphaSplitting)
+                {
+                    return false;
+                }
+                if (myConfig.androidETC2FallbackOverride != currentSetting.androidETC2FallbackOverride)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public override void OnPostprocessTexture(string assetPath, TextureImporter importer, Texture2D tex)
         {
             if (m_SettingList != null)
             {
-                foreach (var platform in UnityEditorDynamic.Build_BuildPlatforms.instance.GetValidPlatforms())
+                foreach (var _platform in UnityEditor_Build_BuildPlatforms.instance.GetValidPlatforms())
                 {
-                    var platformName = (string)UnityEditorDynamic.Reflection_BuildPlatform_name.GetValue((object)platform);
+                    var platform = new UnityEditor_Build_BuildPlatform(_platform);
+                    var platformName = platform.name;
                     var setting = m_SettingList.Find(x => x.name == platformName);
                     if (setting != null)
                         importer.SetPlatformTextureSettings(setting);

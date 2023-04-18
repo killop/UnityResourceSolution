@@ -21,11 +21,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
         {
         }
 
-        public override bool VerifyRawSignature(DigitallySigned signedParams, byte[] hash)
+        public override bool VerifyRawSignature(DigitallySigned digitallySigned, byte[] hash)
         {
             IDigest nullDigest = new NullDigest();
 
-            SignatureAndHashAlgorithm algorithm = signedParams.Algorithm;
+            SignatureAndHashAlgorithm algorithm = digitallySigned.Algorithm;
             ISigner signer;
             if (algorithm != null)
             {
@@ -48,7 +48,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             }
             signer.Init(false, m_publicKey);
             signer.BlockUpdate(hash, 0, hash.Length);
-            return signer.VerifySignature(signedParams.Signature);
+            return signer.VerifySignature(digitallySigned.Signature);
         }
     }
 }

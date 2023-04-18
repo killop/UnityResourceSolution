@@ -21,23 +21,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		internal readonly byte[]	salt;
 		internal readonly int		iterationCount;
 
-
-		public CmsPbeKey(
-			string	password,
-			byte[]	salt,
-			int		iterationCount)
-			: this(password.ToCharArray(), salt, iterationCount)
-		{
-		}
-
-
-		public CmsPbeKey(
-			string				password,
-			AlgorithmIdentifier keyDerivationAlgorithm)
-			: this(password.ToCharArray(), keyDerivationAlgorithm)
-		{
-		}
-		
 		public CmsPbeKey(
 			char[]	password,
 			byte[]	salt,
@@ -69,21 +52,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			Array.Clear(this.password, 0, this.password.Length);
 		}
 
-
-		public string Password
-		{
-			get { return new string(password); }
-		}
-
 		public byte[] Salt
 		{
 			get { return Arrays.Clone(salt); }
-		}
-
-
-		public byte[] GetSalt()
-		{
-			return Salt;
 		}
 
 		public int IterationCount

@@ -10,42 +10,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
     public class OriginatorIdentifierOrKey
         : Asn1Encodable, IAsn1Choice
     {
-        private Asn1Encodable id;
+        private readonly Asn1Encodable id;
 
-        public OriginatorIdentifierOrKey(
-            IssuerAndSerialNumber id)
+        public OriginatorIdentifierOrKey(IssuerAndSerialNumber id)
         {
             this.id = id;
         }
 
-
-        public OriginatorIdentifierOrKey(
-            Asn1OctetString id)
-			: this(new SubjectKeyIdentifier(id))
-        {
-        }
-
-        public OriginatorIdentifierOrKey(
-            SubjectKeyIdentifier id)
+        public OriginatorIdentifierOrKey(SubjectKeyIdentifier id)
         {
             this.id = new DerTaggedObject(false, 0, id);
         }
 
-        public OriginatorIdentifierOrKey(
-            OriginatorPublicKey id)
+        public OriginatorIdentifierOrKey(OriginatorPublicKey id)
         {
             this.id = new DerTaggedObject(false, 1, id);
         }
 
-
-        public OriginatorIdentifierOrKey(
-            Asn1Object id)
-        {
-            this.id = id;
-        }
-
-		private OriginatorIdentifierOrKey(
-			Asn1TaggedObject id)
+		private OriginatorIdentifierOrKey(Asn1TaggedObject id)
 		{
 			// TODO Add validation
 			this.id = id;
@@ -97,7 +79,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			if (o is Asn1TaggedObject)
 				return new OriginatorIdentifierOrKey((Asn1TaggedObject)o);
 
-            throw new ArgumentException("Invalid OriginatorIdentifierOrKey: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
+            throw new ArgumentException("Invalid OriginatorIdentifierOrKey: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(o));
         }
 
 		public Asn1Encodable ID
@@ -129,12 +111,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 
 				return null;
 			}
-		}
-
-
-		public OriginatorPublicKey OriginatorKey
-		{
-			get { return OriginatorPublicKey; }
 		}
 
 		public OriginatorPublicKey OriginatorPublicKey

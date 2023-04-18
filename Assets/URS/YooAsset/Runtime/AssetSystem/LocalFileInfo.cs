@@ -5,12 +5,7 @@ using YooAsset;
 
 namespace URS
 {
-    public enum EnumHardiskDirectoryType
-    {
-        Invalid = 0,
-        Persistent = 1,
-        StreamAsset = 2
-    }
+   
     public class UpdateEntry
     {
         public FileMeta RemoteFileMeta { get; private set; }
@@ -40,7 +35,7 @@ namespace URS
         public string GetPatchTemp()
         {
             var pathRelativePath = $"{GetRelativePath()}---{PatchItemVersion.FromHashCode}---{PatchItemVersion.ToHashCode}.patch.temp";
-            return SandboxFileSystem.MakeSandboxFilePath(pathRelativePath);
+            return URSFileSystem.GetDownloadFolderPath(pathRelativePath);
         }
 
         public uint GetRemoteDownloadFileHash() 
@@ -86,11 +81,11 @@ namespace URS
         {
             RemoteFileMeta = remoteFileMeta;
             PatchItemVersion = patchItem;
-            _targetSaveFilePath = SandboxFileSystem.MakeSandboxFilePath(GetRelativePath());
+            _targetSaveFilePath = URSFileSystem.GetDownloadFolderPath(GetRelativePath());
             if (PatchItemVersion != null)
             {
                 var pathRelativePath = $"{GetRelativePath()}---{PatchItemVersion.FromHashCode}---{PatchItemVersion.ToHashCode}.patch";
-                _patchSavePath = SandboxFileSystem.MakeSandboxPatchFilePath(pathRelativePath);
+                _patchSavePath = URSFileSystem.GetDownloadTempPath(pathRelativePath);
                 _remoteDownloadURL = $"{remotePatchRoot}/{pathRelativePath}";
             }
             else 
@@ -135,8 +130,8 @@ namespace URS
         public UnzipEntry(FileMeta streamFileMeta) 
         {
             StreamFileMeta = streamFileMeta;
-            HardiskSavePath = SandboxFileSystem.MakeSandboxFilePath(StreamFileMeta.RelativePath);
-            HardiskSourcePath = AssetPathHelper.MakeStreamingSandboxLoadPath(StreamFileMeta.RelativePath);
+            HardiskSavePath = URSFileSystem.PersistentDownloadFolder.GetFileHardiskPath(StreamFileMeta.RelativePath);
+            HardiskSourcePath = URSFileSystem.BuildInFolder.GetFileHardiskPath(StreamFileMeta.RelativePath);
             HardiskSourcePath = AssetPathHelper.ConvertToWWWPath(HardiskSourcePath);
         }
     
@@ -273,7 +268,7 @@ namespace URS
         {
             this.FileMeta = fileMeta;
             OrignRelativePath = fileMeta.RelativePath;
-            HardiskPath = SandboxFileSystem.MakeSandboxFilePath(OrignRelativePath);
+            HardiskPath = URSFileSystem.GetDownloadFolderPath(OrignRelativePath);
             UpdateEntry=  updateEntry;
             HardiskDirectoryType = EnumHardiskDirectoryType.Invalid;
         }

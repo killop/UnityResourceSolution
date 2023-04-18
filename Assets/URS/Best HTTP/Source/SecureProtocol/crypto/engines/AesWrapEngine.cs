@@ -11,7 +11,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 		: Rfc3394WrapEngine
 	{
 		public AesWrapEngine()
-			: base(new AesEngine())
+			: base(AesUtilities.CreateEngine())
 		{
 		}
 	}

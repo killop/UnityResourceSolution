@@ -2,6 +2,7 @@
 #pragma warning disable
 using System;
 using System.IO;
+
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
 
@@ -41,13 +42,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
         public virtual void Write(Stream zOut)
 		{
 			zOut.Write(bytes, 0, bytes.Length);
-		}
-
-        /// <returns>A clone of the byte array</returns>
-        [Obsolete]
-		public virtual object GetContent()
-		{
-			return bytes.Clone();
 		}
 	}
 }

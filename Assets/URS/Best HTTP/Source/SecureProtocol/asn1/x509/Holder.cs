@@ -62,7 +62,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 				return new Holder((Asn1TaggedObject) obj);
 			}
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		/**

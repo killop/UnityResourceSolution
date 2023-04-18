@@ -40,8 +40,8 @@ public class BuildTaskGenerateVersion : BuildTask
     {
         var versionDirectory = (string)this._context[CONTEXT_VERSION_DIRECTORY];
         var additionFileInfos = GetData<Dictionary<string, AdditionFileInfo>>(CONTEXT_FILE_ADDITION_INFO);
-        var setting = URSEditorUserSettings.instance;
-        VersionBuilder.BuildVersion(versionDirectory,new FileSystem(), setting.BuildVersionCode, additionFileInfos,out string newVersionDirctoryName);
+        var buildingVersion = GetData<string>(CONTEXT_BUILDING_VERSION);
+        VersionBuilder.BuildVersion(versionDirectory,new FileSystem(), buildingVersion, additionFileInfos,out string newVersionDirctoryName);
         SetData(CONTEXT_VERSION_DIRECTORY, newVersionDirctoryName);
     }
     /*

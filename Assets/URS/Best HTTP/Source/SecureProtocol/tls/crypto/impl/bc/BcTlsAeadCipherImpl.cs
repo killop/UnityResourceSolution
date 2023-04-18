@@ -12,11 +12,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
         : TlsAeadCipherImpl
     {
         private readonly bool m_isEncrypting;
-        private readonly IAeadBlockCipher m_cipher;
+        private readonly IAeadCipher m_cipher;
 
         private KeyParameter key;
 
-        internal BcTlsAeadCipherImpl(IAeadBlockCipher cipher, bool isEncrypting)
+        internal BcTlsAeadCipherImpl(IAeadCipher cipher, bool isEncrypting)
         {
             this.m_cipher = cipher;
             this.m_isEncrypting = isEncrypting;
@@ -26,6 +26,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
         {
             this.key = new KeyParameter(key, keyOff, keyLen);
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void SetKey(ReadOnlySpan<byte> key)
+        {
+            this.key = new KeyParameter(key);
+        }
+#endif
 
         public void Init(byte[] nonce, int macSize, byte[] additionalData)
         {
@@ -51,6 +58,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             }
 
             return len;
+        }
+
+        public void Reset()
+        {
+            m_cipher.Reset();
         }
     }
 }

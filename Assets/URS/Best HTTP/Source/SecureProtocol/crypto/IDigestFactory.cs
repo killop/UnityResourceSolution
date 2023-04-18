@@ -22,7 +22,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 		/// and producing the digest block.
 		/// </summary>
 		/// <returns>A calculator producing an IBlockResult with the final digest in it.</returns>
-		IStreamCalculator CreateCalculator();
+		IStreamCalculator<IBlockResult> CreateCalculator();
 	}
 }
 #pragma warning restore

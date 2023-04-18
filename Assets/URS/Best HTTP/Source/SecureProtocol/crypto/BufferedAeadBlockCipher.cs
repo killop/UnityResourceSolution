@@ -99,12 +99,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 		* @exception DataLengthException if there isn't enough space in out.
 		* @exception InvalidOperationException if the cipher isn't initialised.
 		*/
-		public override int ProcessByte(
-			byte	input,
-			byte[]	output,
-			int		outOff)
-		{
-			return cipher.ProcessByte(input, output, outOff);
+        public override int ProcessByte(byte input, byte[] output, int outOff)
+        {
+            return cipher.ProcessByte(input, output, outOff);
 		}
 
 		public override byte[] ProcessByte(
@@ -126,7 +123,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 			return outBytes;
 		}
 
-		public override byte[] ProcessBytes(
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int ProcessByte(byte input, Span<byte> output)
+        {
+            return cipher.ProcessByte(input, output);
+        }
+#endif
+
+        public override byte[] ProcessBytes(
 			byte[]	input,
 			int		inOff,
 			int		length)
@@ -174,7 +178,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 			return cipher.ProcessBytes(input, inOff, length, output, outOff);
 		}
 
-		public override byte[] DoFinal()
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            return cipher.ProcessBytes(input, output);
+        }
+#endif
+
+        public override byte[] DoFinal()
 		{
             byte[] outBytes = new byte[GetOutputSize(0)];
 
@@ -237,11 +248,25 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 			return cipher.DoFinal(output, outOff);
 		}
 
-		/**
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int DoFinal(Span<byte> output)
+		{
+            return cipher.DoFinal(output);
+        }
+
+        public override int DoFinal(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            int len = cipher.ProcessBytes(input, output);
+            len += cipher.DoFinal(output[len..]);
+            return len;
+        }
+#endif
+
+        /**
 		* Reset the buffer and cipher. After resetting the object is in the same
 		* state as it was after the last init (if there was one).
 		*/
-		public override void Reset()
+        public override void Reset()
 		{
 			cipher.Reset();
 		}

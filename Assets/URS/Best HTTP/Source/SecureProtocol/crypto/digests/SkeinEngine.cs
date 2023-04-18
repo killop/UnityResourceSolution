@@ -1,11 +1,13 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 {
@@ -76,7 +78,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
                 bytes[5] = 0;
 
                 // 8..15 = output length
-                ThreefishEngine.WordToBytes((ulong)outputSizeBits, bytes, 8);
+                Pack.UInt64_To_LE((ulong)outputSizeBits, bytes, 8);
             }
 
             public byte[] Bytes
@@ -133,7 +135,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
          * Precalculated UBI(CFG) states for common state/output combinations without key or other
          * pre-message params.
          */
-        private static readonly IDictionary INITIAL_STATES = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+        private static readonly IDictionary<int, ulong[]> InitialStates = new Dictionary<int, ulong[]>();
 
         static SkeinEngine()
         {
@@ -215,7 +217,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 
         private static void InitialState(int blockSize, int outputSize, ulong[] state)
         {
-            INITIAL_STATES.Add(VariantIdentifier(blockSize / 8, outputSize / 8), state);
+            InitialStates.Add(VariantIdentifier(blockSize / 8, outputSize / 8), state);
         }
 
         private static int VariantIdentifier(int blockSizeBytes, int outputSizeBytes)
@@ -228,7 +230,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             /**
              * Point at which position might overflow long, so switch to add with carry logic
              */
-            private const ulong LOW_RANGE = UInt64.MaxValue - UInt32.MaxValue;
+            private const ulong LOW_RANGE = ulong.MaxValue - uint.MaxValue;
 
             /**
              * Bit 127 = final
@@ -431,7 +433,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
                         currentOffset = 0;
                     }
 
-                    int toCopy = System.Math.Min((len - copied), currentBlock.Length - currentOffset);
+                    int toCopy = System.Math.Min(len - copied, currentBlock.Length - currentOffset);
                     Array.Copy(value, offset + copied, currentBlock, currentOffset, toCopy);
                     copied += toCopy;
                     currentOffset += toCopy;
@@ -439,13 +441,36 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
                 }
             }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            public void Update(ReadOnlySpan<byte> input, ulong[] output)
+            {
+                /*
+                 * Buffer complete blocks for the underlying Threefish cipher, only flushing when there
+                 * are subsequent bytes (last block must be processed in doFinal() with final=true set).
+                 */
+                int copied = 0, len = input.Length;
+                while (len > copied)
+                {
+                    if (currentOffset == currentBlock.Length)
+                    {
+                        ProcessBlock(output);
+                        tweak.First = false;
+                        currentOffset = 0;
+                    }
+
+                    int toCopy = System.Math.Min(len - copied, currentBlock.Length - currentOffset);
+                    input.Slice(copied, toCopy).CopyTo(currentBlock.AsSpan(currentOffset));
+                    copied += toCopy;
+                    currentOffset += toCopy;
+                    tweak.AdvancePosition(toCopy);
+                }
+            }
+#endif
+
             private void ProcessBlock(ulong[] output)
             {
                 engine.threefish.Init(true, engine.chain, tweak.GetWords());
-                for (int i = 0; i < message.Length; i++)
-                {
-                    message[i] = ThreefishEngine.BytesToWord(currentBlock, i * 8);
-                }
+                Pack.LE_To_UInt64(currentBlock, 0, message);
 
                 engine.threefish.ProcessBlock(message, output);
 
@@ -466,7 +491,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
                 tweak.Final = true;
                 ProcessBlock(output);
             }
-
         }
 
         /**
@@ -619,16 +643,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             UbiInit(PARAM_TYPE_MESSAGE);
         }
 
-        private void InitParams(IDictionary parameters)
+        private void InitParams(IDictionary<int, byte[]> parameters)
         {
-            IEnumerator keys = parameters.Keys.GetEnumerator();
-            IList pre = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
-            IList post = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+            //IEnumerator keys = parameters.Keys.GetEnumerator();
+            var pre = new List<Parameter>();
+            var post = new List<Parameter>();
 
-            while (keys.MoveNext())
+            //while (keys.MoveNext())
+            foreach (var parameter in parameters)
             {
-                int type = (int)keys.Current;
-                byte[] value = (byte[])parameters[type];
+                int type = parameter.Key;
+                byte[] value = parameter.Value;
 
                 if (type == PARAM_TYPE_KEY)
                 {
@@ -657,7 +682,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
          */
         private void CreateInitialState()
         {
-            ulong[] precalc = (ulong[])INITIAL_STATES[VariantIdentifier(BlockSize, OutputSize)];
+            var precalc = CollectionUtilities.GetValueOrNull(InitialStates, VariantIdentifier(BlockSize, OutputSize));
             if ((key == null) && (precalc != null))
             {
                 // Precalculated UBI(CFG)
@@ -729,14 +754,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
         public void Update(byte inByte)
         {
             singleByte[0] = inByte;
-            Update(singleByte, 0, 1);
+            BlockUpdate(singleByte, 0, 1);
         }
 
-        public void Update(byte[] inBytes, int inOff, int len)
+        public void BlockUpdate(byte[] inBytes, int inOff, int len)
         {
             CheckInitialised();
             ubi.Update(inBytes, inOff, len, chain);
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            CheckInitialised();
+            ubi.Update(input, chain);
+        }
+#endif
 
         public int DoFinal(byte[] outBytes, int outOff)
         {
@@ -773,36 +806,98 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             return outputSizeBytes;
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int DoFinal(Span<byte> output)
+        {
+            CheckInitialised();
+            if (output.Length < outputSizeBytes)
+                throw new DataLengthException("Output span is too short to hold output");
+
+            // Finalise message block
+            UbiFinal();
+
+            // Process additional post-message parameters
+            if (postMessageParameters != null)
+            {
+                for (int i = 0; i < postMessageParameters.Length; i++)
+                {
+                    Parameter param = postMessageParameters[i];
+                    UbiComplete(param.Type, param.Value);
+                }
+            }
+
+            // Perform the output transform
+            int blockSize = BlockSize;
+            int blocksRequired = (outputSizeBytes + blockSize - 1) / blockSize;
+            for (int i = 0; i < blocksRequired; i++)
+            {
+                int toWrite = System.Math.Min(blockSize, outputSizeBytes - (i * blockSize));
+                //Output((ulong)i, outBytes, outOff + (i * blockSize), toWrite);
+                Output((ulong)i, output[(i * blockSize)..], toWrite);
+            }
+
+            Reset();
+
+            return outputSizeBytes;
+        }
+#endif
+
         private void Output(ulong outputSequence, byte[] outBytes, int outOff, int outputBytes)
         {
             byte[] currentBytes = new byte[8];
-            ThreefishEngine.WordToBytes(outputSequence, currentBytes, 0);
+            Pack.UInt64_To_LE(outputSequence, currentBytes, 0);
 
-            // Output is a sequence of UBI invocations all of which use and preserve the pre-output
-            // state
+            // Output is a sequence of UBI invocations all of which use and preserve the pre-output state
             ulong[] outputWords = new ulong[chain.Length];
             UbiInit(PARAM_TYPE_OUTPUT);
             this.ubi.Update(currentBytes, 0, currentBytes.Length, outputWords);
             ubi.DoFinal(outputWords);
 
-            int wordsRequired = ((outputBytes + 8 - 1) / 8);
+            int wordsRequired = (outputBytes + 8 - 1) / 8;
             for (int i = 0; i < wordsRequired; i++)
             {
                 int toWrite = System.Math.Min(8, outputBytes - (i * 8));
                 if (toWrite == 8)
                 {
-                    ThreefishEngine.WordToBytes(outputWords[i], outBytes, outOff + (i * 8));
+                    Pack.UInt64_To_LE(outputWords[i], outBytes, outOff + (i * 8));
                 }
                 else
                 {
-                    ThreefishEngine.WordToBytes(outputWords[i], currentBytes, 0);
+                    Pack.UInt64_To_LE(outputWords[i], currentBytes, 0);
                     Array.Copy(currentBytes, 0, outBytes, outOff + (i * 8), toWrite);
                 }
             }
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        private void Output(ulong outputSequence, Span<byte> output, int outputBytes)
+        {
+            Span<byte> currentBytes = stackalloc byte[8];
+            Pack.UInt64_To_LE(outputSequence, currentBytes);
+
+            // Output is a sequence of UBI invocations all of which use and preserve the pre-output state
+            ulong[] outputWords = new ulong[chain.Length];
+            UbiInit(PARAM_TYPE_OUTPUT);
+            this.ubi.Update(currentBytes, outputWords);
+            ubi.DoFinal(outputWords);
+
+            int wordsRequired = (outputBytes + 8 - 1) / 8;
+            for (int i = 0; i < wordsRequired; i++)
+            {
+                int toWrite = System.Math.Min(8, outputBytes - (i * 8));
+                if (toWrite == 8)
+                {
+                    Pack.UInt64_To_LE(outputWords[i], output[(i * 8)..]);
+                }
+                else
+                {
+                    Pack.UInt64_To_LE(outputWords[i], currentBytes);
+                    currentBytes[..toWrite].CopyTo(output[(i * 8)..]);
+                }
+            }
+        }
+#endif
     }
 }
-
 #pragma warning restore
 #endif

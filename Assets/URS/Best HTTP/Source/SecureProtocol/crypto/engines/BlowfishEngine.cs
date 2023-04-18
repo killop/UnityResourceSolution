@@ -332,7 +332,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             ICipherParameters  parameters)
         {
             if (!(parameters is KeyParameter))
-				throw new ArgumentException("invalid parameter passed to Blowfish init - " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
+				throw new ArgumentException("invalid parameter passed to Blowfish init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
 
 			this.encrypting = forEncryption;
 			this.workingKey = ((KeyParameter)parameters).GetKey();
@@ -344,16 +344,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             get { return "Blowfish"; }
         }
 
-		public bool IsPartialBlockOkay
-		{
-			get { return false; }
-		}
-
-		public  int ProcessBlock(
-            byte[]	input,
-            int		inOff,
-            byte[]	output,
-            int		outOff)
+		public int ProcessBlock(byte[] input, int inOff, byte[] output, int outOff)
         {
             if (workingKey == null)
                 throw new InvalidOperationException("Blowfish not initialised");
@@ -361,7 +352,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             Check.DataLength(input, inOff, BLOCK_SIZE, "input buffer too short");
             Check.OutputLength(output, outOff, BLOCK_SIZE, "output buffer too short");
 
-            if (encrypting)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+			if (encrypting)
+			{
+				EncryptBlock(input.AsSpan(inOff), output.AsSpan(outOff));
+			}
+			else
+			{
+				DecryptBlock(input.AsSpan(inOff), output.AsSpan(outOff));
+			}
+#else
+			if (encrypting)
             {
                 EncryptBlock(input, inOff, output, outOff);
             }
@@ -369,13 +370,32 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             {
                 DecryptBlock(input, inOff, output, outOff);
             }
+#endif
 
             return BLOCK_SIZE;
         }
 
-        public void Reset()
-        {
-        }
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public int ProcessBlock(ReadOnlySpan<byte> input, Span<byte> output)
+		{
+			if (workingKey == null)
+				throw new InvalidOperationException("Blowfish not initialised");
+
+			Check.DataLength(input, BLOCK_SIZE, "input buffer too short");
+			Check.OutputLength(output, BLOCK_SIZE, "output buffer too short");
+
+			if (encrypting)
+			{
+				EncryptBlock(input, output);
+			}
+			else
+			{
+				DecryptBlock(input, output);
+			}
+
+			return BLOCK_SIZE;
+		}
+#endif
 
         public int GetBlockSize()
         {
@@ -428,7 +448,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 				throw new ArgumentException("key length must be in range 32 to 448 bits");
 			}
 
-            /*
+			/*
             * - comments are from _Applied Crypto_, Schneier, p338
             * please be careful comparing the two, AC numbers the
             * arrays from 1, the enclosed code from 0.
@@ -437,7 +457,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             * Initialise the S-boxes and the P-array, with a fixed string
             * This string contains the hexadecimal digits of pi (3.141...)
             */
-            Array.Copy(KS0, 0, S0, 0, SBOX_SK);
+			Array.Copy(KS0, 0, S0, 0, SBOX_SK);
             Array.Copy(KS1, 0, S1, 0, SBOX_SK);
             Array.Copy(KS2, 0, S2, 0, SBOX_SK);
             Array.Copy(KS3, 0, S3, 0, SBOX_SK);
@@ -501,16 +521,46 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             ProcessTable(S2[SBOX_SK - 2], S2[SBOX_SK - 1], S3);
         }
 
-        /**
-        * Encrypt the given input starting at the given offset and place
-        * the result in the provided buffer starting at the given offset.
-        * The input will be an exact multiple of our blocksize.
-        */
-        private void EncryptBlock(
-            byte[]  src,
-            int     srcIndex,
-            byte[]  dst,
-            int     dstIndex)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		private void EncryptBlock(ReadOnlySpan<byte> input, Span<byte> output)
+		{
+			uint xl = Pack.BE_To_UInt32(input);
+			uint xr = Pack.BE_To_UInt32(input[4..]);
+
+			xl ^= P[0];
+
+			for (int i = 1; i < ROUNDS; i += 2)
+			{
+				xr ^= F(xl) ^ P[i];
+				xl ^= F(xr) ^ P[i + 1];
+			}
+
+			xr ^= P[ROUNDS + 1];
+
+			Pack.UInt32_To_BE(xr, output);
+			Pack.UInt32_To_BE(xl, output[4..]);
+		}
+
+		private void DecryptBlock(ReadOnlySpan<byte> input, Span<byte> output)
+		{
+			uint xl = Pack.BE_To_UInt32(input);
+			uint xr = Pack.BE_To_UInt32(input[4..]);
+
+			xl ^= P[ROUNDS + 1];
+
+			for (int i = ROUNDS; i > 0; i -= 2)
+			{
+				xr ^= F(xl) ^ P[i];
+				xl ^= F(xr) ^ P[i - 1];
+			}
+
+			xr ^= P[0];
+
+			Pack.UInt32_To_BE(xr, output);
+			Pack.UInt32_To_BE(xl, output[4..]);
+		}
+#else
+		private void EncryptBlock(byte[] src, int srcIndex, byte[] dst, int dstIndex)
         {
             uint xl = Pack.BE_To_UInt32(src, srcIndex);
             uint xr = Pack.BE_To_UInt32(src, srcIndex+4);
@@ -529,16 +579,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             Pack.UInt32_To_BE(xl, dst, dstIndex + 4);
         }
 
-        /**
-        * Decrypt the given input starting at the given offset and place
-        * the result in the provided buffer starting at the given offset.
-        * The input will be an exact multiple of our blocksize.
-        */
-        private void DecryptBlock(
-            byte[] src,
-            int srcIndex,
-            byte[] dst,
-            int dstIndex)
+        private void DecryptBlock(byte[] src, int srcIndex, byte[] dst, int dstIndex)
         {
             uint xl = Pack.BE_To_UInt32(src, srcIndex);
             uint xr = Pack.BE_To_UInt32(src, srcIndex + 4);
@@ -556,7 +597,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             Pack.UInt32_To_BE(xr, dst, dstIndex);
             Pack.UInt32_To_BE(xl, dst, dstIndex + 4);
         }
-    }
+#endif
+	}
 }
 #pragma warning restore
 #endif

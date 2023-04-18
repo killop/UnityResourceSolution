@@ -1,9 +1,5 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
-using System;
-using System.Collections;
-
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
@@ -30,7 +26,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
 		public DHParameter(
             Asn1Sequence seq)
         {
-            IEnumerator e = seq.GetEnumerator();
+            var e = seq.GetEnumerator();
 
 			e.MoveNext();
             p = (DerInteger)e.Current;

@@ -21,6 +21,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 		/// <returns>The entropy bytes.</returns>
 		byte[] GetEntropy();
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        int GetEntropy(Span<byte> output);
+#endif
+
 		/// <summary>
 		/// Return the number of bits of entropy this source can produce.
 		/// </summary>

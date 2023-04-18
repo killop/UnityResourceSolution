@@ -211,6 +211,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
             }
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void ProcessAadBytes(ReadOnlySpan<byte> input)
+        {
+            CheckAad();
+
+            if (!input.IsEmpty)
+            {
+                this.mAadCount = IncrementCount(mAadCount, (uint)input.Length, AadLimit);
+                mPoly1305.BlockUpdate(input);
+            }
+        }
+#endif
+
         public virtual int ProcessByte(byte input, byte[] outBytes, int outOff)
         {
             CheckData();
@@ -223,7 +236,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
                 if (++mBufPos == mBuf.Length)
                 {
                     mPoly1305.BlockUpdate(mBuf, 0, BufSize);
-                    ProcessData(mBuf, 0, BufSize, outBytes, outOff);
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+                    ProcessBlock(mBuf, outBytes.AsSpan(outOff));
+#else
+                    ProcessBlock(mBuf, 0, outBytes, outOff);
+#endif
                     Array.Copy(mBuf, BufSize, mBuf, 0, MacSize);
                     this.mBufPos = MacSize;
                     return BufSize;
@@ -236,7 +253,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
                 mBuf[mBufPos] = input;
                 if (++mBufPos == BufSize)
                 {
-                    ProcessData(mBuf, 0, BufSize, outBytes, outOff);
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+                    ProcessBlock(mBuf, outBytes.AsSpan(outOff));
+#else
+                    ProcessBlock(mBuf, 0, outBytes, outOff);
+#endif
                     mPoly1305.BlockUpdate(outBytes, outOff, BufSize);
                     this.mBufPos = 0;
                     return BufSize;
@@ -248,6 +269,46 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
                 throw new InvalidOperationException();
             }
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual int ProcessByte(byte input, Span<byte> output)
+        {
+            CheckData();
+
+            switch (mState)
+            {
+            case State.DecData:
+            {
+                mBuf[mBufPos] = input;
+                if (++mBufPos == mBuf.Length)
+                {
+                    mPoly1305.BlockUpdate(mBuf.AsSpan(0, BufSize));
+                    ProcessBlock(mBuf, output);
+                    Array.Copy(mBuf, BufSize, mBuf, 0, MacSize);
+                    this.mBufPos = MacSize;
+                    return BufSize;
+                }
+
+                return 0;
+            }
+            case State.EncData:
+            {
+                mBuf[mBufPos] = input;
+                if (++mBufPos == BufSize)
+                {
+                    ProcessBlock(mBuf, output);
+                    mPoly1305.BlockUpdate(output[..BufSize]);
+                    this.mBufPos = 0;
+                    return BufSize;
+                }
+
+                return 0;
+            }
+            default:
+                throw new InvalidOperationException();
+            }
+        }
+#endif
 
         public virtual int ProcessBytes(byte[] inBytes, int inOff, int len, byte[] outBytes, int outOff)
         {
@@ -269,6 +330,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
             if (outOff < 0)
                 throw new ArgumentException("cannot be negative", "outOff");
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return ProcessBytes(inBytes.AsSpan(inOff, len), Spans.FromNullable(outBytes, outOff));
+#else
             CheckData();
 
             int resultLen = 0;
@@ -277,53 +341,210 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
             {
             case State.DecData:
             {
-                for (int i = 0; i < len; ++i)
+                int available = mBuf.Length - mBufPos;
+                if (len < available)
                 {
-                    mBuf[mBufPos] = inBytes[inOff + i];
-                    if (++mBufPos == mBuf.Length)
+                    Array.Copy(inBytes, inOff, mBuf, mBufPos, len);
+                    mBufPos += len;
+                    break;
+                }
+
+                if (mBufPos >= BufSize)
+                {
+                    mPoly1305.BlockUpdate(mBuf, 0, BufSize);
+                    ProcessBlock(mBuf, 0, outBytes, outOff);
+                    Array.Copy(mBuf, BufSize, mBuf, 0, mBufPos -= BufSize);
+                    resultLen = BufSize;
+
+                    available += BufSize;
+                    if (len < available)
                     {
-                        mPoly1305.BlockUpdate(mBuf, 0, BufSize);
-                        ProcessData(mBuf, 0, BufSize, outBytes, outOff + resultLen);
-                        Array.Copy(mBuf, BufSize, mBuf, 0, MacSize);
-                        this.mBufPos = MacSize;
-                        resultLen += BufSize;
+                        Array.Copy(inBytes, inOff, mBuf, mBufPos, len);
+                        mBufPos += len;
+                        break;
                     }
                 }
+
+                int inLimit1 = inOff + len - mBuf.Length;
+                int inLimit2 = inLimit1 - BufSize;
+
+                available = BufSize - mBufPos;
+                Array.Copy(inBytes, inOff, mBuf, mBufPos, available);
+                mPoly1305.BlockUpdate(mBuf, 0, BufSize);
+                ProcessBlock(mBuf, 0, outBytes, outOff + resultLen);
+                inOff += available;
+                resultLen += BufSize;
+
+                while (inOff <= inLimit2)
+                {
+                    mPoly1305.BlockUpdate(inBytes, inOff, BufSize * 2);
+                    ProcessBlocks2(inBytes, inOff, outBytes, outOff + resultLen);
+                    inOff += BufSize * 2;
+                    resultLen += BufSize * 2;
+                }
+
+                if (inOff <= inLimit1)
+                {
+                    mPoly1305.BlockUpdate(inBytes, inOff, BufSize);
+                    ProcessBlock(inBytes, inOff, outBytes, outOff + resultLen);
+                    inOff += BufSize;
+                    resultLen += BufSize;
+                }
+
+                mBufPos = mBuf.Length + inLimit1 - inOff;
+                Array.Copy(inBytes, inOff, mBuf, 0, mBufPos);
                 break;
             }
             case State.EncData:
             {
-                if (mBufPos != 0)
+                int available = BufSize - mBufPos;
+                if (len < available)
                 {
-                    while (len > 0)
-                    {
-                        --len;
-                        mBuf[mBufPos] = inBytes[inOff++];
-                        if (++mBufPos == BufSize)
-                        {
-                            ProcessData(mBuf, 0, BufSize, outBytes, outOff);
-                            mPoly1305.BlockUpdate(outBytes, outOff, BufSize);
-                            this.mBufPos = 0;
-                            resultLen = BufSize;
-                            break;
-                        }
-                    }
+                    Array.Copy(inBytes, inOff, mBuf, mBufPos, len);
+                    mBufPos += len;
+                    break;
                 }
 
-                while (len >= BufSize)
+                int inLimit1 = inOff + len - BufSize;
+                int inLimit2 = inLimit1 - BufSize;
+
+                if (mBufPos > 0)
                 {
-                    ProcessData(inBytes, inOff, BufSize, outBytes, outOff + resultLen);
-                    mPoly1305.BlockUpdate(outBytes, outOff + resultLen, BufSize);
+                    Array.Copy(inBytes, inOff, mBuf, mBufPos, available);
+                    ProcessBlock(mBuf, 0, outBytes, outOff);
+                    inOff += available;
+                    resultLen = BufSize;
+                }
+
+                while (inOff <= inLimit2)
+                {
+                    ProcessBlocks2(inBytes, inOff, outBytes, outOff + resultLen);
+                    inOff += BufSize * 2;
+                    resultLen += BufSize * 2;
+                }
+
+                if (inOff <= inLimit1)
+                {
+                    ProcessBlock(inBytes, inOff, outBytes, outOff + resultLen);
                     inOff += BufSize;
-                    len -= BufSize;
                     resultLen += BufSize;
                 }
 
-                if (len > 0)
+                mPoly1305.BlockUpdate(outBytes, outOff, resultLen);
+
+                mBufPos = BufSize + inLimit1 - inOff;
+                Array.Copy(inBytes, inOff, mBuf, 0, mBufPos);
+                break;
+            }
+            default:
+                throw new InvalidOperationException();
+            }
+
+            return resultLen;
+#endif
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual int ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            CheckData();
+
+            int resultLen = 0;
+
+            switch (mState)
+            {
+            case State.DecData:
+            {
+                int available = mBuf.Length - mBufPos;
+                if (input.Length < available)
                 {
-                    Array.Copy(inBytes, inOff, mBuf, 0, len);
-                    this.mBufPos = len;
+                    input.CopyTo(mBuf.AsSpan(mBufPos));
+                    mBufPos += input.Length;
+                    break;
                 }
+
+                if (mBufPos >= BufSize)
+                {
+                    mPoly1305.BlockUpdate(mBuf.AsSpan(0, BufSize));
+                    ProcessBlock(mBuf, output);
+                    Array.Copy(mBuf, BufSize, mBuf, 0, mBufPos -= BufSize);
+                    resultLen = BufSize;
+
+                    available += BufSize;
+                    if (input.Length < available)
+                    {
+                        input.CopyTo(mBuf.AsSpan(mBufPos));
+                        mBufPos += input.Length;
+                        break;
+                    }
+                }
+
+                int inLimit1 = mBuf.Length;
+                int inLimit2 = inLimit1 + BufSize;
+
+                available = BufSize - mBufPos;
+                input[..available].CopyTo(mBuf.AsSpan(mBufPos));
+                mPoly1305.BlockUpdate(mBuf.AsSpan(0, BufSize));
+                ProcessBlock(mBuf, output[resultLen..]);
+                input = input[available..];
+                resultLen += BufSize;
+
+                while (input.Length >= inLimit2)
+                {
+                    mPoly1305.BlockUpdate(input[..(BufSize * 2)]);
+                    ProcessBlocks2(input, output[resultLen..]);
+                    input = input[(BufSize * 2)..];
+                    resultLen += BufSize * 2;
+                }
+
+                if (input.Length >= inLimit1)
+                {
+                    mPoly1305.BlockUpdate(input[..BufSize]);
+                    ProcessBlock(input, output[resultLen..]);
+                    input = input[BufSize..];
+                    resultLen += BufSize;
+                }
+
+                mBufPos = input.Length;
+                input.CopyTo(mBuf);
+                break;
+            }
+            case State.EncData:
+            {
+                int available = BufSize - mBufPos;
+                if (input.Length < available)
+                {
+                    input.CopyTo(mBuf.AsSpan(mBufPos));
+                    mBufPos += input.Length;
+                    break;
+                }
+
+                if (mBufPos > 0)
+                {
+                    input[..available].CopyTo(mBuf.AsSpan(mBufPos));
+                    ProcessBlock(mBuf, output);
+                    input = input[available..];
+                    resultLen = BufSize;
+                }
+
+                while (input.Length >= BufSize * 2)
+                {
+                    ProcessBlocks2(input, output[resultLen..]);
+                    input = input[(BufSize * 2)..];
+                    resultLen += BufSize * 2;
+                }
+
+                if (input.Length >= BufSize)
+                {
+                    ProcessBlock(input, output[resultLen..]);
+                    input = input[BufSize..];
+                    resultLen += BufSize;
+                }
+
+                mPoly1305.BlockUpdate(output[..resultLen]);
+
+                mBufPos = input.Length;
+                input.CopyTo(mBuf);
                 break;
             }
             default:
@@ -332,6 +553,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
 
             return resultLen;
         }
+#endif
 
         public virtual int DoFinal(byte[] outBytes, int outOff)
         {
@@ -340,6 +562,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
             if (outOff < 0)
                 throw new ArgumentException("cannot be negative", "outOff");
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            return DoFinal(outBytes.AsSpan(outOff));
+#else
             CheckData();
 
             Array.Clear(mMac, 0, MacSize);
@@ -366,9 +591,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
                 FinishData(State.DecFinal);
 
                 if (!Arrays.ConstantTimeAreEqual(MacSize, mMac, 0, mBuf, resultLen))
-                {
                     throw new InvalidCipherTextException("mac check in ChaCha20Poly1305 failed");
-                }
 
                 break;
             }
@@ -396,7 +619,68 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
             Reset(false, true);
 
             return resultLen;
+#endif
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual int DoFinal(Span<byte> output)
+        {
+            CheckData();
+
+            Array.Clear(mMac, 0, MacSize);
+
+            int resultLen = 0;
+
+            switch (mState)
+            {
+            case State.DecData:
+            {
+                if (mBufPos < MacSize)
+                    throw new InvalidCipherTextException("data too short");
+
+                resultLen = mBufPos - MacSize;
+
+                Check.OutputLength(output, resultLen, "output buffer too short");
+
+                if (resultLen > 0)
+                {
+                    mPoly1305.BlockUpdate(mBuf, 0, resultLen);
+                    ProcessData(mBuf.AsSpan(0, resultLen), output);
+                }
+
+                FinishData(State.DecFinal);
+
+                if (!Arrays.ConstantTimeAreEqual(MacSize, mMac, 0, mBuf, resultLen))
+                    throw new InvalidCipherTextException("mac check in ChaCha20Poly1305 failed");
+
+                break;
+            }
+            case State.EncData:
+            {
+                resultLen = mBufPos + MacSize;
+
+                Check.OutputLength(output, resultLen, "output buffer too short");
+
+                if (mBufPos > 0)
+                {
+                    ProcessData(mBuf.AsSpan(0, mBufPos), output);
+                    mPoly1305.BlockUpdate(output[..mBufPos]);
+                }
+
+                FinishData(State.EncFinal);
+
+                mMac.AsSpan(0, MacSize).CopyTo(output[mBufPos..]);
+                break;
+            }
+            default:
+                throw new InvalidOperationException();
+            }
+
+            Reset(false, true);
+
+            return resultLen;
+        }
+#endif
 
         public virtual byte[] GetMac()
         {
@@ -481,6 +765,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
 
         private void InitMac()
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            Span<byte> firstBlock = stackalloc byte[64];
+            try
+            {
+                mChacha20.ProcessBytes(firstBlock, firstBlock);
+                mPoly1305.Init(new KeyParameter(firstBlock[..32]));
+            }
+            finally
+            {
+                firstBlock.Fill(0x00);
+            }
+#else
             byte[] firstBlock = new byte[64];
             try
             {
@@ -491,6 +787,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
             {
                 Array.Clear(firstBlock, 0, 64);
             }
+#endif
         }
 
         private void PadMac(ulong count)
@@ -502,6 +799,52 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
             }
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        private void ProcessBlock(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            Check.OutputLength(output, 64, "output buffer too short");
+
+            mChacha20.ProcessBlock(input, output);
+
+            this.mDataCount = IncrementCount(mDataCount, 64U, DataLimit);
+        }
+
+        private void ProcessBlocks2(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            Check.OutputLength(output, 128, "output buffer too short");
+
+            mChacha20.ProcessBlocks2(input, output);
+
+            this.mDataCount = IncrementCount(mDataCount, 128U, DataLimit);
+        }
+
+        private void ProcessData(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            Check.OutputLength(output, input.Length, "output buffer too short");
+
+            mChacha20.ProcessBytes(input, output);
+
+            this.mDataCount = IncrementCount(mDataCount, (uint)input.Length, DataLimit);
+        }
+#else
+        private void ProcessBlock(byte[] inBytes, int inOff, byte[] outBytes, int outOff)
+        {
+            Check.OutputLength(outBytes, outOff, 64, "output buffer too short");
+
+            mChacha20.ProcessBlock(inBytes, inOff, outBytes, outOff);
+
+            this.mDataCount = IncrementCount(mDataCount, 64U, DataLimit);
+        }
+
+        private void ProcessBlocks2(byte[] inBytes, int inOff, byte[] outBytes, int outOff)
+        {
+            Check.OutputLength(outBytes, outOff, 128, "output buffer too short");
+
+            mChacha20.ProcessBlocks2(inBytes, inOff, outBytes, outOff);
+
+            this.mDataCount = IncrementCount(mDataCount, 128U, DataLimit);
+        }
+
         private void ProcessData(byte[] inBytes, int inOff, int inLen, byte[] outBytes, int outOff)
         {
             Check.OutputLength(outBytes, outOff, inLen, "output buffer too short");
@@ -510,6 +853,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Modes
 
             this.mDataCount = IncrementCount(mDataCount, (uint)inLen, DataLimit);
         }
+#endif
 
         private void Reset(bool clearMac, bool resetCipher)
         {

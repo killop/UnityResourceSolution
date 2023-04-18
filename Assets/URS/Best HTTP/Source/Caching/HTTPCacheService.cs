@@ -274,10 +274,10 @@ namespace BestHTTP.Caching
             return info;
         }
 
-        internal static HTTPResponse GetFullResponse(HTTPRequest request)
+        internal static void GetFullResponse(HTTPRequest request)
         {
             if (!IsSupported)
-                return null;
+                return;
 
             CheckSetup();
 
@@ -286,9 +286,9 @@ namespace BestHTTP.Caching
             using (new ReadLock(rwLock))
             {
                 if (!library.TryGetValue(request.CurrentUri, out info))
-                    return null;
+                    return;
 
-                return info.ReadResponseTo(request);
+                info.ReadResponseTo(request);
             }
         }
 

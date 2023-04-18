@@ -1,6 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg.Sig
 {
@@ -10,17 +10,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg.Sig
     public class KeyExpirationTime
         : SignatureSubpacket
     {
-        protected static byte[] TimeToBytes(
-            long    t)
+        protected static byte[] TimeToBytes(long t)
         {
-            byte[]    data = new byte[4];
-
-            data[0] = (byte)(t >> 24);
-            data[1] = (byte)(t >> 16);
-            data[2] = (byte)(t >> 8);
-            data[3] = (byte)t;
-
-            return data;
+            return Pack.UInt32_To_BE((uint)t);
         }
 
         public KeyExpirationTime(
@@ -43,16 +35,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg.Sig
         *
         * @return second count for key validity.
         */
-        public long Time
-        {
-			get
-			{
-				long time = ((long)(data[0] & 0xff) << 24) | ((long)(data[1] & 0xff) << 16)
-					| ((long)(data[2] & 0xff) << 8) | ((long)data[3] & 0xff);
-
-				return time;
-			}
-        }
+        public long Time => (long)Pack.BE_To_UInt32(data);
     }
 }
 #pragma warning restore

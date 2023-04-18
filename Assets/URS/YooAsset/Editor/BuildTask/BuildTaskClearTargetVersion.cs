@@ -17,8 +17,8 @@ public class BuildTaskClearTargetVersion : BuildTask
             Directory.Delete(path, true);
         }
 
-        var versionRoot= Build.GetVersionRoot();
-
+        var versionRoot= (string)_context[CONTEXT_VERSION_ROOT_DIRECTORY]; ;
+        var buildingVersion = GetData<string>(CONTEXT_BUILDING_VERSION);
         if (Directory.Exists(versionRoot)) 
         {
             var di = new DirectoryInfo(versionRoot);
@@ -27,7 +27,7 @@ public class BuildTaskClearTargetVersion : BuildTask
                 var name = subDirectory.Name;
                 var names = name.Split("---");
                 var versionCode = names[0];
-                if (versionCode == URSEditorUserSettings.instance.BuildVersionCode)
+                if (versionCode == buildingVersion)
                 {
                     Directory.Delete(subDirectory.FullName, true);
                 }

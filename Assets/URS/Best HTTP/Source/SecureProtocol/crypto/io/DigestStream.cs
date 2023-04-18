@@ -7,149 +7,158 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.IO
 {
-	public class DigestStream
-		: Stream
-	{
-		protected readonly Stream stream;
-		protected readonly IDigest inDigest;
-		protected readonly IDigest outDigest;
+    public sealed class DigestStream
+        : Stream
+    {
+        private readonly Stream m_stream;
+        private readonly IDigest m_readDigest;
+        private readonly IDigest m_writeDigest;
 
-		public DigestStream(
-			Stream	stream,
-			IDigest	readDigest,
-			IDigest	writeDigest)
-		{
-			this.stream = stream;
-			this.inDigest = readDigest;
-			this.outDigest = writeDigest;
-		}
+        public DigestStream(Stream stream, IDigest readDigest, IDigest writeDigest)
+        {
+            m_stream = stream;
+            m_readDigest = readDigest;
+            m_writeDigest = writeDigest;
+        }
 
-		public virtual IDigest ReadDigest()
-		{
-			return inDigest;
-		}
+        public IDigest ReadDigest => m_readDigest;
 
-		public virtual IDigest WriteDigest()
-		{
-			return outDigest;
-		}
+        public IDigest WriteDigest => m_writeDigest;
 
-		public override int Read(
-			byte[]	buffer,
-			int		offset,
-			int		count)
-		{
-			int n = stream.Read(buffer, offset, count);
-			if (inDigest != null)
-			{
-				if (n > 0)
-				{
-					inDigest.BlockUpdate(buffer, offset, n);
-				}
-			}
-			return n;
-		}
+        public override bool CanRead
+        {
+            get { return m_stream.CanRead; }
+        }
 
-		public override int ReadByte()
-		{
-			int b = stream.ReadByte();
-			if (inDigest != null)
-			{
-				if (b >= 0)
-				{
-					inDigest.Update((byte)b);
-				}
-			}
-			return b;
-		}
+        public sealed override bool CanSeek
+        {
+            get { return false; }
+        }
 
-		public override void Write(
-			byte[]	buffer,
-			int		offset,
-			int		count)
-		{
-			if (outDigest != null)
-			{
-				if (count > 0)
-				{
-					outDigest.BlockUpdate(buffer, offset, count);
-				}
-			}
-			stream.Write(buffer, offset, count);
-		}
+        public override bool CanWrite
+        {
+            get { return m_stream.CanWrite; }
+        }
 
-		public override void WriteByte(
-			byte b)
-		{
-			if (outDigest != null)
-			{
-				outDigest.Update(b);
-			}
-			stream.WriteByte(b);
-		}
+#if NETCOREAPP2_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER || (UNITY_2021_2_OR_NEWER && (NET_STANDARD_2_0 || NET_STANDARD_2_1))
+        public override void CopyTo(Stream destination, int bufferSize)
+        {
+            if (m_readDigest == null)
+            {
+                m_stream.CopyTo(destination, bufferSize);
+            }
+            else
+            {
+                base.CopyTo(destination, bufferSize);
+            }
+        }
+#endif
 
-		public override bool CanRead
-		{
-			get { return stream.CanRead; }
-		}
+        public override void Flush()
+        {
+            m_stream.Flush();
+        }
 
-		public override bool CanWrite
-		{
-			get { return stream.CanWrite; }
-		}
+        public sealed override long Length
+        {
+            get { throw new NotSupportedException(); }
+        }
 
-		public override bool CanSeek
-		{
-			get { return stream.CanSeek; }
-		}
+        public sealed override long Position
+        {
+            get { throw new NotSupportedException(); }
+            set { throw new NotSupportedException(); }
+        }
 
-		public override long Length
-		{
-			get { return stream.Length; }
-		}
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            int n = m_stream.Read(buffer, offset, count);
 
-		public override long Position
-		{
-			get { return stream.Position; }
-			set { stream.Position = value; }
-		}
+            if (m_readDigest != null && n > 0)
+            {
+                m_readDigest.BlockUpdate(buffer, offset, n);
+            }
 
-#if PORTABLE || NETFX_CORE
+            return n;
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int Read(Span<byte> buffer)
+        {
+            int n = m_stream.Read(buffer);
+
+            if (m_readDigest != null && n > 0)
+            {
+                m_readDigest.BlockUpdate(buffer[..n]);
+            }
+
+            return n;
+        }
+#endif
+
+        public override int ReadByte()
+        {
+            int b = m_stream.ReadByte();
+
+            if (m_readDigest != null && b >= 0)
+            {
+                m_readDigest.Update((byte)b);
+            }
+
+            return b;
+        }
+
+        public sealed override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
+
+        public sealed override void SetLength(long length)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            m_stream.Write(buffer, offset, count);
+
+            if (m_writeDigest != null && count > 0)
+            {
+                m_writeDigest.BlockUpdate(buffer, offset, count);
+            }
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            m_stream.Write(buffer);
+
+            if (m_writeDigest != null && !buffer.IsEmpty)
+            {
+                m_writeDigest.BlockUpdate(buffer);
+            }
+        }
+#endif
+
+        public override void WriteByte(byte value)
+        {
+            m_stream.WriteByte(value);
+
+            if (m_writeDigest != null)
+            {
+                m_writeDigest.Update(value);
+            }
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(stream);
+                m_stream.Dispose();
             }
             base.Dispose(disposing);
         }
-#else
-		public override void Close()
-		{
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(stream);
-            base.Close();
-		}
-#endif
-
-        public override void Flush()
-		{
-			stream.Flush();
-		}
-
-		public override long Seek(
-			long		offset,
-			SeekOrigin	origin)
-		{
-			return stream.Seek(offset, origin);
-		}
-
-		public override void SetLength(
-			long length)
-		{
-			stream.SetLength(length);
-		}
-	}
+    }
 }
-
 #pragma warning restore
 #endif

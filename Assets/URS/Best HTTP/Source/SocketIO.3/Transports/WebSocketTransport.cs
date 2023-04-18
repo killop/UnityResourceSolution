@@ -14,7 +14,7 @@ namespace BestHTTP.SocketIO3.Transports
     /// <summary>
     /// A transport implementation that can communicate with a SocketIO server.
     /// </summary>
-    internal sealed class WebSocketTransport : ITransport
+    public sealed class WebSocketTransport : ITransport
     {
         public TransportTypes Type { get { return TransportTypes.WebSocket; } }
         public TransportStates State { get; private set; }
@@ -53,16 +53,33 @@ namespace BestHTTP.SocketIO3.Transports
                                         Manager.Handshake != null ? Manager.Handshake.Sid : string.Empty,
                                         sendAdditionalQueryParams ? Manager.Options.BuildQueryParams() : string.Empty));
 
-            Implementation = new WebSocket(uri);
+            Implementation = new WebSocket(uri, string.Empty, string.Empty
+#if !UNITY_WEBGL || UNITY_EDITOR
+                , (Manager.Options.WebsocketOptions?.ExtensionsFactory ?? WebSocket.GetDefaultExtensions)?.Invoke()
+#endif
+                );
 
 #if !UNITY_WEBGL || UNITY_EDITOR
+            if (this.Manager.Options.WebsocketOptions?.PingIntervalOverride is TimeSpan ping)
+            {
+                if (ping > TimeSpan.Zero)
+                {
+                    Implementation.StartPingThread = true;
+                    Implementation.PingFrequency = (int)ping.TotalMilliseconds;
+                }
+                else
+                    Implementation.StartPingThread = false;
+            }
+            else
+                Implementation.StartPingThread = true;
+
             if (this.Manager.Options.HTTPRequestCustomizationCallback != null)
                 Implementation.OnInternalRequestCreated = (ws, internalRequest) => this.Manager.Options.HTTPRequestCustomizationCallback(this.Manager, internalRequest);
 #endif
 
             Implementation.OnOpen = OnOpen;
             Implementation.OnMessage = OnMessage;
-            Implementation.OnBinary = OnBinary;
+            Implementation.OnBinaryNoAlloc = OnBinaryNoAlloc;
             Implementation.OnError = OnError;
             Implementation.OnClosed = OnClosed;
 
@@ -153,27 +170,29 @@ namespace BestHTTP.SocketIO3.Transports
                     HTTPManager.Logger.Exception("WebSocketTransport", "OnMessage OnPacket", ex, this.Manager.Context);
                 }
             }
+            else if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                HTTPManager.Logger.Verbose("WebSocketTransport", "OnMessage: skipping message " + message, this.Manager.Context);
         }
 
         /// <summary>
         /// WebSocket implementation OnBinary event handler.
         /// </summary>
-        private void OnBinary(WebSocket ws, byte[] data)
+        private void OnBinaryNoAlloc(WebSocket ws, BufferSegment data)
         {
             if (ws != Implementation)
                 return;
 
             if (HTTPManager.Logger.Level <= BestHTTP.Logger.Loglevels.All)
-                HTTPManager.Logger.Verbose("WebSocketTransport", "OnBinary", this.Manager.Context);
+                HTTPManager.Logger.Verbose("WebSocketTransport", $"OnBinaryNoAlloc({data})", this.Manager.Context);
 
             IncomingPacket packet = IncomingPacket.Empty;
             try
             {
-                packet = this.Manager.Parser.Parse(this.Manager, new BufferSegment(data, 0, data.Length));
+                packet = this.Manager.Parser.Parse(this.Manager, data);
             }
             catch (Exception ex)
             {
-                HTTPManager.Logger.Exception("WebSocketTransport", "OnBinary Packet parsing", ex, this.Manager.Context);
+                HTTPManager.Logger.Exception("WebSocketTransport", $"OnBinaryNoAlloc({data}) Packet parsing", ex, this.Manager.Context);
             }
 
             if (!packet.Equals(IncomingPacket.Empty))
@@ -184,9 +203,11 @@ namespace BestHTTP.SocketIO3.Transports
                 }
                 catch (Exception ex)
                 {
-                    HTTPManager.Logger.Exception("WebSocketTransport", "OnBinary OnPacket", ex, this.Manager.Context);
+                    HTTPManager.Logger.Exception("WebSocketTransport", $"OnBinaryNoAlloc({data}) OnPacket", ex, this.Manager.Context);
                 }
             }
+            else if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                HTTPManager.Logger.Verbose("WebSocketTransport", "OnBinaryNoAlloc skipping message", this.Manager.Context);
         }
 
         /// <summary>
@@ -277,9 +298,11 @@ namespace BestHTTP.SocketIO3.Transports
             }
 
             if (packet.IsBinary)
-                Implementation.Send(packet.PayloadData.Data, (ulong)packet.PayloadData.Offset, (ulong)packet.PayloadData.Count);
+                Implementation.SendAsBinary(packet.PayloadData);
             else
+            {
                 Implementation.Send(packet.Payload);
+            }
 
             if (packet.Attachements != null)
                 for (int i = 0; i < packet.Attachements.Count; ++i)

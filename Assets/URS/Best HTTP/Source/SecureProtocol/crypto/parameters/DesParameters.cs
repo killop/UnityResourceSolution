@@ -137,6 +137,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
                 bytes[off + i] = SetOddParity(bytes[off + i]);
             }
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public static void SetOddParity(Span<byte> bytes)
+        {
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                bytes[i] = SetOddParity(bytes[i]);
+            }
+        }
+#endif
     }
 }
 #pragma warning restore

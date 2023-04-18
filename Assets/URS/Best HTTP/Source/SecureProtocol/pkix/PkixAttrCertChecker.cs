@@ -1,9 +1,9 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
@@ -29,7 +29,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		 *         <code>PkixAttrCertChecker</code>, or <code>null</code> if no
 		 *         extensions are supported
 		 */
-		public abstract ISet GetSupportedExtensions();
+		public abstract ISet<DerObjectIdentifier> GetSupportedExtensions();
 
 		/**
 		* Performs checks on the specified attribute certificate. Every handled
@@ -46,8 +46,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		* @throws CertPathValidatorException if the specified attribute certificate
 		*             does not pass the check.
 		*/
-		public abstract void Check(IX509AttributeCertificate attrCert, PkixCertPath certPath,
-			PkixCertPath holderCertPath, ICollection unresolvedCritExts);
+		public abstract void Check(X509V2AttributeCertificate attrCert, PkixCertPath certPath,
+			PkixCertPath holderCertPath, ICollection<string> unresolvedCritExts);
 
 		/**
 		* Returns a clone of this object.

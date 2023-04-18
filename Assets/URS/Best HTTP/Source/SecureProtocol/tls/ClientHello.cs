@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -16,11 +16,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         private readonly byte[] m_sessionID;
         private readonly byte[] m_cookie;
         private readonly int[] m_cipherSuites;
-        private readonly IDictionary m_extensions;
+        private readonly IDictionary<int, byte[]> m_extensions;
         private readonly int m_bindersSize;
 
         public ClientHello(ProtocolVersion version, byte[] random, byte[] sessionID, byte[] cookie,
-            int[] cipherSuites, IDictionary extensions, int bindersSize)
+            int[] cipherSuites, IDictionary<int, byte[]> extensions, int bindersSize)
         {
             this.m_version = version;
             this.m_random = random;
@@ -46,7 +46,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             get { return m_cookie; }
         }
 
-        public IDictionary Extensions
+        public IDictionary<int, byte[]> Extensions
         {
             get { return m_extensions; }
         }
@@ -144,7 +144,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
             int cipher_suites_length = TlsUtilities.ReadUint16(input);
             if (cipher_suites_length < 2 || (cipher_suites_length & 1) != 0
-                || (int)(messageInput.Length - messageInput.Position) < cipher_suites_length)
+                || Convert.ToInt32(messageInput.Length - messageInput.Position) < cipher_suites_length)
             {
                 throw new TlsFatalAlert(AlertDescription.decode_error);
             }
@@ -163,7 +163,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
              * NOTE: Can't use TlsProtocol.ReadExtensions directly because TeeInputStream a) won't have
              * 'Length' or 'Position' properties in the FIPS provider, b) isn't a MemoryStream.
              */
-            IDictionary extensions = null;
+            IDictionary<int, byte[]> extensions = null;
             if (messageInput.Position < messageInput.Length)
             {
                 byte[] extBytes = TlsUtilities.ReadOpaque16(input);

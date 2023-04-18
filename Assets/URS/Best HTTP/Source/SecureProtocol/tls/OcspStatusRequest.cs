@@ -1,13 +1,12 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
@@ -15,22 +14,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
     /// <summary>RFC 3546 3.6</summary>
     public sealed class OcspStatusRequest
     {
-        private readonly IList m_responderIDList;
+        private readonly IList<ResponderID> m_responderIDList;
         private readonly X509Extensions m_requestExtensions;
 
-        /// <param name="responderIDList">an <see cref="IList"/> of <see cref="ResponderID"/>, specifying the list of
+        /// <param name="responderIDList">an <see cref="IList{T}"/> of <see cref="ResponderID"/>, specifying the list of
         /// trusted OCSP responders. An empty list has the special meaning that the responders are implicitly known to
         /// the server - e.g., by prior arrangement.</param>
         /// <param name="requestExtensions">OCSP request extensions. A null value means that there are no extensions.
         /// </param>
-        public OcspStatusRequest(IList responderIDList, X509Extensions requestExtensions)
+        public OcspStatusRequest(IList<ResponderID> responderIDList, X509Extensions requestExtensions)
         {
             this.m_responderIDList = responderIDList;
             this.m_requestExtensions = requestExtensions;
         }
 
-        /// <returns>an <see cref="IList"/> of <see cref="ResponderID"/>.</returns>
-        public IList ResponderIDList
+        /// <returns>an <see cref="IList{T}"/> of <see cref="ResponderID"/>.</returns>
+        public IList<ResponderID> ResponderIDList
         {
             get { return m_responderIDList; }
         }
@@ -59,8 +58,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                     TlsUtilities.WriteOpaque16(derEncoding, buf);
                 }
                 TlsUtilities.CheckUint16(buf.Length);
-                TlsUtilities.WriteUint16((int)buf.Length, output);
-                Streams.WriteBufTo(buf, output);
+                TlsUtilities.WriteUint16(Convert.ToInt32(buf.Length), output);
+                buf.WriteTo(output);
             }
 
             if (m_requestExtensions == null)
@@ -82,7 +81,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         /// <exception cref="IOException"/>
         public static OcspStatusRequest Parse(Stream input)
         {
-            IList responderIDList = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+            var responderIDList = new List<ResponderID>();
             {
                 byte[] data = TlsUtilities.ReadOpaque16(input);
                 if (data.Length > 0)
@@ -91,7 +90,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                     do
                     {
                         byte[] derEncoding = TlsUtilities.ReadOpaque16(buf, 1);
-                        ResponderID responderID = ResponderID.GetInstance(TlsUtilities.ReadDerObject(derEncoding));
+                        Asn1Object asn1 = TlsUtilities.ReadAsn1Object(derEncoding);
+                        ResponderID responderID = ResponderID.GetInstance(asn1);
+                        TlsUtilities.RequireDerEncoding(responderID, derEncoding);
                         responderIDList.Add(responderID);
                     }
                     while (buf.Position < buf.Length);
@@ -103,7 +104,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 byte[] derEncoding = TlsUtilities.ReadOpaque16(input);
                 if (derEncoding.Length > 0)
                 {
-                    requestExtensions = X509Extensions.GetInstance(TlsUtilities.ReadDerObject(derEncoding));
+                    Asn1Object asn1 = TlsUtilities.ReadAsn1Object(derEncoding);
+                    X509Extensions extensions = X509Extensions.GetInstance(asn1);
+                    TlsUtilities.RequireDerEncoding(extensions, derEncoding);
+                    requestExtensions = extensions;
                 }
             }
 

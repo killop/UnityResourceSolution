@@ -1,10 +1,11 @@
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
 using System;
 using System.IO;
 using System.Text;
 using BestHTTP.Authentication;
 using BestHTTP.Extensions;
 using BestHTTP.PlatformSupport.Memory;
+using BestHTTP.PlatformSupport.Text;
 
 namespace BestHTTP
 {
@@ -360,10 +361,10 @@ namespace BestHTTP
 
         private string BufferToHexStr(byte[] buffer, int count)
         {
-            StringBuilder sb = new StringBuilder(count * 2);
+            StringBuilder sb = StringBuilderPool.Get(count * 2); //new StringBuilder(count * 2);
             for (int i = 0; i < count; ++i)
                 sb.AppendFormat("0x{0} ", buffer[i].ToString("X2"));
-            return sb.ToString();
+            return StringBuilderPool.ReleaseAndGrab(sb);
         }
     }
 }

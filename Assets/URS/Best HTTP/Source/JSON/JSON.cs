@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
+using BestHTTP.PlatformSupport.Text;
+
 namespace BestHTTP.JSON
 {
 	/// <summary>
@@ -69,9 +71,11 @@ namespace BestHTTP.JSON
 		/// <returns>A JSON encoded string, or null if object 'json' is not serializable</returns>
 		public static string Encode(object json)
 		{
-			StringBuilder builder = new StringBuilder(BUILDER_CAPACITY);
-			bool success = SerializeValue(json, builder);
-			return (success ? builder.ToString() : null);
+            StringBuilder builder = StringBuilderPool.Get(BUILDER_CAPACITY); //new StringBuilder(BUILDER_CAPACITY);
+
+            bool success = SerializeValue(json, builder);
+
+			return (success ? StringBuilderPool.ReleaseAndGrab(builder) : null);
 		}
 
 		protected static Dictionary<string, object> ParseObject(char[] json, ref int index, ref bool success)
@@ -184,8 +188,9 @@ namespace BestHTTP.JSON
 
 		protected static string ParseString(char[] json, ref int index, ref bool success)
 		{
-			StringBuilder s = new StringBuilder(BUILDER_CAPACITY);
-			char c;
+            StringBuilder s = StringBuilderPool.Get(BUILDER_CAPACITY); //new StringBuilder(BUILDER_CAPACITY);
+
+            char c;
 
 			EatWhitespace(json, ref index);
 
@@ -253,7 +258,7 @@ namespace BestHTTP.JSON
 				return null;
 			}
 
-			return s.ToString();
+			return StringBuilderPool.ReleaseAndGrab(s);
 		}
 
 		protected static double ParseNumber(char[] json, ref int index, ref bool success)

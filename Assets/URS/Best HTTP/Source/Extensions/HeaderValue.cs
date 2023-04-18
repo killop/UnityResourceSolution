@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using BestHTTP.PlatformSupport.Text;
+
 namespace BestHTTP.Extensions
 {
     /// <summary>
@@ -107,7 +109,7 @@ namespace BestHTTP.Extensions
         {
             if (this.Options != null && this.Options.Count > 0)
             {
-                StringBuilder sb = new StringBuilder(4);
+                StringBuilder sb = StringBuilderPool.Get(4); //new StringBuilder(4);
                 sb.Append(Key);
                 sb.Append("=");
                 sb.Append(Value);
@@ -118,7 +120,7 @@ namespace BestHTTP.Extensions
                     sb.Append(option.ToString());
                 }
 
-                return sb.ToString();
+                return StringBuilderPool.ReleaseAndGrab(sb);
             }
             else if (!string.IsNullOrEmpty(Value))
                 return Key + '=' + Value;

@@ -22,7 +22,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			if (obj is Asn1Sequence)
 				return new EncryptedData((Asn1Sequence) obj);
 
-            throw new ArgumentException("Invalid EncryptedData: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("Invalid EncryptedData: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
 		}
 
 		public EncryptedData(

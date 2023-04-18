@@ -1,24 +1,23 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cmp;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cmp
 {
-    public class ProtectedPkiMessageBuilder
+    public sealed class ProtectedPkiMessageBuilder
     {
-        private PkiHeaderBuilder hdrBuilBuilder;
+        private readonly PkiHeaderBuilder m_hdrBuilder;
         private PkiBody body;
-        private IList generalInfos = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
-        private IList extraCerts = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+        private readonly List<InfoTypeAndValue> generalInfos = new List<InfoTypeAndValue>();
+        private readonly List<X509Certificate> extraCerts = new List<X509Certificate>();
 
         public ProtectedPkiMessageBuilder(GeneralName sender, GeneralName recipient)
             : this(PkiHeader.CMP_2000, sender, recipient)
@@ -27,18 +26,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cmp
 
         public ProtectedPkiMessageBuilder(int pvno, GeneralName sender, GeneralName recipient)
         {
-            hdrBuilBuilder = new PkiHeaderBuilder(pvno, sender, recipient);
+            m_hdrBuilder = new PkiHeaderBuilder(pvno, sender, recipient);
         }
 
         public ProtectedPkiMessageBuilder SetTransactionId(byte[] tid)
         {
-            hdrBuilBuilder.SetTransactionID(tid);
+            m_hdrBuilder.SetTransactionID(tid);
             return this;
         }
 
         public ProtectedPkiMessageBuilder SetFreeText(PkiFreeText freeText)
         {
-            hdrBuilBuilder.SetFreeText(freeText);
+            m_hdrBuilder.SetFreeText(freeText);
             return this;
         }
 
@@ -48,33 +47,39 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cmp
             return this;
         }
 
-        public ProtectedPkiMessageBuilder SetMessageTime(DerGeneralizedTime generalizedTime)
+        public ProtectedPkiMessageBuilder SetMessageTime(DateTime time)
         {
-            hdrBuilBuilder.SetMessageTime(generalizedTime);
+            m_hdrBuilder.SetMessageTime(new Asn1GeneralizedTime(time));
+            return this;
+        }
+
+        public ProtectedPkiMessageBuilder SetMessageTime(Asn1GeneralizedTime generalizedTime)
+        {
+            m_hdrBuilder.SetMessageTime(generalizedTime);
             return this;
         }
 
         public ProtectedPkiMessageBuilder SetRecipKID(byte[] id)
         {
-            hdrBuilBuilder.SetRecipKID(id);
+            m_hdrBuilder.SetRecipKID(id);
             return this;
         }
 
         public ProtectedPkiMessageBuilder SetRecipNonce(byte[] nonce)
         {
-            hdrBuilBuilder.SetRecipNonce(nonce);
+            m_hdrBuilder.SetRecipNonce(nonce);
             return this;
         }
 
         public ProtectedPkiMessageBuilder SetSenderKID(byte[] id)
         {
-            hdrBuilBuilder.SetSenderKID(id);
+            m_hdrBuilder.SetSenderKID(id);
             return this;
         }
 
         public ProtectedPkiMessageBuilder SetSenderNonce(byte[] nonce)
         {
-            hdrBuilBuilder.SetSenderNonce(nonce);
+            m_hdrBuilder.SetSenderNonce(nonce);
             return this;
         }
 
@@ -95,86 +100,60 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cmp
             if (null == body)
                 throw new InvalidOperationException("body must be set before building");
 
-            IStreamCalculator calculator = signatureFactory.CreateCalculator();
+            IStreamCalculator<IBlockResult> calculator = signatureFactory.CreateCalculator();
 
-            if (!(signatureFactory.AlgorithmDetails is AlgorithmIdentifier))
-            {
+            if (!(signatureFactory.AlgorithmDetails is AlgorithmIdentifier algorithmDetails))
                 throw new ArgumentException("AlgorithmDetails is not AlgorithmIdentifier");
-            }
 
-            FinalizeHeader((AlgorithmIdentifier)signatureFactory.AlgorithmDetails);
-            PkiHeader header = hdrBuilBuilder.Build();
+            FinalizeHeader(algorithmDetails);
+            PkiHeader header = m_hdrBuilder.Build();
             DerBitString protection = new DerBitString(CalculateSignature(calculator, header, body));
             return FinalizeMessage(header, protection);
         }
 
-        public ProtectedPkiMessage Build(IMacFactory factory)
+        public ProtectedPkiMessage Build(IMacFactory macFactory)
         {
             if (null == body)
                 throw new InvalidOperationException("body must be set before building");
 
-            IStreamCalculator calculator = factory.CreateCalculator();
-            FinalizeHeader((AlgorithmIdentifier)factory.AlgorithmDetails);
-            PkiHeader header = hdrBuilBuilder.Build();
+            IStreamCalculator<IBlockResult> calculator = macFactory.CreateCalculator();
+
+            if (!(macFactory.AlgorithmDetails is AlgorithmIdentifier algorithmDetails))
+                throw new ArgumentException("AlgorithmDetails is not AlgorithmIdentifier");
+
+            FinalizeHeader(algorithmDetails);
+            PkiHeader header = m_hdrBuilder.Build();
             DerBitString protection = new DerBitString(CalculateSignature(calculator, header, body));
             return FinalizeMessage(header, protection);
         }
 
         private void FinalizeHeader(AlgorithmIdentifier algorithmIdentifier)
         {
-            hdrBuilBuilder.SetProtectionAlg(algorithmIdentifier);
+            m_hdrBuilder.SetProtectionAlg(algorithmIdentifier);
             if (generalInfos.Count > 0)
             {
-                InfoTypeAndValue[] genInfos = new InfoTypeAndValue[generalInfos.Count];
-                for (int t = 0; t < genInfos.Length; t++)
-                {
-                    genInfos[t] = (InfoTypeAndValue)generalInfos[t];
-                }
-
-                hdrBuilBuilder.SetGeneralInfo(genInfos);
+                m_hdrBuilder.SetGeneralInfo(generalInfos.ToArray());
             }
         }
 
         private ProtectedPkiMessage FinalizeMessage(PkiHeader header, DerBitString protection)
         {
-            if (extraCerts.Count > 0)
-            {
-                CmpCertificate[] cmpCertificates = new CmpCertificate[extraCerts.Count];
-                for (int i = 0; i < cmpCertificates.Length; i++)
-                {
-                    byte[] cert = ((X509Certificate)extraCerts[i]).GetEncoded();
-                    cmpCertificates[i] = CmpCertificate.GetInstance((Asn1Sequence.FromByteArray(cert)));
-                }
+            if (extraCerts.Count < 1)
+                return new ProtectedPkiMessage(new PkiMessage(header, body, protection));
 
-                return new ProtectedPkiMessage(new PkiMessage(header, body, protection, cmpCertificates));
+            CmpCertificate[] cmpCertificates = new CmpCertificate[extraCerts.Count];
+            for (int i = 0; i < cmpCertificates.Length; i++)
+            {
+                cmpCertificates[i] = new CmpCertificate(extraCerts[i].CertificateStructure);
             }
 
-            return new ProtectedPkiMessage(new PkiMessage(header, body, protection));
+            return new ProtectedPkiMessage(new PkiMessage(header, body, protection, cmpCertificates));
         }
 
-        private byte[] CalculateSignature(IStreamCalculator signer, PkiHeader header, PkiBody body)
+        private byte[] CalculateSignature(IStreamCalculator<IBlockResult> signer, PkiHeader header, PkiBody body)
         {
-            Asn1EncodableVector avec = new Asn1EncodableVector();
-            avec.Add(header);
-            avec.Add(body);
-            byte[] encoded = new DerSequence(avec).GetEncoded();
-            signer.Stream.Write(encoded, 0, encoded.Length);
-            object result = signer.GetResult();
-
-            if (result is DefaultSignatureResult)
-            {
-                return ((DefaultSignatureResult)result).Collect();
-            }
-            else if (result is IBlockResult)
-            {
-                return ((IBlockResult)result).Collect();
-            }
-            else if (result is byte[])
-            {
-                return (byte[])result;
-            }
-
-            throw new InvalidOperationException("result is not byte[] or DefaultSignatureResult");
+            new DerSequence(header, body).EncodeTo(signer.Stream);
+            return signer.GetResult().Collect();
         }
     }
 }

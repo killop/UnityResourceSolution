@@ -24,7 +24,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9
 			if (obj is DerInteger)
 				return new DHPublicKey((DerInteger)obj);
 
-			throw new ArgumentException("Invalid DHPublicKey: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("Invalid DHPublicKey: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public DHPublicKey(DerInteger y)

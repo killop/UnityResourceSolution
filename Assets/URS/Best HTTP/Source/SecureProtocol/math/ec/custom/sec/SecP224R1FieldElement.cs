@@ -3,6 +3,7 @@
 using System;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.Raw;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Encoders;
 
@@ -117,7 +118,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         public override ECFieldElement Invert()
         {
-            //return new SecP224R1FieldElement(ToBigInteger().ModInverse(Q));
             uint[] z = Nat224.Create();
             SecP224R1Field.Inv(x, z);
             return new SecP224R1FieldElement(z);
@@ -136,7 +136,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
             uint[] nc = Nat224.Create();
             SecP224R1Field.Negate(c, nc);
 
-            uint[] r = Mod.Random(SecP224R1Field.P);
+            uint[] r = Mod.Random(SecureRandom.ArbitraryRandom, SecP224R1Field.P);
             uint[] t = Nat224.Create();
 
             if (!IsSquare(c))

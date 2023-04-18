@@ -1,26 +1,15 @@
+using System;
+
 using BestHTTP.Extensions;
 using BestHTTP.PlatformSupport.Memory;
-using System;
 
 namespace BestHTTP.Decompression
 {
-    public struct DecompressedData
-    {
-        public readonly byte[] Data;
-        public readonly int Length;
-
-        internal DecompressedData(byte[] data, int length)
-        {
-            this.Data = data;
-            this.Length = length;
-        }
-    }
-
-    public sealed class GZipDecompressor : IDisposable
+    public sealed class GZipDecompressor : IDecompressor
     {
         private BufferPoolMemoryStream decompressorInputStream;
         private BufferPoolMemoryStream decompressorOutputStream;
-        private Zlib.GZipStream decompressorGZipStream;
+        private Zlib.GZipStream decompressorStream;
 
         private int MinLengthToDecompress = 256;
 
@@ -31,9 +20,9 @@ namespace BestHTTP.Decompression
 
         private void CloseDecompressors()
         {
-            if (decompressorGZipStream != null)
-                decompressorGZipStream.Dispose();
-            decompressorGZipStream = null;
+            if (decompressorStream != null)
+                decompressorStream.Dispose();
+            decompressorStream = null;
 
             if (decompressorInputStream != null)
                 decompressorInputStream.Dispose();
@@ -57,13 +46,13 @@ namespace BestHTTP.Decompression
 
             decompressorInputStream.Position = 0;
 
-            if (decompressorGZipStream == null)
+            if (decompressorStream == null)
             {
-                decompressorGZipStream = new Zlib.GZipStream(decompressorInputStream,
+                decompressorStream = new Zlib.GZipStream(decompressorInputStream,
                                                              Zlib.CompressionMode.Decompress,
                                                              Zlib.CompressionLevel.Default,
                                                              true);
-                decompressorGZipStream.FlushMode = Zlib.FlushType.Sync;
+                decompressorStream.FlushMode = Zlib.FlushType.Sync;
             }
 
             if (decompressorOutputStream == null)
@@ -74,7 +63,7 @@ namespace BestHTTP.Decompression
 
             int readCount;
             int sumReadCount = 0;
-            while ((readCount = decompressorGZipStream.Read(copyBuffer, 0, copyBuffer.Length)) != 0)
+            while ((readCount = decompressorStream.Read(copyBuffer, 0, copyBuffer.Length)) != 0)
             {
                 decompressorOutputStream.Write(copyBuffer, 0, readCount);
                 sumReadCount += readCount;
@@ -84,7 +73,7 @@ namespace BestHTTP.Decompression
 
             // If no read is done (returned with any data) don't zero out the input stream, as it would delete any not yet used data.
             if (sumReadCount > 0)
-                decompressorGZipStream.SetLength(0);
+                decompressorStream.SetLength(0);
 
             byte[] result = decompressorOutputStream.ToArray(dataCanBeLarger);
 

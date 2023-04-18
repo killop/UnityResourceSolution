@@ -1,15 +1,12 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 {
-
 	/// <summary>
 	/// Implementation of the Skein parameterised hash function in 256, 512 and 1024 bit block sizes,
 	/// based on the <see cref="BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines.ThreefishEngine">Threefish</see> tweakable block cipher.
@@ -70,7 +67,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			return new SkeinDigest(this);
 		}
 
-		public String AlgorithmName
+		public string AlgorithmName
 		{
 			get { return "Skein-" + (engine.BlockSize * 8) + "-" + (engine.OutputSize * 8); }
 		}
@@ -107,7 +104,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 
 		public void BlockUpdate(byte[] inBytes, int inOff, int len)
 		{
-			engine.Update(inBytes, inOff, len);
+			engine.BlockUpdate(inBytes, inOff, len);
 		}
 
 		public int DoFinal(byte[] outBytes, int outOff)
@@ -115,7 +112,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			return engine.DoFinal(outBytes, outOff);
 		}
 
-	}
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            engine.BlockUpdate(input);
+        }
+
+        public int DoFinal(Span<byte> output)
+        {
+            return engine.DoFinal(output);
+        }
+#endif
+    }
 }
 #pragma warning restore
 #endif

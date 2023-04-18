@@ -8,14 +8,17 @@ using UnityEditor.AssetImporters;
 using UnityEditorInternal;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using NinjaBeats;
+using IList = System.Collections.IList;
+using NinjaBeats.ReflectionHelper;
 
 namespace Daihenka.AssetPipeline.Processors
 {
     [CustomEditor(typeof(SetTextureFormat))]
     internal class SetTextureFormatInspector : AssetProcessorInspector
     {
-        private static dynamic m_DummyEditor;
-        private dynamic m_PlatformSettings;
+        private static UnityEditor_TextureImporterInspector s_DummyEditor;
+        private static IList s_PlatformSettings;
         private SetTextureFormat m_Target;
         private readonly GUIContent GUIContent_defaultPlatform = EditorGUIUtility.TrTextContent("Default");
         
@@ -29,21 +32,10 @@ namespace Daihenka.AssetPipeline.Processors
             
             m_Target.DataToDummy();
 
-            m_DummyEditor ??= Editor.CreateEditor(SetTextureFormat.DummyImporter, UnityEditorDynamic.Type_TextureImporterInspector);
-            m_PlatformSettings = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(new[] { UnityEditorDynamic.Type_BaseTextureImportPlatformSettings }));
-            var v = Activator.CreateInstance(UnityEditorDynamic.Type_TextureImportPlatformSettings,
-                UnityEditorDynamic.TextureImporterInspector.s_DefaultPlatformName, BuildTarget.StandaloneWindows, m_DummyEditor);
-            ((IList)m_PlatformSettings).Add((object)v);
-            foreach (var buildPlatform in UnityEditorDynamic.Build_BuildPlatforms.instance.GetValidPlatforms())
-            {
-                var name = (string)UnityEditorDynamic.Reflection_BuildPlatform_name.GetValue((object)buildPlatform);
-                var defaultTarget = (BuildTarget)UnityEditorDynamic.Reflection_BuildPlatform_defaultTarget.GetValue((object)buildPlatform);
-                var vv = Activator.CreateInstance(UnityEditorDynamic.Type_TextureImportPlatformSettings, name, defaultTarget, m_DummyEditor);
-                ((IList)m_PlatformSettings).Add((object)vv);
-            }
-
-            if (m_DummyEditor != null)
-                UnityEditorDynamic.Reflection_TextureImporterInspector_OnEnable.Invoke((object)m_DummyEditor, Array.Empty<object>());
+            s_DummyEditor.__self__ ??= Editor.CreateEditor(SetTextureFormat.DummyImporter, UnityEditor_TextureImporterInspector.__type__);
+            s_PlatformSettings ??= (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(new[] { UnityEditor_BaseTextureImportPlatformSettings.__type__ }));
+            
+            s_DummyEditor.OnEnable();
         }
 
         protected void OnDisable()
@@ -51,8 +43,7 @@ namespace Daihenka.AssetPipeline.Processors
             if (m_Target == null)
                 return;
             
-            if (m_DummyEditor != null)
-                UnityEditorDynamic.Reflection_TextureImporterInspector_OnDisable.Invoke((object)m_DummyEditor, Array.Empty<object>());
+            s_DummyEditor.OnDisable();
 
             m_Target = null;
         }
@@ -65,25 +56,37 @@ namespace Daihenka.AssetPipeline.Processors
             serializedObject.Update();
             DrawBaseProperties();
             serializedObject.ApplyModifiedProperties();
-            
-            UnityEditorDynamic.BaseTextureImportPlatformSettings.InitPlatformSettings(m_PlatformSettings);
-            GUILayout.Space(10f);
-            int selected = (int)UnityEditorDynamic.EditorGUILayout.BeginPlatformGrouping(UnityEditorDynamic.BaseTextureImportPlatformSettings.GetBuildPlayerValidPlatforms(), GUIContent_defaultPlatform, UnityEditorDynamic.EditorStyles.frameBox, (Func<int, bool>) (idx =>
+
+            s_PlatformSettings.Clear();
+            s_PlatformSettings.AddRange(s_DummyEditor.m_PlatformSettings);
+            var m_PlatformSettingsArrProp = s_DummyEditor.m_PlatformSettingsArrProp;
+            UnityEditor_BaseTextureImportPlatformSettings.InitPlatformSettings(s_PlatformSettings);
+            foreach (var v in s_PlatformSettings)
             {
-                var setting = ((IList)this.m_PlatformSettings)[idx + 1];
-                var model = (dynamic)UnityEditorDynamic.Reflection_TextureImportPlatformSettings_model.GetValue(setting);
-                var isDefault = (bool)(UnityEditorDynamic.Reflection_TextureImportPlatformSettingsData_isDefault.GetValue(model));
-                var overriddenIsDifferent = (bool)(UnityEditorDynamic.Reflection_TextureImportPlatformSettingsData_overriddenIsDifferent.GetValue(model));
-                var allAreOverridden = (bool)(UnityEditorDynamic.Reflection_TextureImportPlatformSettingsData_allAreOverridden.GetValue(model));
-                return !isDefault && (overriddenIsDifferent || allAreOverridden);
-            }));
+                var settings = new UnityEditor_TextureImportPlatformSettings(v);
+                settings.CacheSerializedProperties(m_PlatformSettingsArrProp);
+            }
+            GUILayout.Space(10f);
+            int selected = UnityEditor_EditorGUILayout.BeginPlatformGrouping(
+                UnityEditor_BaseTextureImportPlatformSettings.GetBuildPlayerValidPlatforms(),
+                GUIContent_defaultPlatform,
+                UnityEditor_EditorStyles.frameBox, (Func<int, bool>)(idx =>
+                {
+                    UnityEditor_TextureImportPlatformSettings setting = new(s_PlatformSettings[idx + 1]);
+                    var model = setting.model;
+                    var isDefault = model.isDefault;
+                    var overriddenIsDifferent = model.overriddenIsDifferent;
+                    var allAreOverridden = model.allAreOverridden;
+                    return !isDefault && (overriddenIsDifferent || allAreOverridden);
+                }));
             using (EditorGUI.ChangeCheckScope changeCheckScope = new EditorGUI.ChangeCheckScope())
             {
-                UnityEditorDynamic.BaseTextureImportPlatformSettings.ShowPlatformSpecificSettings(m_PlatformSettings, selected);
+                UnityEditor_BaseTextureImportPlatformSettings.ShowPlatformSpecificSettings(s_PlatformSettings,
+                    selected);
                 if (changeCheckScope.changed)
                 {
                     Undo.RegisterCompleteObjectUndo(new UnityEngine.Object[] { this.m_Target, SetTextureFormat.DummyImporter }, "Inspector");
-                    UnityEditorDynamic.BaseTextureImportPlatformSettings.ApplyPlatformSettings(m_PlatformSettings);
+                    UnityEditor_BaseTextureImportPlatformSettings.ApplyPlatformSettings(s_PlatformSettings);
                     m_Target.DataFromDummy();
                     
                 }

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 
+using BestHTTP.Connections;
+using BestHTTP.PlatformSupport.Text;
+
 namespace BestHTTP.Core
 {
     public sealed class HostDefinition
@@ -100,22 +103,17 @@ namespace BestHTTP.Core
             }
         }
 
-        private static System.Text.StringBuilder keyBuilder = new System.Text.StringBuilder(11);
-
-        // While a ReaderWriterLockSlim would be best with read and write locking and we use only WriteLock, it's still a lightweight locking mechanism instead of the lock statement.
-        private static System.Threading.ReaderWriterLockSlim keyBuilderLock = new System.Threading.ReaderWriterLockSlim(System.Threading.LockRecursionPolicy.NoRecursion);
-
         public static string GetKeyForRequest(HTTPRequest request)
         {
             return GetKeyFor(request.CurrentUri
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
                 , request.Proxy
 #endif
                 );
         }
 
         public static string GetKeyFor(Uri uri
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
             , Proxy proxy
 #endif
             )
@@ -123,36 +121,27 @@ namespace BestHTTP.Core
             if (uri.IsFile)
                 return uri.ToString();
 
-            keyBuilderLock.EnterWriteLock();
+            var keyBuilder = StringBuilderPool.Get(11);
 
-            try
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
+            if (proxy != null && proxy.UseProxyForAddress(uri))
             {
-                keyBuilder.Length = 0;
-
-#if !BESTHTTP_DISABLE_PROXY
-                if (proxy != null && proxy.UseProxyForAddress(uri))
-                {
-                    keyBuilder.Append(proxy.Address.Scheme);
-                    keyBuilder.Append("://");
-                    keyBuilder.Append(proxy.Address.Host);
-                    keyBuilder.Append(":");
-                    keyBuilder.Append(proxy.Address.Port);
-                    keyBuilder.Append(" @ ");
-                }
+                keyBuilder.Append(proxy.Address.Scheme);
+                keyBuilder.Append("://");
+                keyBuilder.Append(proxy.Address.Host);
+                keyBuilder.Append(":");
+                keyBuilder.Append(proxy.Address.Port);
+                keyBuilder.Append(" @ ");
+            }
 #endif
 
-                keyBuilder.Append(uri.Scheme);
-                keyBuilder.Append("://");
-                keyBuilder.Append(uri.Host);
-                keyBuilder.Append(":");
-                keyBuilder.Append(uri.Port);
+            keyBuilder.Append(uri.Scheme);
+            keyBuilder.Append("://");
+            keyBuilder.Append(uri.Host);
+            keyBuilder.Append(":");
+            keyBuilder.Append(uri.Port);
 
-                return keyBuilder.ToString();
-            }
-            finally
-            {
-                keyBuilderLock.ExitWriteLock();
-            }
+            return StringBuilderPool.ReleaseAndGrab(keyBuilder);
         }
     }
 }

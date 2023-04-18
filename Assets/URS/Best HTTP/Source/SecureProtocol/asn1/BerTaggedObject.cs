@@ -1,9 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
@@ -15,106 +12,81 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 	public class BerTaggedObject
 		: DerTaggedObject
 	{
-		/**
+        /**
 		 * @param tagNo the tag number for this object.
 		 * @param obj the tagged object.
 		 */
-		public BerTaggedObject(
-			int				tagNo,
-			Asn1Encodable	obj)
-			: base(tagNo, obj)
+        public BerTaggedObject(int tagNo, Asn1Encodable obj)
+			: base(true, tagNo, obj)
 		{
 		}
 
-		/**
-		 * @param explicitly true if an explicitly tagged object.
-		 * @param tagNo the tag number for this object.
-		 * @param obj the tagged object.
-		 */
-		public BerTaggedObject(
-			bool			explicitly,
-			int				tagNo,
-			Asn1Encodable	obj)
-			: base(explicitly, tagNo, obj)
-		{
-		}
-
-		/**
-		 * create an implicitly tagged object that contains a zero
-		 * length sequence.
-		 */
-		public BerTaggedObject(
-			int tagNo)
-			: base(false, tagNo, BerSequence.Empty)
-		{
-		}
-
-        internal override int EncodedLength(bool withID)
+        public BerTaggedObject(int tagClass, int tagNo, Asn1Encodable obj)
+            : base(true, tagClass, tagNo, obj)
         {
-            throw BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException("BerTaggedObject.EncodedLength");
         }
 
-        internal override void Encode(Asn1OutputStream asn1Out, bool withID)
+        /**
+		 * @param isExplicit true if an explicitly tagged object.
+		 * @param tagNo the tag number for this object.
+		 * @param obj the tagged object.
+		 */
+        public BerTaggedObject(bool isExplicit, int tagNo, Asn1Encodable obj)
+			: base(isExplicit, tagNo, obj)
 		{
-			if (asn1Out.IsBer)
-			{
-                if (withID)
-                {
-                    asn1Out.WriteIdentifier(true, Asn1Tags.Constructed | Asn1Tags.ContextSpecific, tagNo);
-                }
-
-                asn1Out.WriteByte(0x80);
-
-				if (!IsEmpty())
-				{
-					if (!explicitly)
-					{
-						IEnumerable eObj;
-						if (obj is Asn1OctetString)
-						{
-							if (obj is BerOctetString)
-							{
-								eObj = (BerOctetString) obj;
-							}
-							else
-							{
-								Asn1OctetString octs = (Asn1OctetString)obj;
-								eObj = new BerOctetString(octs.GetOctets());
-							}
-						}
-						else if (obj is Asn1Sequence)
-						{
-							eObj = (Asn1Sequence) obj;
-						}
-						else if (obj is Asn1Set)
-						{
-							eObj = (Asn1Set) obj;
-						}
-						else
-						{
-							throw BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
-						}
-
-						foreach (Asn1Encodable o in eObj)
-						{
-							asn1Out.WritePrimitive(o.ToAsn1Object(), true);
-						}
-					}
-					else
-					{
-						asn1Out.WritePrimitive(obj.ToAsn1Object(), true);
-					}
-				}
-
-				asn1Out.WriteByte(0x00);
-				asn1Out.WriteByte(0x00);
-			}
-			else
-			{
-				base.Encode(asn1Out, withID);
-			}
 		}
-	}
+
+        public BerTaggedObject(bool isExplicit, int tagClass, int tagNo, Asn1Encodable obj)
+            : base(isExplicit, tagClass, tagNo, obj)
+        {
+        }
+
+        internal BerTaggedObject(int explicitness, int tagClass, int tagNo, Asn1Encodable obj)
+            : base(explicitness, tagClass, tagNo, obj)
+        {
+        }
+
+        internal override string Asn1Encoding
+        {
+            get { return Ber; }
+        }
+
+        internal override IAsn1Encoding GetEncoding(int encoding)
+        {
+            if (Asn1OutputStream.EncodingBer != encoding)
+                return base.GetEncoding(encoding);
+
+            Asn1Object baseObject = GetBaseObject().ToAsn1Object();
+
+            if (!IsExplicit())
+                return baseObject.GetEncodingImplicit(encoding, TagClass, TagNo);
+
+            return new ConstructedILEncoding(TagClass, TagNo, new IAsn1Encoding[]{ baseObject.GetEncoding(encoding) });
+        }
+
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
+        {
+            if (Asn1OutputStream.EncodingBer != encoding)
+                return base.GetEncodingImplicit(encoding, tagClass, tagNo);
+
+            Asn1Object baseObject = GetBaseObject().ToAsn1Object();
+
+            if (!IsExplicit())
+                return baseObject.GetEncodingImplicit(encoding, tagClass, tagNo);
+
+            return new ConstructedILEncoding(tagClass, tagNo, new IAsn1Encoding[]{ baseObject.GetEncoding(encoding) });
+        }
+
+        internal override Asn1Sequence RebuildConstructed(Asn1Object asn1Object)
+        {
+            return new BerSequence(asn1Object);
+        }
+
+        internal override Asn1TaggedObject ReplaceTag(int tagClass, int tagNo)
+        {
+            return new BerTaggedObject(explicitness, tagClass, tagNo, obj);
+        }
+    }
 }
 #pragma warning restore
 #endif

@@ -2,7 +2,6 @@
 #pragma warning disable
 using System;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.CryptoPro;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.EdEC;
@@ -12,22 +11,18 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Rosstandart;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Encoders;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 {
     /// <summary>
     /// A factory to produce Public Key Info Objects.
     /// </summary>
-    public sealed class SubjectPublicKeyInfoFactory
+    public static class SubjectPublicKeyInfoFactory
     {
-        private SubjectPublicKeyInfoFactory()
-        {
-        }
-
         /// <summary>
         /// Create a Subject Public Key Info object for a given public key.
         /// </summary>
@@ -146,7 +141,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
                 if (_key.AlgorithmName == "ECGOST3410")
                 {
                     if (_key.PublicKeyParamSet == null)
-                        throw BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException("Not a CryptoPro parameter set");
+                        throw new NotImplementedException("Not a CryptoPro parameter set");
 
                     ECPoint q = _key.Q.Normalize();
                     BigInteger bX = q.AffineXCoord.ToBigInteger();
@@ -171,7 +166,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
                     if (_key.PublicKeyParamSet == null)
                     {
                         ECDomainParameters kp = _key.Parameters;
-                        X9ECParameters ecP = new X9ECParameters(kp.Curve, kp.G, kp.N, kp.H, kp.GetSeed());
+                        X9ECParameters ecP = new X9ECParameters(kp.Curve, new X9ECPoint(kp.G, false), kp.N, kp.H,
+                            kp.GetSeed());
 
                         x962 = new X962Parameters(ecP);
                     }
@@ -194,7 +190,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
                 Gost3410PublicKeyParameters _key = (Gost3410PublicKeyParameters) publicKey;
 
                 if (_key.PublicKeyParamSet == null)
-                    throw BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException("Not a CryptoPro parameter set");
+                    throw new NotImplementedException("Not a CryptoPro parameter set");
 
                 byte[] keyEnc = _key.Y.ToByteArrayUnsigned();
                 byte[] keyBytes = new byte[keyEnc.Length];
@@ -242,7 +238,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
                 return new SubjectPublicKeyInfo(new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519), key.GetEncoded());
             }
 
-            throw new ArgumentException("Class provided no convertible: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(publicKey));
+            throw new ArgumentException("Class provided no convertible: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(publicKey));
         }
 
         private static void ExtractBytes(

@@ -7,6 +7,7 @@ using Context = System.Collections.Generic.Dictionary<string, object>;
 public class BuildTask 
 {
     public const string CONTEXT_VERSION_DIRECTORY = "version_directory";
+    public const string CONTEXT_VERSION_ROOT_DIRECTORY = "version_root_directory";
     // public const string CONTEXT_RAW_FILES = "raw_files";
     public const string CONTEXT_ASSET_DATABASE_AUTO_SAVE = "asset_database_auto_save";
     public const string CONTEXT_ASSET_INFO = "asset_info";
@@ -17,6 +18,11 @@ public class BuildTask
     public const string CONTEXT_SPRITE_CHECHER = "sprite_in_atlas_checker";
     public const string CONTEXT_FILE_ADDITION_INFO = "addition_file_info";
     public const string CONTEXT_COPY_STREAM_TARGET_VERSION = "copy_stream_target_version";
+    public const string CONTEXT_BUILDING_VERSION = "building_version";
+
+    public const string CONTEXT_CHANNEL = "channel";
+    public const string CONTEXT_CHANNEL_TARGET_VERSION = "channel_target_version";
+    public const string CONTEXT_VERSION_KEEP_COUNT  = "version_keep_count";
     //public const string TEMP_VERSION_DIRECTORY = "temp_version_directory";
 
 

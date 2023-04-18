@@ -1,12 +1,11 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Compression;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
@@ -47,8 +46,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
                 ContentInfoParser content = comData.GetEncapContentInfo();
 
                 Asn1OctetStringParser bytes = (Asn1OctetStringParser)content.GetContent(Asn1Tags.OctetString);
+                Stream zIn = ZLib.DecompressInput(bytes.GetOctetStream());
 
-                return new CmsTypedStream(content.ContentType.ToString(), new ZInputStream(bytes.GetOctetStream()));
+                return new CmsTypedStream(content.ContentType.ToString(), zIn);
             }
             catch (IOException e)
             {

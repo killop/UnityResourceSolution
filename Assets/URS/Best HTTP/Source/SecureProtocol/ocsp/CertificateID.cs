@@ -120,7 +120,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 		{
 			try
 			{
-                String hashAlgorithm = hashAlg.Algorithm.Id;
+                string hashAlgorithm = hashAlg.Algorithm.Id;
 
 				X509Name issuerName = PrincipalUtilities.GetSubjectX509Principal(issuerCert);
 				byte[] issuerNameHash = DigestUtilities.CalculateDigest(

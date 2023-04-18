@@ -1,9 +1,11 @@
 {
     "name": "com.daihenka.assetpipeline.editor",
+    "rootNamespace": "",
     "references": [
         "GUID:c5af582b9939f4e4292be3495c687a04",
         "GUID:343deaaf83e0cee4ca978e7df0b80d21",
-        "GUID:2bafac87e7f4b9b418d9448d219b01ab"
+        "GUID:2bafac87e7f4b9b418d9448d219b01ab",
+        "GUID:81c4d37d6b16ed2428ad2691b45fb45a"
     ],
     "includePlatforms": [
         "Editor"

@@ -98,7 +98,7 @@ namespace Hextant
                 case SettingsUsage.EditorProject:
                     path += "Editor/"; break;
                 case SettingsUsage.EditorUser:
-                    path += "Editor/User/"; break;
+                    path += "Editor/User/" + GetProjectFolderName() + '/'; break;
 #endif
                 default: throw new System.InvalidOperationException();
             }

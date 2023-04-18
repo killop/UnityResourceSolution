@@ -51,7 +51,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 				return new MonetaryLimit(Asn1Sequence.GetInstance(obj));
 			}
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		private MonetaryLimit(

@@ -1,14 +1,11 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 {
@@ -54,9 +51,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 			SecureRandom rand = param.Random;
 			int certainty = param.Certainty;
 
-            IList smallPrimes = findFirstPrimes(param.CountSmallPrimes);
+			var smallPrimes = FindFirstPrimes(param.CountSmallPrimes);
 
-			smallPrimes = permuteList(smallPrimes, rand);
+			smallPrimes = PermuteList(smallPrimes, rand);
 
 			BigInteger u = BigInteger.One;
 			BigInteger v = BigInteger.One;
@@ -79,8 +76,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 			// remainingStrength = strength - sigma.bitLength() - _p.bitLength() -
 			// _q.bitLength() - 1 -1
 			int remainingStrength = strength - sigma.BitLength - 48;
-			BigInteger a = generatePrime(remainingStrength / 2 + 1, certainty, rand);
-			BigInteger b = generatePrime(remainingStrength / 2 + 1, certainty, rand);
+			BigInteger a = GeneratePrime(remainingStrength / 2 + 1, certainty, rand);
+			BigInteger b = GeneratePrime(remainingStrength / 2 + 1, certainty, rand);
 
 			BigInteger _p;
 			BigInteger _q;
@@ -89,14 +86,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 
 			long tries = 0;
 
-            BigInteger _2au = a.Multiply(u).ShiftLeft(1);
+			BigInteger _2au = a.Multiply(u).ShiftLeft(1);
 			BigInteger _2bv = b.Multiply(v).ShiftLeft(1);
 
 			for (;;)
 			{
 				tries++;
 
-				_p = generatePrime(24, certainty, rand);
+				_p = GeneratePrime(24, certainty, rand);
 
 				p = _p.Multiply(_2au).Add(BigInteger.One);
 
@@ -105,7 +102,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 
 				for (;;)
 				{
-					_q = generatePrime(24, certainty, rand);
+					_q = GeneratePrime(24, certainty, rand);
 
 					if (_p.Equals(_q))
 						continue;
@@ -134,20 +131,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 			BigInteger g;
 			tries = 0;
 
-            for (;;)
+			for (;;)
 			{
 				// TODO After the first loop, just regenerate one randomly-selected gPart each time?
-				IList gParts = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+				var gParts = new List<BigInteger>();
 				for (int ind = 0; ind != smallPrimes.Count; ind++)
 				{
-					BigInteger i = (BigInteger)smallPrimes[ind];
+					BigInteger i = smallPrimes[ind];
 					BigInteger e = phi_n.Divide(i);
 
 					for (;;)
 					{
 						tries++;
 
-						g = generatePrime(strength, certainty, rand);
+						g = GeneratePrime(strength, certainty, rand);
 
 						if (!g.ModPow(e, n).Equals(BigInteger.One))
 						{
@@ -207,14 +204,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 				break;
 			}
 
-            return new AsymmetricCipherKeyPair(new NaccacheSternKeyParameters(false, g, n, sigma.BitLength),
+			return new AsymmetricCipherKeyPair(new NaccacheSternKeyParameters(false, g, n, sigma.BitLength),
 				new NaccacheSternPrivateKeyParameters(g, n, sigma.BitLength, smallPrimes, phi_n));
 		}
 
-		private static BigInteger generatePrime(
-			int bitLength,
-			int certainty,
-			SecureRandom rand)
+		private static BigInteger GeneratePrime(int bitLength, int certainty, SecureRandom rand)
 		{
 			return new BigInteger(bitLength, certainty, rand);
 		}
@@ -229,15 +223,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 		 *            the source of Randomness for permutation
 		 * @return a new IList with the permuted elements.
 		 */
-		private static IList permuteList(
-			IList           arr,
-			SecureRandom    rand)
+		private static IList<T> PermuteList<T>(IList<T> arr, SecureRandom rand)
 		{
             // TODO Create a utility method for generating permutation of first 'n' integers
 
-            IList retval = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(arr.Count);
+            var retval = new List<T>(arr.Count);
 
-			foreach (object element in arr)
+			foreach (var element in arr)
 			{
 				int index = rand.Next(retval.Count + 1);
 				retval.Insert(index, element);
@@ -253,10 +245,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 		 *            the number of primes to find
 		 * @return a vector containing the found primes as Integer
 		 */
-		private static IList findFirstPrimes(
-			int count)
+		private static IList<BigInteger> FindFirstPrimes(int count)
 		{
-			IList primes = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(count);
+			var primes = new List<BigInteger>(count);
 
 			for (int i = 0; i != count; i++)
 			{

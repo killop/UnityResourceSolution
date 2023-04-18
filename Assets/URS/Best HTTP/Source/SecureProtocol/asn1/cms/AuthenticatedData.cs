@@ -126,7 +126,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 				return new AuthenticatedData((Asn1Sequence)obj);
 			}
 
-            throw new ArgumentException("Invalid AuthenticatedData: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("Invalid AuthenticatedData: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
 		}
 
 		public DerInteger Version

@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -15,8 +14,8 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Cms;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 {
@@ -44,7 +43,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 				throw new TspValidationException("ContentInfo object not for a time stamp.");
 			}
 
-			ICollection signers = tsToken.GetSignerInfos().GetSigners();
+			var signers = tsToken.GetSignerInfos().GetSigners();
 
 			if (signers.Count != 1)
 			{
@@ -54,10 +53,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 			}
 
 
-			IEnumerator signerEnum = signers.GetEnumerator();
+			var signerEnum = signers.GetEnumerator();
 
 			signerEnum.MoveNext();
-			tsaSignerInfo = (SignerInformation) signerEnum.Current;
+			tsaSignerInfo = signerEnum.Current;
 
 			try
 			{
@@ -136,28 +135,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 			get { return tsaSignerInfo.UnsignedAttributes; }
 		}
 
-		public IX509Store GetCertificates(
-			string type)
-		{
-			return tsToken.GetCertificates(type);
-		}
+		public IStore<X509V2AttributeCertificate> GetAttributeCertificates() => tsToken.GetAttributeCertificates();
 
-		public IX509Store GetCrls(
-			string type)
-		{
-			return tsToken.GetCrls(type);
-		}
+		public IStore<X509Certificate> GetCertificates() => tsToken.GetCertificates();
 
-        public IX509Store GetCertificates()
-        {
-			return tsToken.GetCertificates();
-        }
-
-        public IX509Store GetAttributeCertificates(
-			string type)
-	    {
-	        return tsToken.GetAttributeCertificates(type);
-	    }
+		public IStore<X509Crl> GetCrls() => tsToken.GetCrls();
 
 		/**
 		 * Validate the time stamp token.

@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
@@ -44,16 +44,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             }
         }
 
-        private readonly IList m_identities;
-        private readonly IList m_binders;
+        private readonly IList<PskIdentity> m_identities;
+        private readonly IList<byte[]> m_binders;
         private readonly int m_bindersSize;
 
-        public OfferedPsks(IList identities)
+        public OfferedPsks(IList<PskIdentity> identities)
             : this(identities, null, -1)
         {
         }
 
-        private OfferedPsks(IList identities, IList binders, int bindersSize)
+        private OfferedPsks(IList<PskIdentity> identities, IList<byte[]> binders, int bindersSize)
         {
             if (null == identities || identities.Count < 1)
                 throw new ArgumentException("cannot be null or empty", "identities");
@@ -67,7 +67,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             this.m_bindersSize = bindersSize;
         }
 
-        public IList Binders
+        public IList<byte[]> Binders
         {
             get { return m_binders; }
         }
@@ -77,7 +77,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             get { return m_bindersSize; }
         }
 
-        public IList Identities
+        public IList<PskIdentity> Identities
         {
             get { return m_identities; }
         }
@@ -188,7 +188,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         /// <exception cref="IOException"/>
         public static OfferedPsks Parse(Stream input)
         {
-            IList identities = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+            var identities = new List<PskIdentity>();
             {
                 int totalLengthIdentities = TlsUtilities.ReadUint16(input);
                 if (totalLengthIdentities < 7)
@@ -204,7 +204,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 while (buf.Position < buf.Length);
             }
 
-            IList binders = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+            var binders = new List<byte[]>();
             int totalLengthBinders = TlsUtilities.ReadUint16(input);
             {
                 if (totalLengthBinders < 33)

@@ -41,9 +41,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Encodings
 
         static Pkcs1Encoding()
         {
-            string strictProperty = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetEnvironmentVariable(StrictLengthEnabledProperty);
+            string strictProperty = Org.BouncyCastle.Utilities.Platform.GetEnvironmentVariable(StrictLengthEnabledProperty);
 
-            strictLengthEnabled = new bool[]{ strictProperty == null || BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EqualsIgnoreCase("true", strictProperty) };
+            strictLengthEnabled = new bool[]{ strictProperty == null || Org.BouncyCastle.Utilities.Platform.EqualsIgnoreCase("true", strictProperty) };
         }
 
 
@@ -98,29 +98,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Encodings
             this.pLen = fallback.Length;
         }
 
-        public IAsymmetricBlockCipher GetUnderlyingCipher()
-        {
-            return engine;
-        }
+        public string AlgorithmName => engine.AlgorithmName + "/PKCS1Padding";
 
-        public string AlgorithmName
-        {
-            get { return engine.AlgorithmName + "/PKCS1Padding"; }
-        }
+        public IAsymmetricBlockCipher UnderlyingCipher => engine;
 
         public void Init(bool forEncryption, ICipherParameters parameters)
         {
             AsymmetricKeyParameter kParam;
-            if (parameters is ParametersWithRandom)
+            if (parameters is ParametersWithRandom withRandom)
             {
-                ParametersWithRandom rParam = (ParametersWithRandom)parameters;
-
-                this.random = rParam.Random;
-                kParam = (AsymmetricKeyParameter)rParam.Parameters;
+                this.random = withRandom.Random;
+                kParam = (AsymmetricKeyParameter)withRandom.Parameters;
             }
             else
             {
-                this.random = new SecureRandom();
+                this.random = CryptoServicesRegistrar.GetSecureRandom();
                 kParam = (AsymmetricKeyParameter)parameters;
             }
 

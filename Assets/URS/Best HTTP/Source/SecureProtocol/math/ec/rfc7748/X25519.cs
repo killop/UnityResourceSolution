@@ -9,12 +9,12 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Rfc7748
 {
-    public abstract class X25519
+    using F = X25519Field;
+
+    public static class X25519
     {
         public const int PointSize = 32;
         public const int ScalarSize = 32;
-
-        private class F : X25519Field {};
 
         private const int C_A = 486662;
         private const int C_A24 = (C_A + 2)/4;
@@ -28,6 +28,36 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Rfc7748
             return !Arrays.AreAllZeroes(r, rOff, PointSize);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public static bool CalculateAgreement(ReadOnlySpan<byte> k, ReadOnlySpan<byte> u, Span<byte> r)
+        {
+            ScalarMult(k, u, r);
+            return !Arrays.AreAllZeroes(r[..PointSize]);
+        }
+#endif
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        private static uint Decode32(ReadOnlySpan<byte> bs)
+        {
+            uint n = bs[0];
+            n |= (uint)bs[1] << 8;
+            n |= (uint)bs[2] << 16;
+            n |= (uint)bs[3] << 24;
+            return n;
+        }
+
+        private static void DecodeScalar(ReadOnlySpan<byte> k, Span<uint> n)
+        {
+            for (int i = 0; i < 8; ++i)
+            {
+                n[i] = Decode32(k[(i * 4)..]);
+            }
+
+            n[0] &= 0xFFFFFFF8U;
+            n[7] &= 0x7FFFFFFFU;
+            n[7] |= 0x40000000U;
+        }
+#else
         private static uint Decode32(byte[] bs, int off)
         {
             uint n = bs[off];
@@ -48,9 +78,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Rfc7748
             n[7] &= 0x7FFFFFFFU;
             n[7] |= 0x40000000U;
         }
+#endif
 
         public static void GeneratePrivateKey(SecureRandom random, byte[] k)
         {
+            if (k.Length != ScalarSize)
+                throw new ArgumentException(nameof(k));
+
             random.NextBytes(k);
 
             k[0] &= 0xF8;
@@ -58,10 +92,31 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Rfc7748
             k[ScalarSize - 1] |= 0x40;
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public static void GeneratePrivateKey(SecureRandom random, Span<byte> k)
+        {
+            if (k.Length != ScalarSize)
+                throw new ArgumentException(nameof(k));
+
+            random.NextBytes(k);
+
+            k[0] &= 0xF8;
+            k[ScalarSize - 1] &= 0x7F;
+            k[ScalarSize - 1] |= 0x40;
+        }
+#endif
+
         public static void GeneratePublicKey(byte[] k, int kOff, byte[] r, int rOff)
         {
             ScalarMultBase(k, kOff, r, rOff);
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public static void GeneratePublicKey(ReadOnlySpan<byte> k, Span<byte> r)
+        {
+            ScalarMultBase(k, r);
+        }
+#endif
 
         private static void PointDouble(int[] x, int[] z)
         {
@@ -85,6 +140,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Rfc7748
 
         public static void ScalarMult(byte[] k, int kOff, byte[] u, int uOff, byte[] r, int rOff)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            ScalarMult(k.AsSpan(kOff), u.AsSpan(uOff), r.AsSpan(rOff));
+#else
             uint[] n = new uint[8];     DecodeScalar(k, kOff, n);
 
             int[] x1 = F.Create();      F.Decode(u, uOff, x1);
@@ -142,10 +200,77 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Rfc7748
 
             F.Normalize(x2);
             F.Encode(x2, r, rOff);
+#endif
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public static void ScalarMult(ReadOnlySpan<byte> k, ReadOnlySpan<byte> u, Span<byte> r)
+        {
+            uint[] n = new uint[8];     DecodeScalar(k, n);
+
+            int[] x1 = F.Create();      F.Decode(u, x1);
+            int[] x2 = F.Create();      F.Copy(x1, 0, x2, 0);
+            int[] z2 = F.Create();      z2[0] = 1;
+            int[] x3 = F.Create();      x3[0] = 1;
+            int[] z3 = F.Create();
+
+            int[] t1 = F.Create();
+            int[] t2 = F.Create();
+
+            Debug.Assert(n[7] >> 30 == 1U);
+
+            int bit = 254, swap = 1;
+            do
+            {
+                F.Apm(x3, z3, t1, x3);
+                F.Apm(x2, z2, z3, x2);
+                F.Mul(t1, x2, t1);
+                F.Mul(x3, z3, x3);
+                F.Sqr(z3, z3);
+                F.Sqr(x2, x2);
+
+                F.Sub(z3, x2, t2);
+                F.Mul(t2, C_A24, z2);
+                F.Add(z2, x2, z2);
+                F.Mul(z2, t2, z2);
+                F.Mul(x2, z3, x2);
+
+                F.Apm(t1, x3, x3, z3);
+                F.Sqr(x3, x3);
+                F.Sqr(z3, z3);
+                F.Mul(z3, x1, z3);
+
+                --bit;
+
+                int word = bit >> 5, shift = bit & 0x1F;
+                int kt = (int)(n[word] >> shift) & 1;
+                swap ^= kt;
+                F.CSwap(swap, x2, x3);
+                F.CSwap(swap, z2, z3);
+                swap = kt;
+            }
+            while (bit >= 3);
+
+            Debug.Assert(swap == 0);
+
+            for (int i = 0; i < 3; ++i)
+            {
+                PointDouble(x2, z2);
+            }
+
+            F.Inv(z2, z2);
+            F.Mul(x2, z2, x2);
+
+            F.Normalize(x2);
+            F.Encode(x2, r);
+        }
+#endif
 
         public static void ScalarMultBase(byte[] k, int kOff, byte[] r, int rOff)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            ScalarMultBase(k.AsSpan(kOff), r.AsSpan(rOff));
+#else
             int[] y = F.Create();
             int[] z = F.Create();
 
@@ -158,7 +283,26 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Rfc7748
 
             F.Normalize(y);
             F.Encode(y, r, rOff);
+#endif
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public static void ScalarMultBase(ReadOnlySpan<byte> k, Span<byte> r)
+        {
+            int[] y = F.Create();
+            int[] z = F.Create();
+
+            Ed25519.ScalarMultBaseYZ(k, y, z);
+
+            F.Apm(z, y, y, z);
+
+            F.Inv(z, z);
+            F.Mul(y, z, y);
+
+            F.Normalize(y);
+            F.Encode(y, r);
+        }
+#endif
     }
 }
 #pragma warning restore

@@ -163,6 +163,8 @@ namespace BestHTTP.SocketIO3.Transports
 
                 if (i < packets.Count - 1)
                     sendBuilder.Append((char)0x1E);
+
+                BufferPool.Release(packet.PayloadData);
             }
 
             string result = sendBuilder.ToString();

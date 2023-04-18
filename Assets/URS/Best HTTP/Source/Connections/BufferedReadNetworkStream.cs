@@ -57,6 +57,7 @@ namespace BestHTTP.Connections
         {
             this.innerStream = stream;
             this.readStream = new ReadOnlyBufferedStream(stream, bufferSize);
+
             IncrementCurrentConnections();
         }
 
@@ -93,10 +94,24 @@ namespace BestHTTP.Connections
 
             if (this.innerStream != null)
             {
-                this.innerStream.Close();
-                this.innerStream = null;
+                lock (this)
+                {
+                    if (this.innerStream != null)
+                    {
+                        DecrementCurrentConnections();
 
-                DecrementCurrentConnections();
+                        var stream = this.innerStream;
+                        this.innerStream = null;
+
+                        stream.Close();
+                    }
+
+                    if (this.readStream != null)
+                    {
+                        this.readStream.Close();
+                        this.readStream = null;
+                    }
+                }
             }
         }
     }

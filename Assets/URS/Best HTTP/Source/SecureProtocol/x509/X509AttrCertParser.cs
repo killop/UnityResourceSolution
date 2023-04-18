@@ -1,14 +1,13 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
@@ -21,7 +20,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		private int		sDataObjectCount;
 		private Stream	currentStream;
 
-		private IX509AttributeCertificate ReadDerCertificate(
+		private X509V2AttributeCertificate ReadDerCertificate(
 			Asn1InputStream dIn)
 		{
 			Asn1Sequence seq = (Asn1Sequence)dIn.ReadObject();
@@ -37,25 +36,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 				}
 			}
 
-//			return new X509V2AttributeCertificate(seq.getEncoded());
 			return new X509V2AttributeCertificate(AttributeCertificate.GetInstance(seq));
 		}
 
-		private IX509AttributeCertificate GetCertificate()
+		private X509V2AttributeCertificate GetCertificate()
 		{
 			if (sData != null)
 			{
 				while (sDataObjectCount < sData.Count)
 				{
-					object obj = sData[sDataObjectCount++];
+					Asn1Encodable ae = sData[sDataObjectCount++];
 
-					if (obj is Asn1TaggedObject && ((Asn1TaggedObject)obj).TagNo == 2)
+					if (ae.ToAsn1Object() is Asn1TaggedObject t && t.TagNo == 2)
 					{
-						//return new X509V2AttributeCertificate(
-						//	Asn1Sequence.GetInstance((Asn1TaggedObject)obj, false).GetEncoded());
 						return new X509V2AttributeCertificate(
-							AttributeCertificate.GetInstance(
-								Asn1Sequence.GetInstance((Asn1TaggedObject)obj, false)));
+							AttributeCertificate.GetInstance(Asn1Sequence.GetInstance(t, false)));
 					}
 				}
 			}
@@ -63,14 +58,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 			return null;
 		}
 
-		private IX509AttributeCertificate ReadPemCertificate(
+		private X509V2AttributeCertificate ReadPemCertificate(
 			Stream inStream)
 		{
 			Asn1Sequence seq = PemAttrCertParser.ReadPemObject(inStream);
 
 			return seq == null
 				?	null
-				//:	new X509V2AttributeCertificate(seq.getEncoded());
 				:	new X509V2AttributeCertificate(AttributeCertificate.GetInstance(seq));
 		}
 
@@ -78,8 +72,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		/// Create loading data from byte array.
 		/// </summary>
 		/// <param name="input"></param>
-		public IX509AttributeCertificate ReadAttrCert(
-			byte[] input)
+		public X509V2AttributeCertificate ReadAttrCert(byte[] input)
 		{
 			return ReadAttrCert(new MemoryStream(input, false));
 		}
@@ -88,8 +81,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		/// Create loading data from byte array.
 		/// </summary>
 		/// <param name="input"></param>
-		public ICollection ReadAttrCerts(
-			byte[] input)
+		public IList<X509V2AttributeCertificate> ReadAttrCerts(byte[] input)
 		{
 			return ReadAttrCerts(new MemoryStream(input, false));
 		}
@@ -98,7 +90,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		 * Generates a certificate object and initializes it with the data
 		 * read from the input stream inStream.
 		 */
-		public IX509AttributeCertificate ReadAttrCert(
+		public X509V2AttributeCertificate ReadAttrCert(
 			Stream inStream)
 		{
 			if (inStream == null)
@@ -133,20 +125,27 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 					return null;
 				}
 
-				PushbackStream pis = new PushbackStream(inStream);
-				int tag = pis.ReadByte();
+                int tag = inStream.ReadByte();
+                if (tag < 0)
+                    return null;
 
-				if (tag < 0)
-					return null;
+                if (inStream.CanSeek)
+                {
+                    inStream.Seek(-1L, SeekOrigin.Current);
+                }
+                else
+                {
+                    PushbackStream pis = new PushbackStream(inStream);
+                    pis.Unread(tag);
+                    inStream = pis;
+                }
 
-				pis.Unread(tag);
-
-				if (tag != 0x30)  // assume ascii PEM encoded.
+                if (tag != 0x30)  // assume ascii PEM encoded.
 				{
-					return ReadPemCertificate(pis);
+					return ReadPemCertificate(inStream);
 				}
 
-				return ReadDerCertificate(new Asn1InputStream(pis));
+				return ReadDerCertificate(new Asn1InputStream(inStream));
 			}
 			catch (Exception e)
 			{
@@ -158,12 +157,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		 * Returns a (possibly empty) collection view of the certificates
 		 * read from the given input stream inStream.
 		 */
-		public ICollection ReadAttrCerts(
-			Stream inStream)
+		public IList<X509V2AttributeCertificate> ReadAttrCerts(Stream inStream)
 		{
-			IX509AttributeCertificate attrCert;
-            IList attrCerts = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+			var attrCerts = new List<X509V2AttributeCertificate>();
 
+			X509V2AttributeCertificate attrCert;
 			while ((attrCert = ReadAttrCert(inStream)) != null)
 			{
 				attrCerts.Add(attrCert);

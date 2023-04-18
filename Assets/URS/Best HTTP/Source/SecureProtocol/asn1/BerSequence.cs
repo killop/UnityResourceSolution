@@ -2,8 +2,6 @@
 #pragma warning disable
 using System;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
 	public class BerSequence
@@ -32,7 +30,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 		{
 		}
 
-		public BerSequence(params Asn1Encodable[] elements)
+        /**
+		 * create a sequence containing two objects
+		 */
+        public BerSequence(Asn1Encodable element1, Asn1Encodable element2)
+            : base(element1, element2)
+        {
+        }
+
+        public BerSequence(params Asn1Encodable[] elements)
             : base(elements)
 		{
 		}
@@ -45,23 +51,51 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 		{
 		}
 
-        internal override int EncodedLength(bool withID)
+        internal BerSequence(Asn1Encodable[] elements, bool clone)
+            : base(elements, clone)
         {
-            throw BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException("BerSequence.EncodedLength");
         }
 
-        internal override void Encode(Asn1OutputStream asn1Out, bool withID)
-		{
-			if (asn1Out.IsBer)
-            {
-                asn1Out.WriteEncodingIL(withID, Asn1Tags.Constructed | Asn1Tags.Sequence, elements);
-			}
-			else
-			{
-				base.Encode(asn1Out, withID);
-			}
-		}
-	}
+        internal override IAsn1Encoding GetEncoding(int encoding)
+        {
+            if (Asn1OutputStream.EncodingBer != encoding)
+                return base.GetEncoding(encoding);
+
+            return new ConstructedILEncoding(Asn1Tags.Universal, Asn1Tags.Sequence,
+                Asn1OutputStream.GetContentsEncodings(encoding, elements));
+        }
+
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
+        {
+            if (Asn1OutputStream.EncodingBer != encoding)
+                return base.GetEncodingImplicit(encoding, tagClass, tagNo);
+
+            return new ConstructedILEncoding(tagClass, tagNo,
+                Asn1OutputStream.GetContentsEncodings(encoding, elements));
+        }
+
+        internal override DerBitString ToAsn1BitString()
+        {
+            return new BerBitString(GetConstructedBitStrings());
+        }
+
+        internal override DerExternal ToAsn1External()
+        {
+            // TODO There is currently no BerExternal class (or ToDLObject/ToDerObject)
+            //return ((Asn1Sequence)ToDLObject()).ToAsn1External();
+            return new DLSequence(elements).ToAsn1External();
+        }
+
+        internal override Asn1OctetString ToAsn1OctetString()
+        {
+            return new BerOctetString(GetConstructedOctetStrings());
+        }
+
+        internal override Asn1Set ToAsn1Set()
+        {
+            return new BerSet(false, elements);
+        }
+    }
 }
 #pragma warning restore
 #endif

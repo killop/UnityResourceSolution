@@ -94,9 +94,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 if (HashAlgorithm.Intrinsic == hashAlgorithm || !HashAlgorithm.IsRecognized(hashAlgorithm))
                     return -1;
 
-                return TlsCryptoUtilities.GetHash(GetHashAlgorithm(signatureScheme));
+                return TlsCryptoUtilities.GetHash(hashAlgorithm);
             }
             }
+        }
+
+        public static int GetCryptoHashAlgorithm(SignatureAndHashAlgorithm signatureAndHashAlgorithm)
+        {
+            return GetCryptoHashAlgorithm(From(signatureAndHashAlgorithm));
         }
 
         public static string GetName(int signatureScheme)
@@ -196,7 +201,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         public static string GetText(int signatureScheme)
         {
-            string hex = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(Convert.ToString(signatureScheme, 16));
+            string hex = Convert.ToString(signatureScheme, 16).ToUpperInvariant();
             return GetName(signatureScheme) + "(0x" + hex + ")";
         }
 

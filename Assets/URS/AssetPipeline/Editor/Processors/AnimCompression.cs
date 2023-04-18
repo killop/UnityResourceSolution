@@ -8,11 +8,34 @@ namespace Daihenka.AssetPipeline.Processors
     [AssetProcessorDescription("FilterByLabel@2x", ImportAssetTypeFlag.Models)]
     public class AnimCompression : AssetProcessor
     {
-        [SerializeField] private ModelImporterAnimationCompression animationCompression;
+        [SerializeField] private  ModelImporterAnimationCompression animationCompression;
         [SerializeField] private float animationRotationError;
         [SerializeField] private float animationPositionError;
         [SerializeField] private float animationScaleError;
-        
+
+        public override bool IsConfigOK (AssetImporter importer)
+        {
+            if (importer == null) return false;
+            var mi= importer as ModelImporter;
+            if (mi == null) return false;
+            if (mi.animationCompression != animationCompression) 
+            {
+                return false;
+            }
+            if (mi.animationRotationError != animationRotationError)
+            {
+                return false;
+            }
+            if (mi.animationPositionError != animationPositionError)
+            {
+                return false;
+            }
+            if (mi.animationScaleError != animationScaleError)
+            {
+                return false;
+            }
+            return true;
+        }
         public override void OnPostprocessModel(string assetPath, ModelImporter importer, GameObject go)
         {
             importer.animationCompression = animationCompression;

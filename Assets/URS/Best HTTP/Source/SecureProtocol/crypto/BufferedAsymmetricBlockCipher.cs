@@ -1,9 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Diagnostics;
-
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 {
@@ -89,13 +86,33 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 			byte input)
 		{
 			if (bufOff >= buffer.Length)
-				throw new DataLengthException("attempt to process message to long for cipher");
+				throw new DataLengthException("attempt to process message too long for cipher");
 
 			buffer[bufOff++] = input;
 			return null;
 		}
 
-		public override byte[] ProcessBytes(
+        public override int ProcessByte(byte input, byte[] output, int outOff)
+        {
+            if (bufOff >= buffer.Length)
+                throw new DataLengthException("attempt to process message too long for cipher");
+
+            buffer[bufOff++] = input;
+            return 0;
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int ProcessByte(byte input, Span<byte> output)
+        {
+            if (bufOff >= buffer.Length)
+                throw new DataLengthException("attempt to process message too long for cipher");
+
+            buffer[bufOff++] = input;
+            return 0;
+        }
+#endif
+
+        public override byte[] ProcessBytes(
 			byte[]	input,
 			int		inOff,
 			int		length)
@@ -106,14 +123,25 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 			if (input == null)
 				throw new ArgumentNullException("input");
 			if (bufOff + length > buffer.Length)
-				throw new DataLengthException("attempt to process message to long for cipher");
+				throw new DataLengthException("attempt to process message too long for cipher");
 
 			Array.Copy(input, inOff, buffer, bufOff, length);
 			bufOff += length;
 			return null;
 		}
 
-		/**
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output)
+		{
+			Check.DataLength(input, buffer.Length - bufOff, "attempt to process message too long for cipher");
+
+			input.CopyTo(buffer.AsSpan(bufOff));
+            bufOff += input.Length;
+            return 0;
+        }
+#endif
+
+        /**
         * process the contents of the buffer using the underlying
         * cipher.
         *
@@ -141,7 +169,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 			return DoFinal();
 		}
 
-		/// <summary>Reset the buffer</summary>
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int DoFinal(Span<byte> output)
+		{
+			int result = 0;
+			if (bufOff > 0)
+			{
+				byte[] outBytes = cipher.ProcessBlock(buffer, 0, bufOff);
+				outBytes.CopyTo(output);
+				result = outBytes.Length;
+            }
+
+            Reset();
+
+            return result;
+        }
+#endif
+
+        /// <summary>Reset the buffer</summary>
         public override void Reset()
         {
 			if (buffer != null)

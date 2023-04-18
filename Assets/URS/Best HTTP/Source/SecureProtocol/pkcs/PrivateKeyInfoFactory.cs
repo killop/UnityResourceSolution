@@ -20,12 +20,8 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
 {
-    public sealed class PrivateKeyInfoFactory
+    public static class PrivateKeyInfoFactory
     {
-        private PrivateKeyInfoFactory()
-        {
-        }
-
         public static PrivateKeyInfo CreatePrivateKeyInfo(
             AsymmetricKeyParameter privateKey)
         {
@@ -157,7 +153,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
                 if (priv.AlgorithmName == "ECGOST3410")
                 {
                     if (priv.PublicKeyParamSet == null)
-                        throw BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException("Not a CryptoPro parameter set");
+                        throw new NotImplementedException("Not a CryptoPro parameter set");
 
                     Gost3410PublicKeyAlgParameters gostParams = new Gost3410PublicKeyAlgParameters(
                         priv.PublicKeyParamSet, CryptoProObjectIdentifiers.GostR3411x94CryptoProParamSet);
@@ -172,7 +168,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
                     X962Parameters x962;
                     if (priv.PublicKeyParamSet == null)
                     {
-                        X9ECParameters ecP = new X9ECParameters(dp.Curve, dp.G, dp.N, dp.H, dp.GetSeed());
+                        X9ECParameters ecP = new X9ECParameters(dp.Curve, new X9ECPoint(dp.G, false), dp.N, dp.H,
+                            dp.GetSeed());
                         x962 = new X962Parameters(ecP);
                     }
                     else
@@ -193,7 +190,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
                 Gost3410PrivateKeyParameters _key = (Gost3410PrivateKeyParameters)privateKey;
 
                 if (_key.PublicKeyParamSet == null)
-                    throw BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException("Not a CryptoPro parameter set");
+                    throw new NotImplementedException("Not a CryptoPro parameter set");
 
                 byte[] keyEnc = _key.X.ToByteArrayUnsigned();
                 byte[] keyBytes = new byte[keyEnc.Length];
@@ -245,7 +242,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
                     new DerOctetString(key.GetEncoded()), attributes, key.GeneratePublicKey().GetEncoded());
             }
 
-            throw new ArgumentException("Class provided is not convertible: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(privateKey));
+            throw new ArgumentException("Class provided is not convertible: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(privateKey));
         }
 
         public static PrivateKeyInfo CreatePrivateKeyInfo(

@@ -12,15 +12,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
     {
         private readonly CertID              certID;
         private readonly CertStatus          certStatus;
-        private readonly DerGeneralizedTime  thisUpdate;
-        private readonly DerGeneralizedTime  nextUpdate;
+        private readonly Asn1GeneralizedTime thisUpdate;
+        private readonly Asn1GeneralizedTime nextUpdate;
         private readonly X509Extensions      singleExtensions;
 
 		public SingleResponse(
             CertID              certID,
             CertStatus          certStatus,
-            DerGeneralizedTime  thisUpdate,
-            DerGeneralizedTime  nextUpdate,
+            Asn1GeneralizedTime thisUpdate,
+            Asn1GeneralizedTime nextUpdate,
             X509Extensions      singleExtensions)
         {
             this.certID = certID;
@@ -35,11 +35,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
         {
             this.certID = CertID.GetInstance(seq[0]);
             this.certStatus = CertStatus.GetInstance(seq[1]);
-            this.thisUpdate = (DerGeneralizedTime)seq[2];
+            this.thisUpdate = (Asn1GeneralizedTime)seq[2];
 
 			if (seq.Count > 4)
             {
-                this.nextUpdate = DerGeneralizedTime.GetInstance(
+                this.nextUpdate = Asn1GeneralizedTime.GetInstance(
 					(Asn1TaggedObject) seq[3], true);
                 this.singleExtensions = X509Extensions.GetInstance(
 					(Asn1TaggedObject) seq[4], true);
@@ -50,7 +50,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 
 				if (o.TagNo == 0)
                 {
-                    this.nextUpdate = DerGeneralizedTime.GetInstance(o, true);
+                    this.nextUpdate = Asn1GeneralizedTime.GetInstance(o, true);
                 }
                 else
                 {
@@ -79,7 +79,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
                 return new SingleResponse((Asn1Sequence)obj);
             }
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
 		public CertID CertId
@@ -92,12 +92,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp
 			get { return certStatus; }
 		}
 
-		public DerGeneralizedTime ThisUpdate
+		public Asn1GeneralizedTime ThisUpdate
 		{
 			get { return thisUpdate; }
 		}
 
-		public DerGeneralizedTime NextUpdate
+		public Asn1GeneralizedTime NextUpdate
 		{
 			get { return nextUpdate; }
 		}

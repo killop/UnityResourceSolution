@@ -12,14 +12,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         public TlsProtocol Protocol { get => this.m_handler; }
 
+        byte[] oneByteBuf = new byte[1];
+
         internal TlsStream(TlsProtocol handler)
         {
-            this.m_handler = handler;
+            m_handler = handler;
         }
 
         public override bool CanRead
         {
-            get { return !m_handler.IsClosed; }
+            get { return true; }
         }
 
         public override bool CanSeek
@@ -29,10 +31,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         public override bool CanWrite
         {
-            get { return !m_handler.IsClosed; }
+            get { return true; }
         }
 
-#if PORTABLE || NETFX_CORE
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -41,13 +42,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             }
             base.Dispose(disposing);
         }
-#else
-        public override void Close()
-        {
-            m_handler.Close();
-            base.Close();
-        }
-#endif
 
         public override void Flush()
         {
@@ -65,16 +59,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             set { throw new NotSupportedException(); }
         }
 
-        public override int Read(byte[] buf, int off, int len)
+        public override int Read(byte[] buffer, int offset, int count)
         {
-            return m_handler.ReadApplicationData(buf, off, len);
+            return m_handler.ReadApplicationData(buffer, offset, count);
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int Read(Span<byte> buffer)
+        {
+            return m_handler.ReadApplicationData(buffer);
+        }
+#endif
 
         public override int ReadByte()
         {
-            byte[] buf = new byte[1];
-            int ret = Read(buf, 0, 1);
-            return ret <= 0 ? -1 : buf[0];
+            int ret = m_handler.ReadApplicationData(oneByteBuf, 0, 1);
+            return ret <= 0 ? -1 : oneByteBuf[0];
         }
 
         public override long Seek(long offset, SeekOrigin origin)
@@ -87,14 +87,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             throw new NotSupportedException();
         }
 
-        public override void Write(byte[] buf, int off, int len)
+        public override void Write(byte[] buffer, int offset, int count)
         {
-            m_handler.WriteApplicationData(buf, off, len);
+            m_handler.WriteApplicationData(buffer, offset, count);
         }
 
-        public override void WriteByte(byte b)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override void Write(ReadOnlySpan<byte> buffer)
         {
-            Write(new byte[]{ b }, 0, 1);
+            m_handler.WriteApplicationData(buffer);
+        }
+#endif
+
+        public override void WriteByte(byte value)
+        {
+            oneByteBuf[0] = value;
+            Write(oneByteBuf, 0, 1);
         }
     }
 }

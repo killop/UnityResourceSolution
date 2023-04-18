@@ -1,10 +1,9 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 {
@@ -33,7 +32,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 
 			throw new ArgumentException(
 				"Unknown object in 'CrlListID' factory: "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
 				"obj");
 		}
 
@@ -63,12 +62,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 		}
 
 		public CrlListID(
-			IEnumerable crls)
+			IEnumerable<CrlValidatedID> crls)
 		{
 			if (crls == null)
 				throw new ArgumentNullException("crls");
-			if (!CollectionUtilities.CheckElementsAreOfType(crls, typeof(CrlValidatedID)))
-				throw new ArgumentException("Must contain only 'CrlValidatedID' objects", "crls");
 
 			this.crls = new DerSequence(
 				Asn1EncodableVector.FromEnumerable(crls));

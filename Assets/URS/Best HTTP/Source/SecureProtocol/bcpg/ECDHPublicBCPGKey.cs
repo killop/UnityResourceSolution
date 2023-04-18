@@ -3,6 +3,7 @@
 using System;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
@@ -16,15 +17,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
         private SymmetricKeyAlgorithmTag symAlgorithmId;
 
         /// <param name="bcpgIn">The stream to read the packet from.</param>
-        public ECDHPublicBcpgKey(
-            BcpgInputStream bcpgIn)
+        public ECDHPublicBcpgKey(BcpgInputStream bcpgIn)
             : base(bcpgIn)
         {
             int length = bcpgIn.ReadByte();
-            byte[] kdfParameters =  new byte[length];
-            if (kdfParameters.Length != 3)
-                throw new InvalidOperationException("kdf parameters size of 3 expected.");
+            if (length != 3)
+                throw new InvalidOperationException("KDF parameters size of 3 expected.");
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            Span<byte> kdfParameters = stackalloc byte[3];
+#else
+            byte[] kdfParameters = new byte[3];
+#endif
             bcpgIn.ReadFully(kdfParameters);
 
             reserved = kdfParameters[0];
@@ -38,6 +42,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
         public ECDHPublicBcpgKey(
             DerObjectIdentifier oid,
             ECPoint point,
+            HashAlgorithmTag hashAlgorithm,
+            SymmetricKeyAlgorithmTag symmetricKeyAlgorithm)
+            : base(oid, point)
+        {
+            reserved = 1;
+            hashFunctionId = hashAlgorithm;
+            symAlgorithmId = symmetricKeyAlgorithm;
+
+            VerifyHashAlgorithm();
+            VerifySymmetricKeyAlgorithm();
+        }
+
+        public ECDHPublicBcpgKey(
+            DerObjectIdentifier oid,
+            BigInteger point,
             HashAlgorithmTag hashAlgorithm,
             SymmetricKeyAlgorithmTag symmetricKeyAlgorithm)
             : base(oid, point)
@@ -77,7 +96,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
 
         private void VerifyHashAlgorithm()
         {
-            switch ((HashAlgorithmTag)hashFunctionId)
+            switch (hashFunctionId)
             {
             case HashAlgorithmTag.Sha256:
             case HashAlgorithmTag.Sha384:
@@ -90,7 +109,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg
 
         private void VerifySymmetricKeyAlgorithm()
         {
-            switch ((SymmetricKeyAlgorithmTag)symAlgorithmId)
+            switch (symAlgorithmId)
             {
             case SymmetricKeyAlgorithmTag.Aes128:
             case SymmetricKeyAlgorithmTag.Aes192:

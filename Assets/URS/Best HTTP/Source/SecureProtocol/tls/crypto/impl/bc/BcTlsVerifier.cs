@@ -25,12 +25,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             this.m_publicKey = publicKey;
         }
 
-        public virtual TlsStreamVerifier GetStreamVerifier(DigitallySigned signature)
+        public virtual TlsStreamVerifier GetStreamVerifier(DigitallySigned digitallySigned)
         {
             return null;
         }
 
-        public abstract bool VerifyRawSignature(DigitallySigned signature, byte[] hash);
+        public virtual bool VerifyRawSignature(DigitallySigned digitallySigned, byte[] hash)
+        {
+            throw new NotSupportedException();
+        }
     }
 }
 #pragma warning restore

@@ -1,11 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
@@ -15,14 +14,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 	public class DefaultSignedAttributeTableGenerator
 		: CmsAttributeTableGenerator
 	{
-		private readonly IDictionary table;
+		private readonly IDictionary<DerObjectIdentifier, object> m_table;
 
 		/**
 		 * Initialise to use all defaults
 		 */
 		public DefaultSignedAttributeTableGenerator()
 		{
-			table = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+			m_table = new Dictionary<DerObjectIdentifier, object>();
 		}
 
 		/**
@@ -30,38 +29,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		 *
 		 * @param attributeTable initial attribute table to use.
 		 */
-		public DefaultSignedAttributeTableGenerator(
-			AttributeTable attributeTable)
+		public DefaultSignedAttributeTableGenerator(AttributeTable attributeTable)
 		{
 			if (attributeTable != null)
 			{
-				table = attributeTable.ToDictionary();
+				m_table = attributeTable.ToDictionary();
 			}
 			else
 			{
-				table = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+				m_table = new Dictionary<DerObjectIdentifier, object>();
 			}
 		}
 
-#if SILVERLIGHT || PORTABLE || NETFX_CORE
-		/**
-		 * Create a standard attribute table from the passed in parameters - this will
-		 * normally include contentType, signingTime, and messageDigest. If the constructor
-		 * using an AttributeTable was used, entries in it for contentType, signingTime, and
-		 * messageDigest will override the generated ones.
-		 *
-		 * @param parameters source parameters for table generation.
-		 *
-		 * @return a filled in Hashtable of attributes.
-		 */
-		protected virtual IDictionary createStandardAttributeTable(
-			IDictionary parameters)
-		{
-            IDictionary std = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable(table);
-            DoCreateStandardAttributeTable(parameters, std);
-            return std;
-		}
-#else
         /**
 		 * Create a standard attribute table from the passed in parameters - this will
 		 * normally include contentType, signingTime, and messageDigest. If the constructor
@@ -70,23 +49,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		 *
 		 * @param parameters source parameters for table generation.
 		 *
-		 * @return a filled in Hashtable of attributes.
+		 * @return a filled in Dictionary of attributes.
 		 */
-		protected virtual Hashtable createStandardAttributeTable(
-			IDictionary parameters)
+		protected virtual IDictionary<DerObjectIdentifier, object> CreateStandardAttributeTable(
+			IDictionary<CmsAttributeTableParameter, object> parameters)
 		{
-            Hashtable std = new Hashtable(table);
+            var std = new Dictionary<DerObjectIdentifier, object>(m_table);
             DoCreateStandardAttributeTable(parameters, std);
 			return std;
 		}
-#endif
 
-        private void DoCreateStandardAttributeTable(IDictionary parameters, IDictionary std)
+        private void DoCreateStandardAttributeTable(IDictionary<CmsAttributeTableParameter, object> parameters,
+			IDictionary<DerObjectIdentifier, object> std)
         {
             // contentType will be absent if we're trying to generate a counter signature.
-            if (parameters.Contains(CmsAttributeTableParameter.ContentType))
+
+            if (parameters.ContainsKey(CmsAttributeTableParameter.ContentType))
             {
-                if (!std.Contains(CmsAttributes.ContentType))
+                if (!std.ContainsKey(CmsAttributes.ContentType))
                 {
                     DerObjectIdentifier contentType = (DerObjectIdentifier)
                         parameters[CmsAttributeTableParameter.ContentType];
@@ -96,14 +76,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
                 }
             }
 
-            if (!std.Contains(CmsAttributes.SigningTime))
+            if (!std.ContainsKey(CmsAttributes.SigningTime))
             {
                 Asn1.Cms.Attribute attr = new Asn1.Cms.Attribute(CmsAttributes.SigningTime,
                     new DerSet(new Time(DateTime.UtcNow)));
                 std[attr.AttrType] = attr;
             }
 
-            if (!std.Contains(CmsAttributes.MessageDigest))
+            if (!std.ContainsKey(CmsAttributes.MessageDigest))
             {
                 byte[] messageDigest = (byte[])parameters[CmsAttributeTableParameter.Digest];
                 Asn1.Cms.Attribute attr = new Asn1.Cms.Attribute(CmsAttributes.MessageDigest,
@@ -116,10 +96,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		 * @param parameters source parameters
 		 * @return the populated attribute table
 		 */
-		public virtual AttributeTable GetAttributes(
-			IDictionary parameters)
+		public virtual AttributeTable GetAttributes(IDictionary<CmsAttributeTableParameter, object> parameters)
 		{
-            IDictionary table = createStandardAttributeTable(parameters);
+            var table = CreateStandardAttributeTable(parameters);
 			return new AttributeTable(table);
 		}
 	}

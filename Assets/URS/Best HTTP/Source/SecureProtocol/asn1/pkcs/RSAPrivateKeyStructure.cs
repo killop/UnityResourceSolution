@@ -1,9 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
@@ -54,9 +52,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
             this.coefficient = coefficient;
         }
 
-
-        public RsaPrivateKeyStructure(
-            Asn1Sequence seq)
+        private RsaPrivateKeyStructure(Asn1Sequence seq)
         {
             BigInteger version = ((DerInteger)seq[0]).Value;
             if (version.IntValue != 0)

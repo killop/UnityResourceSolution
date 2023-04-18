@@ -2,6 +2,10 @@
 #pragma warning disable
 using System;
 using System.Diagnostics;
+#if NETCOREAPP3_0_OR_GREATER
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
+#endif
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.Raw;
 
@@ -160,18 +164,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
         {
             ulong[] odd = Nat320.Create64();
 
-            ulong u0, u1;
-            u0 = Interleave.Unshuffle(x[0]); u1 = Interleave.Unshuffle(x[1]);
-            ulong e0 = (u0 & 0x00000000FFFFFFFFUL) | (u1 << 32);
-            odd[0]   = (u0 >> 32) | (u1 & 0xFFFFFFFF00000000UL);
-
-            u0 = Interleave.Unshuffle(x[2]); u1 = Interleave.Unshuffle(x[3]);
-            ulong e1 = (u0 & 0x00000000FFFFFFFFUL) | (u1 << 32);
-            odd[1]   = (u0 >> 32) | (u1 & 0xFFFFFFFF00000000UL);
-
-            u0 = Interleave.Unshuffle(x[4]);
-            ulong e2 = (u0 & 0x00000000FFFFFFFFUL);
-            odd[2]   = (u0 >> 32);
+            odd[0] = Interleave.Unshuffle(x[0], x[1], out ulong e0);
+            odd[1] = Interleave.Unshuffle(x[2], x[3], out ulong e1);
+            odd[2] = Interleave.Unshuffle(x[4]      , out ulong e2);
 
             Multiply(odd, ROOT_Z, z);
 
@@ -256,6 +251,56 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         protected static void ImplMultiply(ulong[] x, ulong[] y, ulong[] zz)
         {
+#if NETCOREAPP3_0_OR_GREATER
+            if (Pclmulqdq.IsSupported)
+            {
+                var X01 = Vector128.Create(x[0], x[1]);
+                var X23 = Vector128.Create(x[2], x[3]);
+                var X4_ = Vector128.CreateScalar(x[4]);
+                var Y01 = Vector128.Create(y[0], y[1]);
+                var Y23 = Vector128.Create(y[2], y[3]);
+                var Y4_ = Vector128.CreateScalar(y[4]);
+
+                var Z01 =          Pclmulqdq.CarrylessMultiply(X01, Y01, 0x00);
+                var Z12 = Sse2.Xor(Pclmulqdq.CarrylessMultiply(X01, Y01, 0x01),
+                                   Pclmulqdq.CarrylessMultiply(X01, Y01, 0x10));
+                var Z23 = Sse2.Xor(Pclmulqdq.CarrylessMultiply(X01, Y23, 0x00),
+                          Sse2.Xor(Pclmulqdq.CarrylessMultiply(X01, Y01, 0x11),
+                                   Pclmulqdq.CarrylessMultiply(X23, Y01, 0x00)));
+                var Z34 = Sse2.Xor(Pclmulqdq.CarrylessMultiply(X01, Y23, 0x01),
+                          Sse2.Xor(Pclmulqdq.CarrylessMultiply(X01, Y23, 0x10),
+                          Sse2.Xor(Pclmulqdq.CarrylessMultiply(X23, Y01, 0x01),
+                                   Pclmulqdq.CarrylessMultiply(X23, Y01, 0x10))));
+                var Z45 = Sse2.Xor(Pclmulqdq.CarrylessMultiply(X01, Y4_, 0x00),
+                          Sse2.Xor(Pclmulqdq.CarrylessMultiply(X01, Y23, 0x11),
+                          Sse2.Xor(Pclmulqdq.CarrylessMultiply(X23, Y23, 0x00),
+                          Sse2.Xor(Pclmulqdq.CarrylessMultiply(X23, Y01, 0x11),
+                                   Pclmulqdq.CarrylessMultiply(X4_, Y01, 0x00)))));
+                var Z56 = Sse2.Xor(Pclmulqdq.CarrylessMultiply(X01, Y4_, 0x01),
+                          Sse2.Xor(Pclmulqdq.CarrylessMultiply(X23, Y23, 0x01),
+                          Sse2.Xor(Pclmulqdq.CarrylessMultiply(X23, Y23, 0x10),
+                                   Pclmulqdq.CarrylessMultiply(X4_, Y01, 0x10))));
+                var Z67 = Sse2.Xor(Pclmulqdq.CarrylessMultiply(X23, Y4_, 0x00),
+                          Sse2.Xor(Pclmulqdq.CarrylessMultiply(X23, Y23, 0x11),
+                                   Pclmulqdq.CarrylessMultiply(X4_, Y23, 0x00)));
+                var Z78 = Sse2.Xor(Pclmulqdq.CarrylessMultiply(X23, Y4_, 0x01),
+                                   Pclmulqdq.CarrylessMultiply(X4_, Y23, 0x10));
+                var Z89 =          Pclmulqdq.CarrylessMultiply(X4_, Y4_, 0x00);
+
+                zz[0] = Z01.GetElement(0);
+                zz[1] = Z01.GetElement(1) ^ Z12.GetElement(0);
+                zz[2] = Z23.GetElement(0) ^ Z12.GetElement(1);
+                zz[3] = Z23.GetElement(1) ^ Z34.GetElement(0);
+                zz[4] = Z45.GetElement(0) ^ Z34.GetElement(1);
+                zz[5] = Z45.GetElement(1) ^ Z56.GetElement(0);
+                zz[6] = Z67.GetElement(0) ^ Z56.GetElement(1);
+                zz[7] = Z67.GetElement(1) ^ Z78.GetElement(0);
+                zz[8] = Z89.GetElement(0) ^ Z78.GetElement(1);
+                zz[9] = Z89.GetElement(1);
+                return;
+            }
+#endif
+
             /*
              * Formula (17) from "Some New Results on Binary Polynomial Multiplication",
              * Murat Cenk and M. Anwar Hasan.

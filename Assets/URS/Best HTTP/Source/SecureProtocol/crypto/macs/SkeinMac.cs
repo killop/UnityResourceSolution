@@ -82,7 +82,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 			else
 			{
 				throw new ArgumentException("Invalid parameter passed to Skein MAC init - "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
 			}
 			if (skeinParameters.GetKey() == null)
 			{
@@ -108,14 +108,27 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Macs
 
 		public void BlockUpdate(byte[] input, int inOff, int len)
 		{
-			engine.Update(input, inOff, len);
+			engine.BlockUpdate(input, inOff, len);
 		}
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public void BlockUpdate(ReadOnlySpan<byte> input)
+		{
+			engine.BlockUpdate(input);
+		}
+#endif
 
 		public int DoFinal(byte[] output, int outOff)
 		{
 			return engine.DoFinal(output, outOff);
 		}
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+		public int DoFinal(Span<byte> output)
+		{
+			return engine.DoFinal(output);
+		}
+#endif
 	}
 }
 #pragma warning restore

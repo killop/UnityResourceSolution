@@ -148,7 +148,7 @@ namespace BestHTTP.WebSocket.Extensions
             request.AddHeader("Sec-WebSocket-Extensions", headerValue);
         }
 
-        public bool ParseNegotiation(WebSocketResponse resp)
+        public bool ParseNegotiation(HTTPResponse resp)
         {
             // Search for any returned neogitation offer
             var headerValues = resp.GetHeaderValues("Sec-WebSocket-Extensions");
@@ -208,7 +208,7 @@ namespace BestHTTP.WebSocket.Extensions
             // http://tools.ietf.org/html/rfc7692#section-7.2.3.1
             //  the RSV1 bit is set only on the first frame.
             if ((writer.Type == WebSocketFrameTypes.Binary || writer.Type == WebSocketFrameTypes.Text) &&
-                writer.Data != null && writer.DataLength >= this.MinimumDataLegthToCompress)
+                writer.Data != null && writer.Data.Count >= this.MinimumDataLegthToCompress)
                 return (byte)(inFlag | 0x40);
             else
                 return inFlag;
@@ -217,14 +217,14 @@ namespace BestHTTP.WebSocket.Extensions
         /// <summary>
         /// IExtension implementation to be able to compress the data hold in the writer.
         /// </summary>
-        public byte[] Encode(WebSocketFrame writer)
+        public BufferSegment Encode(WebSocketFrame writer)
         {
             if (writer.Data == null)
-                return BufferPool.NoData;
+                return BufferSegment.Empty;
 
             // Is compressing enabled for this frame? If so, compress it.
             if ((writer.Header & 0x40) != 0)
-                return Compress(writer.Data, writer.DataLength);
+                return Compress(writer.Data);
             else
                 return writer.Data;
         }
@@ -232,11 +232,11 @@ namespace BestHTTP.WebSocket.Extensions
         /// <summary>
         /// IExtension implementation to possible decompress the data.
         /// </summary>
-        public byte[] Decode(byte header, byte[] data, int length)
+        public BufferSegment Decode(byte header, BufferSegment data)
         {
             // Is the server compressed the data? If so, decompress it.
             if ((header & 0x40) != 0)
-                return Decompress(data, length);
+                return Decompress(data);
             else
                 return data;
         }
@@ -248,7 +248,7 @@ namespace BestHTTP.WebSocket.Extensions
         /// <summary>
         /// A function to compress and return the data parameter with possible context takeover support (reusing the DeflateStream).
         /// </summary>
-        private byte[] Compress(byte[] data, int length)
+        private BufferSegment Compress(BufferSegment data)
         {
             if (compressorOutputStream == null)
                 compressorOutputStream = new BufferPoolMemoryStream();
@@ -260,10 +260,10 @@ namespace BestHTTP.WebSocket.Extensions
                 compressorDeflateStream.FlushMode = FlushType.Sync;
             }
 
-            byte[] result = null;
+            BufferSegment result = BufferSegment.Empty;
             try
             {
-                compressorDeflateStream.Write(data, 0, length);
+                compressorDeflateStream.Write(data.Data, data.Offset, data.Count);
                 compressorDeflateStream.Flush();
 
                 compressorOutputStream.Position = 0;
@@ -272,7 +272,7 @@ namespace BestHTTP.WebSocket.Extensions
                 // Remove 4 octets (that are 0x00 0x00 0xff 0xff) from the tail end. After this step, the last octet of the compressed data contains (possibly part of) the DEFLATE header bits with the "BTYPE" bits set to 00.
                 compressorOutputStream.SetLength(compressorOutputStream.Length - 4);
 
-                result = compressorOutputStream.ToArray();
+                result = compressorOutputStream.ToBufferSegment();
             }
             finally
             {
@@ -289,12 +289,12 @@ namespace BestHTTP.WebSocket.Extensions
         /// <summary>
         /// A function to decompress and return the data parameter with possible context takeover support (reusing the DeflateStream).
         /// </summary>
-        private byte[] Decompress(byte[] data, int length)
+        private BufferSegment Decompress(BufferSegment data)
         {
             if (decompressorInputStream == null)
-                decompressorInputStream = new BufferPoolMemoryStream(length + 4);
+                decompressorInputStream = new BufferPoolMemoryStream(data.Count + 4);
 
-            decompressorInputStream.Write(data, 0, length);
+            decompressorInputStream.Write(data.Data, data.Offset, data.Count);
 
             // http://tools.ietf.org/html/rfc7692#section-7.2.2
             // Append 4 octets of 0x00 0x00 0xff 0xff to the tail end of the payload of the message.
@@ -321,7 +321,7 @@ namespace BestHTTP.WebSocket.Extensions
 
             decompressorDeflateStream.SetLength(0);
 
-            byte[] result = decompressorOutputStream.ToArray();
+            var result = decompressorOutputStream.ToBufferSegment();
 
             if (this.ServerNoContextTakeover)
             {

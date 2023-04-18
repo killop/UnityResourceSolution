@@ -84,7 +84,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			if (obj is Asn1Sequence)
                 return new PasswordRecipientInfo((Asn1Sequence) obj);
 
-            throw new ArgumentException("Invalid PasswordRecipientInfo: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("Invalid PasswordRecipientInfo: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
 		public DerInteger Version

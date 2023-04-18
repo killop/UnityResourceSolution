@@ -1558,7 +1558,7 @@ namespace BestHTTP.Decompression.Zlib
             hash_mask = hash_size - 1;
             hash_shift = ((hash_bits + MIN_MATCH - 1) / MIN_MATCH);
 
-            window = BufferPool.Get(w_size * 2, false);
+            window = new byte[w_size * 2];// BufferPool.Get(w_size * 2, false);
             prev = new short[w_size];
             head = new short[hash_size];
 
@@ -1569,7 +1569,7 @@ namespace BestHTTP.Decompression.Zlib
             // the output distance codes, and the output length codes (aka tree).
             // orig comment: This works just fine since the average
             // output size for (length,distance) codes is <= 24 bits.
-            pending = BufferPool.Get(lit_bufsize * 4, false);
+            pending = new byte[lit_bufsize * 4];// BufferPool.Get(lit_bufsize * 4, false);
             _distanceOffset = lit_bufsize;
             _lengthOffset = (1 + 2) * lit_bufsize;
 
@@ -1614,11 +1614,11 @@ namespace BestHTTP.Decompression.Zlib
                 return ZlibConstants.Z_STREAM_ERROR;
             }
             // Deallocate in reverse order of allocations:
-            BufferPool.Release(pending);
+            //BufferPool.Release(pending);
             pending = null;
             head = null;
             prev = null;
-            BufferPool.Release(window);
+            //BufferPool.Release(window);
             window = null;
             // free
             // dstate=null;

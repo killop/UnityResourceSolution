@@ -61,6 +61,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
          * GMT 0024-2014
          */
         public const int SM2 = 25;
+
+        public static bool IsAnonymous(int keyExchangeAlgorithm)
+        {
+            switch (keyExchangeAlgorithm)
+            {
+            case DH_anon:
+            case DH_anon_EXPORT:
+            case ECDH_anon:
+                return true;
+            default:
+                return false;
+            }
+        }
     }
 }
 #pragma warning restore

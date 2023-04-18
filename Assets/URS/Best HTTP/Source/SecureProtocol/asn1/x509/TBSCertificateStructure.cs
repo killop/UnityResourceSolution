@@ -215,7 +215,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 		public override Asn1Object ToAsn1Object()
         {
             string property = Org.BouncyCastle.Utilities.Platform.GetEnvironmentVariable("BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Allow_Non-DER_TBSCert");
-            if (null == property || BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EqualsIgnoreCase("true", property))
+            if (null == property || Org.BouncyCastle.Utilities.Platform.EqualsIgnoreCase("true", property))
                 return seq;
 
             Asn1EncodableVector v = new Asn1EncodableVector();

@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -35,7 +34,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
                 return new SignerInfo((Asn1Sequence) obj);
             }
 
-			throw new ArgumentException("Unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+			throw new ArgumentException("Unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public SignerInfo(
@@ -59,7 +58,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
 		public SignerInfo(
             Asn1Sequence seq)
         {
-            IEnumerator e = seq.GetEnumerator();
+            var e = seq.GetEnumerator();
 
 			e.MoveNext();
             version = (DerInteger) e.Current;
@@ -71,11 +70,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs
             digAlgorithm = AlgorithmIdentifier.GetInstance(e.Current);
 
 			e.MoveNext();
-            object obj = e.Current;
+            var obj = e.Current;
 
-			if (obj is Asn1TaggedObject)
+			if (obj is Asn1TaggedObject tagged)
             {
-                authenticatedAttributes = Asn1Set.GetInstance((Asn1TaggedObject) obj, false);
+                authenticatedAttributes = Asn1Set.GetInstance(tagged, false);
 
 				e.MoveNext();
                 digEncryptionAlgorithm = AlgorithmIdentifier.GetInstance(e.Current);

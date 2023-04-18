@@ -1,12 +1,9 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ocsp;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Date;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
@@ -60,15 +57,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 		*
 		* @return nextUpdate, or null if not present.
 		*/
-		public DateTimeObject NextUpdate
-		{
-			get
-			{
-				return resp.NextUpdate == null
-					?	null
-					:	new DateTimeObject(resp.NextUpdate.ToDateTime());
-			}
-		}
+		public DateTime? NextUpdate => resp.NextUpdate?.ToDateTime();
 
 		public X509Extensions SingleExtensions
 		{

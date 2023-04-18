@@ -14,9 +14,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		/// This routine may be called multiple times.
 		/// </remarks>
 		void Write(Stream outStream);
-
-		[Obsolete]
-		object GetContent();
 	}
 }
 #pragma warning restore

@@ -2,6 +2,10 @@
 #pragma warning disable
 using System;
 using System.Diagnostics;
+#if NETCOREAPP3_0_OR_GREATER
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
+#endif
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.Raw;
 
@@ -17,18 +21,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         public static void Add(ulong[] x, ulong[] y, ulong[] z)
         {
-            for (int i = 0; i < 9; ++i)
-            {
-                z[i] = x[i] ^ y[i]; 
-            }
+            Nat.Xor64(9, x, y, z);
         }
 
         private static void Add(ulong[] x, int xOff, ulong[] y, int yOff, ulong[] z, int zOff)
         {
-            for (int i = 0; i < 9; ++i)
-            {
-                z[zOff + i] = x[xOff + i] ^ y[yOff + i];
-            }
+            Nat.Xor64(9, x, xOff, y, yOff, z, zOff);
         }
 
         public static void AddBothTo(ulong[] x, ulong[] y, ulong[] z)
@@ -49,10 +47,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         public static void AddExt(ulong[] xx, ulong[] yy, ulong[] zz)
         {
-            for (int i = 0; i < 18; ++i)
-            {
-                zz[i] = xx[i] ^ yy[i]; 
-            }
+            Nat.Xor64(18, xx, yy, zz);
         }
 
         public static void AddOne(ulong[] x, ulong[] z)
@@ -66,10 +61,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         private static void AddTo(ulong[] x, ulong[] z)
         {
-            for (int i = 0; i < 9; ++i)
-            {
-                z[i] ^= x[i];
-            }
+            Nat.XorTo64(9, x, z);
         }
 
         public static ulong[] FromBigInteger(BigInteger x)
@@ -173,6 +165,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         public static ulong[] PrecompMultiplicand(ulong[] x)
         {
+#if NETCOREAPP3_0_OR_GREATER
+            ulong[] z = Nat576.Create64();
+            Nat576.Copy64(x, z);
+            return z;
+#else
             /*
              * Precompute table of all 4-bit products of x (first section)
              */
@@ -195,6 +192,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
             Nat.ShiftUpBits64(len, t, 0, 4, 0UL, t, len);
 
             return t;
+#endif
         }
 
         public static void Reduce(ulong[] xx, ulong[] z)
@@ -233,19 +231,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
         {
             ulong[] evn = Nat576.Create64(), odd = Nat576.Create64();
 
-            int pos = 0;
-            for (int i = 0; i < 4; ++i)
-            {
-                ulong u0 = Interleave.Unshuffle(x[pos++]);
-                ulong u1 = Interleave.Unshuffle(x[pos++]);
-                evn[i] = (u0 & 0x00000000FFFFFFFFUL) | (u1 << 32);
-                odd[i] = (u0 >> 32) | (u1 & 0xFFFFFFFF00000000UL);
-            }
-            {
-                ulong u0 = Interleave.Unshuffle(x[pos]);
-                evn[4] = (u0 & 0x00000000FFFFFFFFUL);
-                odd[4] = (u0 >> 32);
-            }
+            odd[0] = Interleave.Unshuffle(x[0], x[1], out evn[0]);
+            odd[1] = Interleave.Unshuffle(x[2], x[3], out evn[1]);
+            odd[2] = Interleave.Unshuffle(x[4], x[5], out evn[2]);
+            odd[3] = Interleave.Unshuffle(x[6], x[7], out evn[3]);
+            odd[4] = Interleave.Unshuffle(x[8]      , out evn[4]);
 
             Multiply(odd, ROOT_Z, z);
             Add(z, evn, z);
@@ -373,6 +363,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         protected static void ImplMultiplyPrecomp(ulong[] x, ulong[] precomp, ulong[] zz)
         {
+#if NETCOREAPP3_0_OR_GREATER
+            ImplMultiply(x, precomp, zz);
+#else
             uint MASK = 0xF;
 
             /*
@@ -405,10 +398,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
                     Nat.ShiftUpBits64(18, zz, 0, 8, 0UL);
                 }
             }
+#endif
         }
 
         protected static void ImplMulwAcc(ulong[] u, ulong x, ulong y, ulong[] z, int zOff)
         {
+#if NETCOREAPP3_0_OR_GREATER
+            if (Pclmulqdq.IsSupported)
+            {
+                var X = Vector128.CreateScalar(x);
+                var Y = Vector128.CreateScalar(y);
+                var Z = Pclmulqdq.CarrylessMultiply(X, Y, 0x00);
+                z[zOff    ] ^= Z.GetElement(0);
+                z[zOff + 1] ^= Z.GetElement(1);
+                return;
+            }
+#endif
+
             //u[0] = 0;
             u[1] = y;
             for (int i = 2; i < 16; i += 2)

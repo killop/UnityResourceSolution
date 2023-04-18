@@ -109,6 +109,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         public const int cached_info = 25;
 
         /*
+         * RFC 8879
+         */
+        public const int compress_certificate = 27;
+
+        /*
          * RFC 8449
          */
         public const int record_size_limit = 28;
@@ -193,6 +198,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 return "token_binding";
             case cached_info:
                 return "cached_info";
+            case compress_certificate:
+                return "compress_certificate";
             case record_size_limit:
                 return "record_size_limit";
             case session_ticket:
@@ -259,6 +266,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             case extended_master_secret:
             case token_binding:
             case cached_info:
+            case compress_certificate:
             case record_size_limit:
             case session_ticket:
             case pre_shared_key:

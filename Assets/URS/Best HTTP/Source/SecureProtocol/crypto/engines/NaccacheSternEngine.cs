@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
@@ -20,9 +20,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 
 		private NaccacheSternKeyParameters key;
 
-		private IList[] lookup = null;
+		private IList<BigInteger>[] lookup = null;
 
-        public string AlgorithmName
+		public string AlgorithmName
 		{
 			get { return "NaccacheStern"; }
 		}
@@ -50,22 +50,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 			if (!this.forEncryption)
 			{
 				NaccacheSternPrivateKeyParameters priv = (NaccacheSternPrivateKeyParameters)key;
-				IList primes = priv.SmallPrimesList;
-				lookup = new IList[primes.Count];
+				var primes = priv.SmallPrimesList;
+				lookup = new IList<BigInteger>[primes.Count];
 				for (int i = 0; i < primes.Count; i++)
 				{
-					BigInteger actualPrime = (BigInteger) primes[i];
+					BigInteger actualPrime = primes[i];
 					int actualPrimeValue = actualPrime.IntValue;
 
-					lookup[i] = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(actualPrimeValue);
+					lookup[i] = new List<BigInteger>(actualPrimeValue);
 					lookup[i].Add(BigInteger.One);
 
 					BigInteger accJ = BigInteger.Zero;
-
 					for (int j = 1; j < actualPrimeValue; j++)
 					{
-//						BigInteger bigJ = BigInteger.ValueOf(j);
-//						accJ = priv.PhiN.Multiply(bigJ);
 						accJ = accJ.Add(priv.PhiN);
 						BigInteger comp = accJ.Divide(actualPrime);
 						lookup[i].Add(priv.G.ModPow(comp, priv.Modulus));
@@ -74,13 +71,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 			}
 		}
 
-
-        public virtual bool Debug
-		{
-			set {}
-		}
-
-        /**
+		/**
 		* Returns the input block size of this algorithm.
 		*
 		* @see org.bouncycastle.crypto.AsymmetricBlockCipher#GetInputBlockSize()
@@ -155,31 +146,30 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 			}
 			else
 			{
-				IList plain = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+				var plain = new List<BigInteger>();
 				NaccacheSternPrivateKeyParameters priv = (NaccacheSternPrivateKeyParameters)key;
-				IList primes = priv.SmallPrimesList;
+				var primes = priv.SmallPrimesList;
 				// Get Chinese Remainders of CipherText
 				for (int i = 0; i < primes.Count; i++)
 				{
 					BigInteger exp = input.ModPow(priv.PhiN.Divide((BigInteger)primes[i]), priv.Modulus);
-					IList al = lookup[i];
-					if (lookup[i].Count != ((BigInteger)primes[i]).IntValue)
+					var al = lookup[i];
+					if (lookup[i].Count != primes[i].IntValue)
 					{
 						throw new InvalidCipherTextException("Error in lookup Array for "
-										+ ((BigInteger)primes[i]).IntValue
+										+ primes[i].IntValue
 										+ ": Size mismatch. Expected ArrayList with length "
-										+ ((BigInteger)primes[i]).IntValue + " but found ArrayList of length "
+										+ primes[i].IntValue + " but found ArrayList of length "
 										+ lookup[i].Count);
 					}
 					int lookedup = al.IndexOf(exp);
 
 					if (lookedup == -1)
-					{
 						throw new InvalidCipherTextException("Lookup failed");
-					}
+
 					plain.Add(BigInteger.ValueOf(lookedup));
 				}
-				BigInteger test = chineseRemainder(plain, primes);
+				BigInteger test = ChineseRemainder(plain, primes);
 
 				// Should not be used as an oracle, so reencrypt output to see
 				// if it corresponds to input
@@ -263,7 +253,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 			BigInteger m1m2Crypt = m1Crypt.Multiply(m2Crypt);
 			m1m2Crypt = m1m2Crypt.Mod(key.Modulus);
 
-            //byte[] output = key.Modulus.ToByteArray();
+			//byte[] output = key.Modulus.ToByteArray();
 			//Array.Clear(output, 0, output.Length);
 			byte[] output = new byte[key.Modulus.BitLength / 8 + 1];
 
@@ -336,21 +326,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 		*            the primes p_i
 		* @return an integer x for that x % p_i == c_i
 		*/
-		private static BigInteger chineseRemainder(IList congruences, IList primes)
+		private static BigInteger ChineseRemainder(IList<BigInteger> congruences, IList<BigInteger> primes)
 		{
 			BigInteger retval = BigInteger.Zero;
 			BigInteger all = BigInteger.One;
 			for (int i = 0; i < primes.Count; i++)
 			{
-				all = all.Multiply((BigInteger)primes[i]);
+				all = all.Multiply(primes[i]);
 			}
 			for (int i = 0; i < primes.Count; i++)
 			{
-				BigInteger a = (BigInteger)primes[i];
+				BigInteger a = primes[i];
 				BigInteger b = all.Divide(a);
 				BigInteger b2 = b.ModInverse(a);
 				BigInteger tmp = b.Multiply(b2);
-				tmp = tmp.Multiply((BigInteger)congruences[i]);
+				tmp = tmp.Multiply(congruences[i]);
 				retval = retval.Add(tmp);
 			}
 

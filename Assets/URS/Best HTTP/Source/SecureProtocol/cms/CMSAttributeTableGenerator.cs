@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
 
@@ -22,7 +21,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 
 	public interface CmsAttributeTableGenerator
 	{
-		AttributeTable GetAttributes(IDictionary parameters);
+		AttributeTable GetAttributes(IDictionary<CmsAttributeTableParameter, object> parameters);
 	}
 }
 #pragma warning restore

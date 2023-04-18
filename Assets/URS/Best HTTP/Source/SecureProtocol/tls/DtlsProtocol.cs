@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -41,8 +41,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         }
 
         /// <exception cref="IOException"/>
-        internal static short EvaluateMaxFragmentLengthExtension(bool resumedSession, IDictionary clientExtensions,
-            IDictionary serverExtensions, short alertDescription)
+        internal static short EvaluateMaxFragmentLengthExtension(bool resumedSession,
+            IDictionary<int, byte[]> clientExtensions, IDictionary<int, byte[]> serverExtensions,
+            short alertDescription)
         {
             short maxFragmentLength = TlsExtensionsUtilities.GetMaxFragmentLengthExtension(serverExtensions);
             if (maxFragmentLength >= 0)
@@ -66,7 +67,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         }
 
         /// <exception cref="IOException"/>
-        internal static byte[] GenerateSupplementalData(IList supplementalData)
+        internal static byte[] GenerateSupplementalData(IList<SupplementalDataEntry> supplementalData)
         {
             MemoryStream buf = new MemoryStream();
             TlsProtocol.WriteSupplementalData(buf, supplementalData);

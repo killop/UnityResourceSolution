@@ -6,13 +6,16 @@ using System;
 using URS;
 using URS.Editor;
 
-public class BuildTaskBuildPatch : BuildTask
+public class BuildChannelVersions : BuildTask
 {
     public override void BeginTask()
     {
         base.BeginTask();
 
-        VersionBuilder.BuildChannleVersionPatches(Build.GetChannelRoot());
+        var versionRootDirectory = (string)_context[CONTEXT_VERSION_ROOT_DIRECTORY];
+        var channelTargetVersion= (string)_context[CONTEXT_CHANNEL_TARGET_VERSION];
+        var versionKeepCount = (int)_context[CONTEXT_VERSION_KEEP_COUNT];
+        VersionBuilder.BuildChannelVersions(versionRootDirectory, versionKeepCount, channelTargetVersion);
 
         this.FinishTask();
     }

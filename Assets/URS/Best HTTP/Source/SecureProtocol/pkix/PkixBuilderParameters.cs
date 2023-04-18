@@ -1,10 +1,11 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
@@ -18,7 +19,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 	{
 		private int maxPathLength = 5;
 
-		private ISet excludedCerts = new HashSet();
+		private ISet<X509Certificate> excludedCerts = new HashSet<X509Certificate>();
 
 		/**
 		* Returns an instance of <code>PkixBuilderParameters</code>.
@@ -36,17 +37,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		{
 			PkixBuilderParameters parameters = new PkixBuilderParameters(
 				pkixParams.GetTrustAnchors(),
-				new X509CertStoreSelector(pkixParams.GetTargetCertConstraints()));
+				pkixParams.GetTargetConstraintsCert(),
+				pkixParams.GetTargetConstraintsAttrCert());
 			parameters.SetParams(pkixParams);
 			return parameters;
 		}
 
-		public PkixBuilderParameters(
-			ISet			trustAnchors,
-			IX509Selector	targetConstraints)
+		public PkixBuilderParameters(ISet<TrustAnchor> trustAnchors, ISelector<X509Certificate> targetConstraintsCert)
+			: this(trustAnchors, targetConstraintsCert, null)
+		{
+		}
+
+		public PkixBuilderParameters(ISet<TrustAnchor> trustAnchors, ISelector<X509Certificate> targetConstraintsCert,
+			ISelector<X509V2AttributeCertificate> targetConstraintsAttrCert)
 			: base(trustAnchors)
 		{
-			SetTargetCertConstraints(targetConstraints);
+			SetTargetConstraintsCert(targetConstraintsCert);
+			SetTargetConstraintsAttrCert(targetConstraintsAttrCert);
 		}
 
 		public virtual int MaxPathLength
@@ -67,9 +74,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		/// Excluded certificates are not used for building a certification path.
 		/// </summary>
 		/// <returns>the excluded certificates.</returns>
-		public virtual ISet GetExcludedCerts()
+		public virtual ISet<X509Certificate> GetExcludedCerts()
 		{
-			return new HashSet(excludedCerts);
+			return new HashSet<X509Certificate>(excludedCerts);
 		}
 
 		/// <summary>
@@ -81,16 +88,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		/// The given set is cloned to protect it against subsequent modifications.
 		/// </remarks>
 		/// <param name="excludedCerts">The excluded certificates to set.</param>
-		public virtual void SetExcludedCerts(
-			ISet excludedCerts)
+		public virtual void SetExcludedCerts(ISet<X509Certificate> excludedCerts)
 		{
 			if (excludedCerts == null)
 			{
-				this.excludedCerts = new HashSet();
+				this.excludedCerts = new HashSet<X509Certificate>();
 			}
 			else
 			{
-				this.excludedCerts = new HashSet(excludedCerts);
+				this.excludedCerts = new HashSet<X509Certificate>(excludedCerts);
 			}
 		}
 
@@ -101,15 +107,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		* @param params Parameters to set.
 		* @see org.bouncycastle.x509.ExtendedPKIXParameters#setParams(java.security.cert.PKIXParameters)
 		*/
-		protected override void SetParams(
-			PkixParameters parameters)
+		protected override void SetParams(PkixParameters parameters)
 		{
 			base.SetParams(parameters);
-			if (parameters is PkixBuilderParameters)
+			if (parameters is PkixBuilderParameters _params)
 			{
-				PkixBuilderParameters _params = (PkixBuilderParameters) parameters;
 				maxPathLength = _params.maxPathLength;
-				excludedCerts = new HashSet(_params.excludedCerts);
+				excludedCerts = new HashSet<X509Certificate>(_params.excludedCerts);
 			}
 		}
 
@@ -122,20 +126,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		public override object Clone()
 		{
 			PkixBuilderParameters parameters = new PkixBuilderParameters(
-				GetTrustAnchors(), GetTargetCertConstraints());
+				GetTrustAnchors(),
+				GetTargetConstraintsCert(),
+				GetTargetConstraintsAttrCert());
 			parameters.SetParams(this);
 			return parameters;
 		}
 
 		public override string ToString()
 		{
-			string nl = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine;
 			StringBuilder s = new StringBuilder();
-			s.Append("PkixBuilderParameters [" + nl);
+			s.AppendLine("PkixBuilderParameters [");
 			s.Append(base.ToString());
 			s.Append("  Maximum Path Length: ");
 			s.Append(MaxPathLength);
-			s.Append(nl + "]" + nl);
+			s.AppendLine();
+			s.AppendLine("]");
 			return s.ToString();
 		}
 	}

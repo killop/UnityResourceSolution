@@ -136,6 +136,20 @@ namespace BestHTTP.SignalRCore
         }
     }
 
+    struct FunctionCallbackDescriptor
+    {
+        public readonly Type ReturnType;
+        public readonly Type[] ParamTypes;
+        public readonly Func<object[], object> Callback;
+
+        public FunctionCallbackDescriptor(Type returnType, Type[] paramTypes, Func<object[], object> callback)
+        {
+            this.ReturnType = returnType;
+            this.ParamTypes = paramTypes;
+            this.Callback = callback;
+        }
+    }
+
     internal struct InvocationDefinition
     {
         public Action<Messages.Message> callback;
@@ -145,22 +159,29 @@ namespace BestHTTP.SignalRCore
     internal sealed class Subscription
     {
         public List<CallbackDescriptor> callbacks = new List<CallbackDescriptor>(1);
+        public List<FunctionCallbackDescriptor> functionCallbacks;
 
         public void Add(Type[] paramTypes, Action<object[]> callback)
         {
             this.callbacks.Add(new CallbackDescriptor(paramTypes, callback));
         }
 
-        public void Remove(Action<object[]> callback)
+        public void AddFunc(Type resultType, Type[] paramTypes, Func<object[], object> callback)
         {
-            int idx = -1;
-            for (int i = 0; i < this.callbacks.Count && idx == -1; ++i)
-                if (this.callbacks[i].Callback == callback)
-                    idx = i;
+            if (this.functionCallbacks == null)
+                this.functionCallbacks = new List<FunctionCallbackDescriptor>(1);
 
-            if (idx != -1)
-                this.callbacks.RemoveAt(idx);
+            this.functionCallbacks.Add(new FunctionCallbackDescriptor(resultType, paramTypes, callback));
         }
+    }
+
+    public sealed class WebsocketOptions
+    {
+#if !BESTHTTP_DISABLE_WEBSOCKET && (!UNITY_WEBGL || UNITY_EDITOR)
+        public Func<WebSocket.Extensions.IExtension[]> ExtensionsFactory { get; set; } = WebSocket.WebSocket.GetDefaultExtensions;
+
+        public TimeSpan? PingIntervalOverride { get; set; } = TimeSpan.Zero;
+#endif
     }
 
     public sealed class HubOptions
@@ -194,6 +215,11 @@ namespace BestHTTP.SignalRCore
         /// The maximum time that the plugin allowed to spend trying to connect. Its default value is 1 minute.
         /// </summary>
         public TimeSpan ConnectTimeout { get; set; }
+
+        /// <summary>
+        /// Customization options for the websocket transport.
+        /// </summary>
+        public WebsocketOptions WebsocketOptions { get; set; } = new WebsocketOptions();
 
         public HubOptions()
         {

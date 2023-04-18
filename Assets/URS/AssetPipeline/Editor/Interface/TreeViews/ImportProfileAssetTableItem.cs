@@ -72,7 +72,7 @@ namespace Daihenka.AssetPipeline
                         }
 
                         enabledProcessorCount++;
-                        if (!userData.HasProcessor(processor))
+                        if (!processor.IsConfigOK(userData.GetAssetImporter()) ||!userData.HasProcessor(processor))
                         {
                             missingProcessors.Add($"Processor: {processor.GetName()}\nFilter: {filter.file.pattern}");
                         }

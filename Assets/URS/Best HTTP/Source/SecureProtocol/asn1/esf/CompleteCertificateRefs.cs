@@ -1,10 +1,9 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 {
@@ -30,7 +29,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 
 			throw new ArgumentException(
 				"Unknown object in 'CompleteCertificateRefs' factory: "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
 				"obj");
 		}
 
@@ -58,12 +57,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 		}
 
 		public CompleteCertificateRefs(
-			IEnumerable otherCertIDs)
+			IEnumerable<OtherCertID> otherCertIDs)
 		{
 			if (otherCertIDs == null)
 				throw new ArgumentNullException("otherCertIDs");
-			if (!CollectionUtilities.CheckElementsAreOfType(otherCertIDs, typeof(OtherCertID)))
-				throw new ArgumentException("Must contain only 'OtherCertID' objects", "otherCertIDs");
 
 			this.otherCertIDs = new DerSequence(
 				Asn1EncodableVector.FromEnumerable(otherCertIDs));

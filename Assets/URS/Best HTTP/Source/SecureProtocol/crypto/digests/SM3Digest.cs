@@ -120,7 +120,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			this.xOff = 0;
 		}
 
-
 		public override int DoFinal(byte[] output, int outOff)
 		{
 			Finish();
@@ -132,13 +131,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			return DIGEST_LENGTH;
 		}
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override int DoFinal(Span<byte> output)
+        {
+            Finish();
 
-		internal override void ProcessWord(byte[] input,
-		                                   int inOff)
+            Pack.UInt32_To_BE(V, output);
+
+            Reset();
+
+            return DIGEST_LENGTH;
+        }
+#endif
+
+        internal override void ProcessWord(byte[] input, int inOff)
 		{
-			uint n = Pack.BE_To_UInt32(input, inOff);
-			this.inwords[this.xOff] = n;
-			++this.xOff;
+			inwords[xOff++] = Pack.BE_To_UInt32(input, inOff);
 
 			if (this.xOff >= 16)
 			{
@@ -146,7 +154,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 			}
 		}
 
-		internal override void ProcessLength(long bitLength)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        internal override void ProcessWord(ReadOnlySpan<byte> word)
+        {
+            inwords[xOff++] = Pack.BE_To_UInt32(word);
+
+            if (this.xOff >= 16)
+            {
+                ProcessBlock();
+            }
+        }
+#endif
+
+        internal override void ProcessLength(long bitLength)
 		{
 			if (this.xOff > (BLOCK_SIZE - 2))
 			{

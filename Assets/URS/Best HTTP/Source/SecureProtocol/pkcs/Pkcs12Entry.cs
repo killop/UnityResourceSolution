@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
@@ -10,57 +9,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
 {
     public abstract class Pkcs12Entry
     {
-        private readonly IDictionary attributes;
+		private readonly IDictionary<DerObjectIdentifier, Asn1Encodable> m_attributes;
 
-		protected internal Pkcs12Entry(
-            IDictionary attributes)
+		protected internal Pkcs12Entry(IDictionary<DerObjectIdentifier, Asn1Encodable> attributes)
         {
-            this.attributes = attributes;
-
-			foreach (DictionaryEntry entry in attributes)
-			{
-				if (!(entry.Key is string))
-					throw new ArgumentException("Attribute keys must be of type: " + typeof(string).FullName, "attributes");
-				if (!(entry.Value is Asn1Encodable))
-					throw new ArgumentException("Attribute values must be of type: " + typeof(Asn1Encodable).FullName, "attributes");
-			}
+            m_attributes = attributes;
         }
 
-
-		public Asn1Encodable GetBagAttribute(
-            DerObjectIdentifier oid)
-        {
-            return (Asn1Encodable)this.attributes[oid.Id];
-        }
-
-
-		public Asn1Encodable GetBagAttribute(
-            string oid)
-        {
-            return (Asn1Encodable)this.attributes[oid];
-        }
-
-
-        public IEnumerator GetBagAttributeKeys()
-        {
-            return this.attributes.Keys.GetEnumerator();
-        }
-
-		public Asn1Encodable this[
-			DerObjectIdentifier oid]
+		public Asn1Encodable this[DerObjectIdentifier oid]
 		{
-			get { return (Asn1Encodable) this.attributes[oid.Id]; }
+			get { return CollectionUtilities.GetValueOrNull(m_attributes, oid); }
 		}
 
-		public Asn1Encodable this[
-			string oid]
+		public IEnumerable<DerObjectIdentifier> BagAttributeKeys
 		{
-			get { return (Asn1Encodable) this.attributes[oid]; }
-		}
-
-		public IEnumerable BagAttributeKeys
-		{
-			get { return new EnumerableProxy(this.attributes.Keys); }
+			get { return CollectionUtilities.Proxy(m_attributes.Keys); }
 		}
     }
 }

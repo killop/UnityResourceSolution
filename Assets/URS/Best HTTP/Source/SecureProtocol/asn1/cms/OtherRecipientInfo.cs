@@ -18,9 +18,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
             this.oriValue = oriValue;
         }
 
-
-        public OtherRecipientInfo(
-            Asn1Sequence seq)
+        private OtherRecipientInfo(Asn1Sequence seq)
         {
             oriType = DerObjectIdentifier.GetInstance(seq[0]);
             oriValue = seq[1];

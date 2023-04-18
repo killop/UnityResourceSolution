@@ -1,11 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 {
@@ -34,7 +33,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 
 			throw new ArgumentException(
 				"Unknown object in 'OtherSigningCertificate' factory: "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
 				"obj");
 		}
 
@@ -76,28 +75,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 		}
 
 		public OtherSigningCertificate(
-			IEnumerable certs)
+			IEnumerable<OtherCertID> certs)
 			: this(certs, null)
 		{
 		}
 
 		public OtherSigningCertificate(
-			IEnumerable	certs,
-			IEnumerable	policies)
+			IEnumerable<OtherCertID> certs,
+			IEnumerable<PolicyInformation> policies)
 		{
 			if (certs == null)
 				throw new ArgumentNullException("certs");
-			if (!CollectionUtilities.CheckElementsAreOfType(certs, typeof(OtherCertID)))
-				throw new ArgumentException("Must contain only 'OtherCertID' objects", "certs");
 
 			this.certs = new DerSequence(
 				Asn1EncodableVector.FromEnumerable(certs));
 
 			if (policies != null)
 			{
-				if (!CollectionUtilities.CheckElementsAreOfType(policies, typeof(PolicyInformation)))
-					throw new ArgumentException("Must contain only 'PolicyInformation' objects", "policies");
-
 				this.policies = new DerSequence(
 					Asn1EncodableVector.FromEnumerable(policies));
 			}

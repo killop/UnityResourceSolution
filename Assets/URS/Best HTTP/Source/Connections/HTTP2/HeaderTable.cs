@@ -183,14 +183,15 @@ namespace BestHTTP.Connections.HTTP2
 
         public override string ToString()
         {
-            System.Text.StringBuilder sb = new System.Text.StringBuilder("[HeaderTable ");
+            System.Text.StringBuilder sb = PlatformSupport.Text.StringBuilderPool.Get(this.DynamicTable.Count + 3);
+            sb.Append("[HeaderTable ");
             sb.AppendFormat("DynamicTable count: {0}, DynamicTableSize: {1}, MaxDynamicTableSize: {2}, ", this.DynamicTable.Count, this.DynamicTableSize, this.MaxDynamicTableSize);
 
             foreach(var kvp in this.DynamicTable)
                 sb.AppendFormat("\"{0}\": \"{1}\", ", kvp.Key, kvp.Value);
 
             sb.Append("]");
-            return sb.ToString();
+            return PlatformSupport.Text.StringBuilderPool.ReleaseAndGrab(sb);
         }
     }
 }

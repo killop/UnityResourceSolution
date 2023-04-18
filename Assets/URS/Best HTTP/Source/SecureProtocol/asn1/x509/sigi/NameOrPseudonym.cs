@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X500;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -49,7 +48,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.SigI
 				return new NameOrPseudonym((Asn1Sequence) obj);
 			}
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		/**
@@ -98,7 +97,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.SigI
 				throw new ArgumentException("Bad sequence size: " + seq.Count);
 
 			if (!(seq[0] is IAsn1String))
-                throw new ArgumentException("Bad object encountered: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(seq[0]));
+                throw new ArgumentException("Bad object encountered: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(seq[0]));
 
 			surname = DirectoryString.GetInstance(seq[0]);
 			givenName = Asn1Sequence.GetInstance(seq[1]);

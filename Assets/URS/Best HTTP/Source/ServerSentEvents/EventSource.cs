@@ -104,6 +104,7 @@ namespace BestHTTP.ServerSentEvents
         public HostConnectionKey ConnectionKey { get; private set; }
 
         public bool IsClosed { get { return this.State == States.Closed; } }
+
         public LoggingContext LoggingContext { get; private set; }
 
 #if !UNITY_WEBGL || UNITY_EDITOR
@@ -213,7 +214,7 @@ namespace BestHTTP.ServerSentEvents
             this.ReconnectionTime = TimeSpan.FromMilliseconds(2000);
 
             this.ConnectionKey = new HostConnectionKey(this.Uri.Host, HostDefinition.GetKeyFor(this.Uri
-#if !BESTHTTP_DISABLE_PROXY
+#if !BESTHTTP_DISABLE_PROXY && (!UNITY_WEBGL || UNITY_EDITOR)
                 , HTTPManager.Proxy
 #endif
                 ));

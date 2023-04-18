@@ -51,18 +51,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
         {
         }
 
-        /**
-         * Creates a new <code>UserNotice</code> instance.
-         * <p>Useful from reconstructing a <code>UserNotice</code> instance
-         * from its encodable/encoded form.
-         *
-         * @param as an <code>ASN1Sequence</code> value obtained from either
-         * calling @{link toASN1Object()} for a <code>UserNotice</code>
-         * instance or from parsing it from a DER-encoded stream.</p>
-         */
-
-        public UserNotice(
-            Asn1Sequence seq)
+        private UserNotice(Asn1Sequence seq)
         {
             if (seq.Count == 2)
             {

@@ -23,11 +23,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             get { return _limit; }
         }
 
-        protected virtual void SetParentEofDetect(bool on)
+        protected void SetParentEofDetect()
         {
             if (_in is IndefiniteLengthInputStream)
             {
-                ((IndefiniteLengthInputStream)_in).SetEofOn00(on);
+                ((IndefiniteLengthInputStream)_in).SetEofOn00(true);
             }
         }
     }

@@ -7,5 +7,6 @@
         End = 2,
         Exact = 3,
         AllPaths = 4,
+        Regex= 5,
     }
 }

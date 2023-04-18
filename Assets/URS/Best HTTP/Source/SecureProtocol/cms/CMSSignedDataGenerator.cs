@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -40,13 +40,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
     {
 		private static readonly CmsSignedHelper Helper = CmsSignedHelper.Instance;
 
-		private readonly IList signerInfs = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+		private readonly IList<SignerInf> signerInfs = new List<SignerInf>();
 
 		private class SignerInf
         {
             private readonly CmsSignedGenerator outer;
 
-			private readonly ISignatureFactory		sigCalc;
+			private readonly ISignatureFactory			sigCalc;
 			private readonly SignerIdentifier			signerIdentifier;
 			private readonly string						digestOID;
 			private readonly string						encOID;
@@ -57,6 +57,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			internal SignerInf(
                 CmsSignedGenerator			outer,
 	            AsymmetricKeyParameter		key,
+				SecureRandom                random,
 	            SignerIdentifier			signerIdentifier,
 	            string						digestOID,
 	            string						encOID,
@@ -69,7 +70,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
                 string signatureName = digestName + "with" + Helper.GetEncryptionAlgName(encOID);
 
                 this.outer = outer;
-                this.sigCalc = new Asn1SignatureFactory(signatureName, key);
+                this.sigCalc = new Asn1SignatureFactory(signatureName, key, random);
                 this.signerIdentifier = signerIdentifier;
                 this.digestOID = digestOID;
                 this.encOID = encOID;
@@ -89,7 +90,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
                 this.outer = outer;
                 this.sigCalc = sigCalc;
                 this.signerIdentifier = signerIdentifier;
-                this.digestOID = new DefaultDigestAlgorithmIdentifierFinder().find((AlgorithmIdentifier)sigCalc.AlgorithmDetails).Algorithm.Id;
+                this.digestOID = new DefaultDigestAlgorithmIdentifierFinder().Find(
+					(AlgorithmIdentifier)sigCalc.AlgorithmDetails).Algorithm.Id;
                 this.encOID = ((AlgorithmIdentifier)sigCalc.AlgorithmDetails).Algorithm.Id;
                 this.sAttr = sAttr;
                 this.unsAttr = unsAttr;
@@ -111,22 +113,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 				get { return unsAttr; }
             }
 
-			internal SignerInfo ToSignerInfo(
-                DerObjectIdentifier	contentType,
-                CmsProcessable		content,
-				SecureRandom		random)
+			internal SignerInfo ToSignerInfo(DerObjectIdentifier contentType, CmsProcessable content)
             {
                 AlgorithmIdentifier digAlgId = DigestAlgorithmID;
 				string digestName = Helper.GetDigestAlgName(digestOID);
 
 				string signatureName = digestName + "with" + Helper.GetEncryptionAlgName(encOID);
-				
-                byte[] hash;
-                if (outer._digests.Contains(digestOID))
-                {
-                    hash = (byte[])outer._digests[digestOID];
-                }
-                else
+
+				if (!outer.m_digests.TryGetValue(digestOID, out var hash))
                 {
                     IDigest dig = Helper.GetDigestInstance(digestName);
                     if (content != null)
@@ -134,55 +128,49 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
                         content.Write(new DigestSink(dig));
                     }
                     hash = DigestUtilities.DoFinal(dig);
-                    outer._digests.Add(digestOID, hash.Clone());
+                    outer.m_digests.Add(digestOID, (byte[])hash.Clone());
                 }
-
-                IStreamCalculator calculator = sigCalc.CreateCalculator();
-
-#if NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || PORTABLE || NETFX_CORE
-				Stream sigStr = calculator.Stream;
-#else
-				Stream sigStr = new BufferedStream(calculator.Stream);
-#endif
 
 				Asn1Set signedAttr = null;
-				if (sAttr != null)
-				{
-					IDictionary parameters = outer.GetBaseParameters(contentType, digAlgId, hash);
 
-//					Asn1.Cms.AttributeTable signed = sAttr.GetAttributes(Collections.unmodifiableMap(parameters));
-					Asn1.Cms.AttributeTable signed = sAttr.GetAttributes(parameters);
-
-                    if (contentType == null) //counter signature
-                    {
-                        if (signed != null && signed[CmsAttributes.ContentType] != null)
-                        {
-                            IDictionary tmpSigned = signed.ToDictionary();
-                            tmpSigned.Remove(CmsAttributes.ContentType);
-                            signed = new Asn1.Cms.AttributeTable(tmpSigned);
-                        }
-                    }
-
-					// TODO Validate proposed signed attributes
-
-					signedAttr = outer.GetAttributeSet(signed);
-
-                    // sig must be composed from the DER encoding.
-                    signedAttr.EncodeTo(sigStr, Asn1Encodable.Der);
-				}
-                else if (content != null)
+				IStreamCalculator<IBlockResult> calculator = sigCalc.CreateCalculator();
+				using (Stream sigStr = calculator.Stream)
                 {
-					// TODO Use raw signature of the hash value instead
-					content.Write(sigStr);
-                }
+					if (sAttr != null)
+					{
+						var parameters = outer.GetBaseParameters(contentType, digAlgId, hash);
 
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(sigStr);
-                byte[] sigBytes = ((IBlockResult)calculator.GetResult()).Collect();
+                        //Asn1.Cms.AttributeTable signed = sAttr.GetAttributes(Collections.unmodifiableMap(parameters));
+                        Asn1.Cms.AttributeTable signed = sAttr.GetAttributes(parameters);
+
+						if (contentType == null) //counter signature
+						{
+							if (signed != null && signed[CmsAttributes.ContentType] != null)
+							{
+								signed = signed.Remove(CmsAttributes.ContentType);
+							}
+						}
+
+						// TODO Validate proposed signed attributes
+
+						signedAttr = outer.GetAttributeSet(signed);
+
+						// sig must be composed from the DER encoding.
+						signedAttr.EncodeTo(sigStr, Asn1Encodable.Der);
+					}
+					else if (content != null)
+					{
+						// TODO Use raw signature of the hash value instead
+						content.Write(sigStr);
+					}
+				}
+
+                byte[] sigBytes = calculator.GetResult().Collect();
 
 				Asn1Set unsignedAttr = null;
 				if (unsAttr != null)
 				{
-					IDictionary baseParameters = outer.GetBaseParameters(contentType, digAlgId, hash);
+					var baseParameters = outer.GetBaseParameters(contentType, digAlgId, hash);
 					baseParameters[CmsAttributeTableParameter.Signature] = sigBytes.Clone();
 
 //					Asn1.Cms.AttributeTable unsigned = unsAttr.GetAttributes(Collections.unmodifiableMap(baseParameters));
@@ -208,10 +196,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
         }
 
 		/// <summary>Constructor allowing specific source of randomness</summary>
-		/// <param name="rand">Instance of <c>SecureRandom</c> to use.</param>
-		public CmsSignedDataGenerator(
-			SecureRandom rand)
-			: base(rand)
+		/// <param name="random">Instance of <c>SecureRandom</c> to use.</param>
+		public CmsSignedDataGenerator(SecureRandom random)
+			: base(random)
 		{
 		}
 
@@ -437,7 +424,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			CmsAttributeTableGenerator  unsignedAttrGen,
 			Asn1.Cms.AttributeTable		baseSignedTable)
 		{
-			signerInfs.Add(new SignerInf(this, privateKey, signerIdentifier, digestOID, encryptionOID,
+			signerInfs.Add(new SignerInf(this, privateKey, m_random, signerIdentifier, digestOID, encryptionOID,
 				signedAttrGen, unsignedAttrGen, baseSignedTable));
 		}
 
@@ -465,7 +452,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
             Asn1EncodableVector digestAlgs = new Asn1EncodableVector();
             Asn1EncodableVector signerInfos = new Asn1EncodableVector();
 
-			_digests.Clear(); // clear the current preserved digest state
+			m_digests.Clear(); // clear the current preserved digest state
 
 			//
             // add the precalculated SignerInfo objects.
@@ -492,7 +479,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 				try
                 {
 					digestAlgs.Add(signer.DigestAlgorithmID);
-                    signerInfos.Add(signer.ToSignerInfo(contentTypeOid, content, rand));
+                    signerInfos.Add(signer.ToSignerInfo(contentTypeOid, content));
 				}
                 catch (IOException e)
                 {

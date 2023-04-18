@@ -2,12 +2,22 @@
 #pragma warning disable
 using System;
 using System.IO;
+using System.Diagnostics;
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+using System.Buffers.Binary;
+using System.Numerics;
+#endif
+
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
     public class Asn1OutputStream
-        : DerOutputStream
+        : FilterStream
     {
+        internal const int EncodingBer = 1;
+        internal const int EncodingDer = 2;
+
         public static Asn1OutputStream Create(Stream output)
         {
             return new Asn1OutputStream(output);
@@ -17,7 +27,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
         {
             if (Asn1Encodable.Der.Equals(encoding))
             {
-                return new DerOutputStreamNew(output);
+                return new DerOutputStream(output);
             }
             else
             {
@@ -25,28 +35,40 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             }
         }
 
-
-        public Asn1OutputStream(Stream os)
+        internal Asn1OutputStream(Stream os)
             : base(os)
         {
         }
 
-        public override void WriteObject(Asn1Encodable encodable)
+        public virtual void WriteObject(Asn1Encodable asn1Encodable)
         {
-            if (null == encodable)
-                throw new IOException("null object detected");
+            if (null == asn1Encodable)
+                throw new ArgumentNullException("asn1Encodable");
 
-            WritePrimitive(encodable.ToAsn1Object(), true);
+            asn1Encodable.ToAsn1Object().GetEncoding(this.Encoding).Encode(this);
             FlushInternal();
         }
 
-        public override void WriteObject(Asn1Object primitive)
+        public virtual void WriteObject(Asn1Object asn1Object)
         {
-            if (null == primitive)
-                throw new IOException("null object detected");
+            if (null == asn1Object)
+                throw new ArgumentNullException("asn1Object");
 
-            WritePrimitive(primitive, true);
+            asn1Object.GetEncoding(this.Encoding).Encode(this);
             FlushInternal();
+        }
+
+        internal void EncodeContents(IAsn1Encoding[] contentsEncodings)
+        {
+            for (int i = 0, count = contentsEncodings.Length; i < count; ++i)
+            {
+                contentsEncodings[i].Encode(this);
+            }
+        }
+
+        internal virtual int Encoding
+        {
+            get { return EncodingBer; }
         }
 
         internal void FlushInternal()
@@ -54,146 +76,89 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             // Placeholder to support future internal buffering
         }
 
-        internal virtual bool IsBer
+        internal void WriteDL(int dl)
         {
-            get { return true; }
-        }
-
-        internal void WriteDL(int length)
-        {
-            if (length < 128)
+            if (dl < 128)
             {
-                WriteByte((byte)length);
+                Debug.Assert(dl >= 0);
+                WriteByte((byte)dl);
+                return;
             }
-            else
+
+#if false && (NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_)
+            Span<byte> encoding = stackalloc byte[5];
+            BinaryPrimitives.WriteUInt32BigEndian(encoding[1..], (uint)dl);
+            int leadingZeroBytes = BitOperations.LeadingZeroCount((uint)dl) / 8;
+            encoding[leadingZeroBytes] = (byte)(0x84 - leadingZeroBytes);
+            Write(encoding[leadingZeroBytes..]);
+#else
+            byte[] stack = new byte[5];
+            int pos = stack.Length;
+
+            do
             {
-                byte[] stack = new byte[5];
-                int pos = stack.Length;
-
-                do
-                {
-                    stack[--pos] = (byte)length;
-                    length >>= 8;
-                }
-                while (length > 0);
-
-                int count = stack.Length - pos;
-                stack[--pos] = (byte)(0x80 | count);
-
-                Write(stack, pos, count + 1);
+                stack[--pos] = (byte)dl;
+                dl >>= 8;
             }
+            while (dl > 0);
+
+            int count = stack.Length - pos;
+            stack[--pos] = (byte)(0x80 | count);
+
+            Write(stack, pos, count + 1);
+#endif
         }
 
-        internal virtual void WriteElements(Asn1Encodable[] elements)
+        internal void WriteIdentifier(int tagClass, int tagNo)
         {
-            for (int i = 0, count = elements.Length; i < count; ++i)
+            if (tagNo < 31)
             {
-                elements[i].ToAsn1Object().Encode(this, true);
+                WriteByte((byte)(tagClass | tagNo));
+                return;
             }
-        }
 
-        internal void WriteEncodingDL(bool withID, int identifier, byte contents)
-        {
-            WriteIdentifier(withID, identifier);
-            WriteDL(1);
-            WriteByte(contents);
-        }
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            Span<byte> stack = stackalloc byte[6];
+#else
+            byte[] stack = new byte[6];
+#endif
+            int pos = stack.Length;
 
-        internal void WriteEncodingDL(bool withID, int identifier, byte[] contents)
-        {
-            WriteIdentifier(withID, identifier);
-            WriteDL(contents.Length);
-            Write(contents, 0, contents.Length);
-        }
-
-        internal void WriteEncodingDL(bool withID, int identifier, byte[] contents, int contentsOff, int contentsLen)
-        {
-            WriteIdentifier(withID, identifier);
-            WriteDL(contentsLen);
-            Write(contents, contentsOff, contentsLen);
-        }
-
-        internal void WriteEncodingDL(bool withID, int identifier, byte contentsPrefix, byte[] contents,
-            int contentsOff, int contentsLen)
-        {
-            WriteIdentifier(withID, identifier);
-            WriteDL(1 + contentsLen);
-            WriteByte(contentsPrefix);
-            Write(contents, contentsOff, contentsLen);
-        }
-
-        internal void WriteEncodingDL(bool withID, int identifier, byte[] contents, int contentsOff, int contentsLen,
-            byte contentsSuffix)
-        {
-            WriteIdentifier(withID, identifier);
-            WriteDL(contentsLen + 1);
-            Write(contents, contentsOff, contentsLen);
-            WriteByte(contentsSuffix);
-        }
-
-        internal void WriteEncodingDL(bool withID, int flags, int tag, byte[] contents)
-        {
-            WriteIdentifier(withID, flags, tag);
-            WriteDL(contents.Length);
-            Write(contents, 0, contents.Length);
-        }
-
-        internal void WriteEncodingIL(bool withID, int identifier, Asn1Encodable[] elements)
-        {
-            WriteIdentifier(withID, identifier);
-            WriteByte(0x80);
-            WriteElements(elements);
-            WriteByte(0x00);
-            WriteByte(0x00);
-        }
-
-        internal void WriteIdentifier(bool withID, int identifier)
-        {
-            if (withID)
+            stack[--pos] = (byte)(tagNo & 0x7F);
+            while (tagNo > 127)
             {
-                WriteByte((byte)identifier);
+                tagNo >>= 7;
+                stack[--pos] = (byte)(tagNo & 0x7F | 0x80);
             }
+
+            stack[--pos] = (byte)(tagClass | 0x1F);
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            Write(stack[pos..]);
+#else
+            Write(stack, pos, stack.Length - pos);
+#endif
         }
 
-        internal void WriteIdentifier(bool withID, int flags, int tag)
+        internal static IAsn1Encoding[] GetContentsEncodings(int encoding, Asn1Encodable[] elements)
         {
-            if (!withID)
+            int count = elements.Length;
+            IAsn1Encoding[] contentsEncodings = new IAsn1Encoding[count];
+            for (int i = 0; i < count; ++i)
             {
-                // Don't write the identifier
+                contentsEncodings[i] = elements[i].ToAsn1Object().GetEncoding(encoding);
             }
-            else if (tag < 31)
-            {
-                WriteByte((byte)(flags | tag));
-            }
-            else
-            {
-                byte[] stack = new byte[6];
-                int pos = stack.Length;
-
-                stack[--pos] = (byte)(tag & 0x7F);
-                while (tag > 127)
-                {
-                    tag >>= 7;
-                    stack[--pos] = (byte)(tag & 0x7F | 0x80);
-                }
-
-                stack[--pos] = (byte)(flags | 0x1F);
-
-                Write(stack, pos, stack.Length - pos);
-            }
+            return contentsEncodings;
         }
 
-        internal virtual void WritePrimitive(Asn1Object primitive, bool withID)
+        internal static int GetLengthOfContents(IAsn1Encoding[] contentsEncodings)
         {
-            primitive.Encode(this, withID);
-        }
-
-        internal virtual void WritePrimitives(Asn1Object[] primitives)
-        {
-            for (int i = 0, count = primitives.Length; i < count; ++i)
+            int contentsLength = 0;
+            for (int i = 0, count = contentsEncodings.Length; i < count; ++i)
             {
-                WritePrimitive(primitives[i], true);
+                contentsLength += contentsEncodings[i].GetLength();
             }
+            return contentsLength;
         }
 
         internal static int GetLengthOfDL(int dl)
@@ -209,23 +174,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             return length;
         }
 
-        internal static int GetLengthOfEncodingDL(bool withID, int contentsLength)
+        internal static int GetLengthOfIdentifier(int tagNo)
         {
-            return (withID ? 1 : 0) + GetLengthOfDL(contentsLength) + contentsLength;
-        }
-
-        internal static int GetLengthOfEncodingDL(bool withID, int tag, int contentsLength)
-        {
-            return (withID ? GetLengthOfIdentifier(tag) : 0) + GetLengthOfDL(contentsLength) + contentsLength;
-        }
-
-        internal static int GetLengthOfIdentifier(int tag)
-        {
-            if (tag < 31)
+            if (tagNo < 31)
                 return 1;
 
             int length = 2;
-            while ((tag >>= 7) > 0)
+            while ((tagNo >>= 7) > 0)
             {
                 ++length;
             }

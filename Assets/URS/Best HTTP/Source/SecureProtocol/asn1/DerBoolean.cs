@@ -1,6 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
@@ -9,7 +10,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
     public class DerBoolean
         : Asn1Object
     {
-        private readonly byte value;
+        internal class Meta : Asn1UniversalType
+        {
+            internal static readonly Asn1UniversalType Instance = new Meta();
+
+            private Meta() : base(typeof(DerBoolean), Asn1Tags.Boolean) {}
+
+            internal override Asn1Object FromImplicitPrimitive(DerOctetString octetString)
+            {
+                return CreatePrimitive(octetString.GetOctets());
+            }
+        }
 
         public static readonly DerBoolean False = new DerBoolean(false);
         public static readonly DerBoolean True  = new DerBoolean(true);
@@ -19,48 +30,58 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
          *
          * @exception ArgumentException if the object cannot be converted.
          */
-        public static DerBoolean GetInstance(
-            object obj)
+        public static DerBoolean GetInstance(object obj)
         {
-            if (obj == null || obj is DerBoolean)
+            if (obj == null)
+                return null;
+
+            if (obj is DerBoolean derBoolean)
+                return derBoolean;
+
+            if (obj is IAsn1Convertible asn1Convertible)
             {
-                return (DerBoolean) obj;
+                Asn1Object asn1Object = asn1Convertible.ToAsn1Object();
+                if (asn1Object is DerBoolean converted)
+                    return converted;
+            }
+            else if (obj is byte[] bytes)
+            {
+                try
+                {
+                    return (DerBoolean)Meta.Instance.FromByteArray(bytes);
+                }
+                catch (IOException e)
+                {
+                    throw new ArgumentException("failed to construct boolean from byte[]: " + e.Message);
+                }
             }
 
-            throw new ArgumentException("illegal object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
-        /**
-         * return a DerBoolean from the passed in bool.
-         */
-        public static DerBoolean GetInstance(
-            bool value)
+        public static DerBoolean GetInstance(bool value)
         {
             return value ? True : False;
+        }
+
+        public static DerBoolean GetInstance(int value)
+        {
+            return value != 0 ? True : False;
         }
 
         /**
          * return a Boolean from a tagged object.
          *
-         * @param obj the tagged object holding the object we want
-         * @param explicitly true if the object is meant to be explicitly
-         *              tagged false otherwise.
-         * @exception ArgumentException if the tagged object cannot
-         *               be converted.
+         * @param taggedObject the tagged object holding the object we want
+         * @param declaredExplicit true if the object is meant to be explicitly tagged false otherwise.
+         * @exception ArgumentException if the tagged object cannot be converted.
          */
-        public static DerBoolean GetInstance(
-            Asn1TaggedObject	obj,
-            bool				isExplicit)
+        public static DerBoolean GetInstance(Asn1TaggedObject taggedObject, bool declaredExplicit)
         {
-            Asn1Object o = obj.GetObject();
-
-            if (isExplicit || o is DerBoolean)
-            {
-                return GetInstance(o);
-            }
-
-            return FromOctetString(((Asn1OctetString)o).GetOctets());
+            return (DerBoolean)Meta.Instance.GetContextInstance(taggedObject, declaredExplicit);
         }
+
+        private readonly byte value;
 
         public DerBoolean(
             byte[] val)
@@ -83,15 +104,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             get { return value != 0; }
         }
 
-        internal override int EncodedLength(bool withID)
+        internal override IAsn1Encoding GetEncoding(int encoding)
         {
-            return Asn1OutputStream.GetLengthOfEncodingDL(withID, 1);
+            return new PrimitiveEncoding(Asn1Tags.Universal, Asn1Tags.Boolean, GetContents(encoding));
         }
 
-        internal override void Encode(Asn1OutputStream asn1Out, bool withID)
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
         {
-            // TODO Should we make sure the byte value is one of '0' or '0xff' here?
-            asn1Out.WriteEncodingDL(withID, Asn1Tags.Boolean, value);
+            return new PrimitiveEncoding(tagClass, tagNo, GetContents(encoding));
         }
 
         protected override bool Asn1Equals(
@@ -115,16 +135,25 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             return IsTrue ? "TRUE" : "FALSE";
         }
 
-        internal static DerBoolean FromOctetString(byte[] value)
+        internal static DerBoolean CreatePrimitive(byte[] contents)
         {
-            if (value.Length != 1)
+            if (contents.Length != 1)
+                throw new ArgumentException("BOOLEAN value should have 1 byte in it", "contents");
+
+            byte b = contents[0];
+
+            return b == 0 ? False : b == 0xFF ? True : new DerBoolean(contents);
+        }
+
+        private byte[] GetContents(int encoding)
+        {
+            byte contents = value;
+            if (Asn1OutputStream.EncodingDer == encoding && IsTrue)
             {
-                throw new ArgumentException("BOOLEAN value should have 1 byte in it", "value");
+                contents = 0xFF;
             }
 
-            byte b = value[0];
-
-            return b == 0 ? False : b == 0xFF ? True : new DerBoolean(value);
+            return new byte[]{ contents };
         }
     }
 }

@@ -26,7 +26,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Ess
 			}
 
 			throw new ArgumentException("unknown object in 'ContentHints' factory : "
-                + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(o) + ".");
+                + Org.BouncyCastle.Utilities.Platform.GetTypeName(o) + ".");
 		}
 
 		/**

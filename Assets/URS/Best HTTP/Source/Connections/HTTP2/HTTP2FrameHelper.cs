@@ -251,7 +251,15 @@ namespace BestHTTP.Connections.HTTP2
         {
             byte[] buffer = BufferPool.Get(9, true);
 
-            StreamRead(stream, buffer, 0, 9);
+            try
+            {
+                StreamRead(stream, buffer, 0, 9);
+            }
+            catch
+            {
+                BufferPool.Release(buffer);
+                throw;
+            }
 
             HTTP2FrameHeaderAndPayload header = new HTTP2FrameHeaderAndPayload();
 
@@ -263,7 +271,16 @@ namespace BestHTTP.Connections.HTTP2
             BufferPool.Release(buffer);
 
             header.Payload = BufferPool.Get(header.PayloadLength, true);
-            StreamRead(stream, header.Payload, 0, header.PayloadLength);
+
+            try
+            {
+                StreamRead(stream, header.Payload, 0, header.PayloadLength);
+            }
+            catch
+            {
+                BufferPool.Release(header.Payload);
+                throw;
+            }
 
             return header;
         }

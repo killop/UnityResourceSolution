@@ -46,6 +46,12 @@ namespace YooAsset
 		{
             return null;
         }
-		#endregion
-	}
+
+		public void SearchLocalSecurityBundleHardDiskFileByPath(string relativePath, out HardiskFileSearchResult mainResult, out List<HardiskFileSearchResult> dependency,bool skipDownloadFolder= true) {
+
+            mainResult= new HardiskFileSearchResult(relativePath);
+			dependency = null;
+        }
+        #endregion
+    }
 }

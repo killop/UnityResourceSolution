@@ -38,7 +38,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib {
 
-    internal sealed class ZTree{
+    internal sealed class Tree{
         private const int MAX_BITS=15;
         private const int BL_CODES=19;
         private const int D_CODES=30;

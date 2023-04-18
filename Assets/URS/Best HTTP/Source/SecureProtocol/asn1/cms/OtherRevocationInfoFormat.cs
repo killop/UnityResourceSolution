@@ -1,7 +1,5 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
-
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 {
     public class OtherRevocationInfoFormat
@@ -46,8 +44,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
          */
         public static OtherRevocationInfoFormat GetInstance(object obj)
         {
-            if (obj is OtherRevocationInfoFormat)
-                return (OtherRevocationInfoFormat)obj;
+            if (obj is OtherRevocationInfoFormat otherRevocationInfoFormat)
+                return otherRevocationInfoFormat;
             if (obj != null)
                 return new OtherRevocationInfoFormat(Asn1Sequence.GetInstance(obj));
             return null;

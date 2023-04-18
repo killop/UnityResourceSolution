@@ -1,16 +1,14 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cmp;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Tsp;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
@@ -126,10 +124,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 		* @param extensions if non-null a set of extensions we are willing to accept.
 		* @throws TspException if the request is invalid, or processing fails.
 		*/
-		public void Validate(
-			IList algorithms,
-			IList policies,
-			IList extensions)
+		public void Validate(IList<string> algorithms, IList<string> policies, IList<string> extensions)
 		{
 			if (!algorithms.Contains(this.MessageImprintAlgOid))
 				throw new TspValidationException("request contains unknown algorithm", PkiFailureInfo.BadAlg);
@@ -175,7 +170,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 			return extensions == null ? null : extensions.GetExtension(oid);
 		}
 
-		public virtual IList GetExtensionOids()
+		public virtual IList<DerObjectIdentifier> GetExtensionOids()
 		{
 			return TspUtil.GetExtensionOids(extensions);
 		}

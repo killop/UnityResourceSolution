@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Multiplier;
@@ -14,8 +14,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
      */
     public abstract class ECPoint
     {
-        private static readonly SecureRandom Random = new SecureRandom();
-
         protected static ECFieldElement[] EMPTY_ZS = new ECFieldElement[0];
 
         protected static ECFieldElement[] GetInitialZCoords(ECCurve curve)
@@ -52,23 +50,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
         protected internal readonly ECCurve m_curve;
         protected internal readonly ECFieldElement m_x, m_y;
         protected internal readonly ECFieldElement[] m_zs;
-        protected internal readonly bool m_withCompression;
 
-        // Dictionary is (string -> PreCompInfo)
-        protected internal IDictionary m_preCompTable = null;
+        protected internal IDictionary<string, PreCompInfo> m_preCompTable = null;
 
-        protected ECPoint(ECCurve curve, ECFieldElement	x, ECFieldElement y, bool withCompression)
-            : this(curve, x, y, GetInitialZCoords(curve), withCompression)
+        protected ECPoint(ECCurve curve, ECFieldElement	x, ECFieldElement y)
+            : this(curve, x, y, GetInitialZCoords(curve))
         {
         }
 
-        internal ECPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs, bool withCompression)
+        internal ECPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs)
         {
             this.m_curve = curve;
             this.m_x = x;
             this.m_y = y;
             this.m_zs = zs;
-            this.m_withCompression = withCompression;
         }
 
         protected abstract bool SatisfiesCurveEquation();
@@ -251,10 +246,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                      * Any side-channel in the implementation of 'inverse' now only leaks information about
                      * the value (z * b), and no longer reveals information about 'z' itself.
                      */
-                    // TODO Add CryptoServicesRegistrar class and use here
-                    //SecureRandom r = CryptoServicesRegistrar.GetSecureRandom();
-                    SecureRandom r = Random;
-                    ECFieldElement b = m_curve.RandomFieldElementMult(r);
+                    ECFieldElement b = m_curve.RandomFieldElementMult(SecureRandom.ArbitraryRandom);
                     ECFieldElement zInv = z.Multiply(b).Invert().Multiply(b);
                     return Normalize(zInv);
                 }
@@ -286,17 +278,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
 
         protected virtual ECPoint CreateScaledPoint(ECFieldElement sx, ECFieldElement sy)
         {
-            return Curve.CreateRawPoint(RawXCoord.Multiply(sx), RawYCoord.Multiply(sy), IsCompressed);
+            return Curve.CreateRawPoint(RawXCoord.Multiply(sx), RawYCoord.Multiply(sy));
         }
 
         public bool IsInfinity
         {
             get { return m_x == null && m_y == null; }
-        }
-
-        public bool IsCompressed
-        {
-            get { return m_withCompression; }
         }
 
         public bool IsValid()
@@ -323,28 +310,28 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
         {
             return IsInfinity
                 ? this
-                : Curve.CreateRawPoint(RawXCoord.Multiply(scale), RawYCoord, RawZCoords, IsCompressed);
+                : Curve.CreateRawPoint(RawXCoord.Multiply(scale), RawYCoord, RawZCoords);
         }
 
         public virtual ECPoint ScaleXNegateY(ECFieldElement scale)
         {
             return IsInfinity
                 ? this
-                : Curve.CreateRawPoint(RawXCoord.Multiply(scale), RawYCoord.Negate(), RawZCoords, IsCompressed);
+                : Curve.CreateRawPoint(RawXCoord.Multiply(scale), RawYCoord.Negate(), RawZCoords);
         }
 
         public virtual ECPoint ScaleY(ECFieldElement scale)
         {
             return IsInfinity
                 ? this
-                : Curve.CreateRawPoint(RawXCoord, RawYCoord.Multiply(scale), RawZCoords, IsCompressed);
+                : Curve.CreateRawPoint(RawXCoord, RawYCoord.Multiply(scale), RawZCoords);
         }
 
         public virtual ECPoint ScaleYNegateX(ECFieldElement scale)
         {
             return IsInfinity
                 ? this
-                : Curve.CreateRawPoint(RawXCoord.Negate(), RawYCoord.Multiply(scale), RawZCoords, IsCompressed);
+                : Curve.CreateRawPoint(RawXCoord.Negate(), RawYCoord.Multiply(scale), RawZCoords);
         }
 
         public override bool Equals(object obj)
@@ -442,10 +429,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
 
         public virtual byte[] GetEncoded()
         {
-            return GetEncoded(m_withCompression);
+            return GetEncoded(false);
         }
 
         public abstract byte[] GetEncoded(bool compressed);
+
+        public abstract int GetEncodedLength(bool compressed);
+
+        public abstract void EncodeTo(bool compressed, byte[] buf, int off);
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public abstract void EncodeTo(bool compressed, Span<byte> buf);
+#endif
 
         protected internal abstract bool CompressionYTilde { get; }
 
@@ -529,17 +524,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
     public abstract class ECPointBase
         : ECPoint
     {
-        protected internal ECPointBase(
-            ECCurve			curve,
-            ECFieldElement	x,
-            ECFieldElement	y,
-            bool			withCompression)
-            : base(curve, x, y, withCompression)
+        protected internal ECPointBase(ECCurve curve, ECFieldElement x, ECFieldElement y)
+            : base(curve, x, y)
         {
         }
 
-        protected internal ECPointBase(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs, bool withCompression)
-            : base(curve, x, y, zs, withCompression)
+        protected internal ECPointBase(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs)
+            : base(curve, x, y, zs)
         {
         }
 
@@ -549,9 +540,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
         public override byte[] GetEncoded(bool compressed)
         {
             if (this.IsInfinity)
-            {
                 return new byte[1];
-            }
 
             ECPoint normed = Normalize();
 
@@ -576,6 +565,69 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
             }
         }
 
+        public override int GetEncodedLength(bool compressed)
+        {
+            if (IsInfinity)
+                return 1;
+
+            if (compressed)
+                return 1 + XCoord.GetEncodedLength();
+
+            return 1 + XCoord.GetEncodedLength() + YCoord.GetEncodedLength();
+        }
+
+        public override void EncodeTo(bool compressed, byte[] buf, int off)
+        {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            EncodeTo(compressed, buf.AsSpan(off));
+#else
+            if (IsInfinity)
+            {
+                buf[off] = 0x00;
+                return;
+            }
+
+            ECPoint normed = Normalize();
+            ECFieldElement X = normed.XCoord, Y = normed.YCoord;
+
+            if (compressed)
+            {
+                buf[off] = (byte)(normed.CompressionYTilde ? 0x03 : 0x02);
+                X.EncodeTo(buf, off + 1);
+                return;
+            }
+
+            buf[off] = 0x04;
+            X.EncodeTo(buf, off + 1);
+            Y.EncodeTo(buf, off + 1 + X.GetEncodedLength());
+#endif
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public override void EncodeTo(bool compressed, Span<byte> buf)
+        {
+            if (IsInfinity)
+            {
+                buf[0] = 0x00;
+                return;
+            }
+
+            ECPoint normed = Normalize();
+            ECFieldElement X = normed.XCoord, Y = normed.YCoord;
+
+            if (compressed)
+            {
+                buf[0] = (byte)(normed.CompressionYTilde ? 0x03 : 0x02);
+                X.EncodeTo(buf[1..]);
+                return;
+            }
+
+            buf[0] = 0x04;
+            X.EncodeTo(buf[1..]);
+            Y.EncodeTo(buf[(1 + X.GetEncodedLength())..]);
+        }
+#endif
+
         /**
          * Multiplies this <code>ECPoint</code> by the given number.
          * @param k The multiplicator.
@@ -590,13 +642,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
     public abstract class AbstractFpPoint
         : ECPointBase
     {
-        protected AbstractFpPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, bool withCompression)
-            : base(curve, x, y, withCompression)
+        protected AbstractFpPoint(ECCurve curve, ECFieldElement x, ECFieldElement y)
+            : base(curve, x, y)
         {
         }
 
-        protected AbstractFpPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs, bool withCompression)
-            : base(curve, x, y, zs, withCompression)
+        protected AbstractFpPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs)
+            : base(curve, x, y, zs)
         {
         }
 
@@ -663,43 +715,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
     public class FpPoint
         : AbstractFpPoint
     {
-        /**
-         * Create a point which encodes without point compression.
-         *
-         * @param curve the curve to use
-         * @param x affine x co-ordinate
-         * @param y affine y co-ordinate
-         */
-
-        public FpPoint(ECCurve curve, ECFieldElement x, ECFieldElement y)
-            : this(curve, x, y, false)
-        {
-        }
-
-        /**
-         * Create a point that encodes with or without point compression.
-         *
-         * @param curve the curve to use
-         * @param x affine x co-ordinate
-         * @param y affine y co-ordinate
-         * @param withCompression if true encode with point compression
-         */
-
-        public FpPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, bool withCompression)
-            : base(curve, x, y, withCompression)
+        internal FpPoint(ECCurve curve, ECFieldElement x, ECFieldElement y)
+            : base(curve, x, y)
         {
             if ((x == null) != (y == null))
                 throw new ArgumentException("Exactly one of the field elements is null");
         }
 
-        internal FpPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs, bool withCompression)
-            : base(curve, x, y, zs, withCompression)
+        internal FpPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs)
+            : base(curve, x, y, zs)
         {
         }
 
         protected override ECPoint Detach()
         {
-            return new FpPoint(null, AffineXCoord, AffineYCoord, false);
+            return new FpPoint(null, AffineXCoord, AffineYCoord);
         }
 
         public override ECFieldElement GetZCoord(int index)
@@ -750,7 +780,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement X3 = gamma.Square().Subtract(X1).Subtract(X2);
                     ECFieldElement Y3 = gamma.Multiply(X1.Subtract(X3)).Subtract(Y1);
 
-                    return new FpPoint(Curve, X3, Y3, IsCompressed);
+                    return new FpPoint(Curve, X3, Y3);
                 }
 
                 case ECCurve.COORD_HOMOGENEOUS:
@@ -792,7 +822,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement Y3 = vSquaredV2.Subtract(A).MultiplyMinusProduct(u, u2, vCubed);
                     ECFieldElement Z3 = vCubed.Multiply(w);
 
-                    return new FpPoint(curve, X3, Y3, new ECFieldElement[] { Z3 }, IsCompressed);
+                    return new FpPoint(curve, X3, Y3, new ECFieldElement[] { Z3 });
                 }
 
                 case ECCurve.COORD_JACOBIAN:
@@ -922,7 +952,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                         zs = new ECFieldElement[] { Z3 };
                     }
 
-                    return new FpPoint(curve, X3, Y3, zs, IsCompressed);
+                    return new FpPoint(curve, X3, Y3, zs);
                 }
 
                 default:
@@ -957,7 +987,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement X3 = gamma.Square().Subtract(Two(X1));
                     ECFieldElement Y3 = gamma.Multiply(X1.Subtract(X3)).Subtract(Y1);
 
-                    return new FpPoint(Curve, X3, Y3, IsCompressed);
+                    return new FpPoint(Curve, X3, Y3);
                 }
 
                 case ECCurve.COORD_HOMOGENEOUS:
@@ -987,7 +1017,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement _4sSquared = Z1IsOne ? Two(_2t) : _2s.Square();
                     ECFieldElement Z3 = Two(_4sSquared).Multiply(s);
 
-                    return new FpPoint(curve, X3, Y3, new ECFieldElement[] { Z3 }, IsCompressed);
+                    return new FpPoint(curve, X3, Y3, new ECFieldElement[] { Z3 });
                 }
 
                 case ECCurve.COORD_JACOBIAN:
@@ -1046,7 +1076,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     // Alternative calculation of Z3 using fast square
                     //ECFieldElement Z3 = doubleProductFromSquares(Y1, Z1, Y1Squared, Z1Squared);
 
-                    return new FpPoint(curve, X3, Y3, new ECFieldElement[] { Z3 }, IsCompressed);
+                    return new FpPoint(curve, X3, Y3, new ECFieldElement[] { Z3 });
                 }
 
                 case ECCurve.COORD_JACOBIAN_MODIFIED:
@@ -1117,7 +1147,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement X4 = (L2.Subtract(L1)).Multiply(L1.Add(L2)).Add(X2);
                     ECFieldElement Y4 = (X1.Subtract(X4)).Multiply(L2).Subtract(Y1);
 
-                    return new FpPoint(Curve, X4, Y4, IsCompressed);
+                    return new FpPoint(Curve, X4, Y4);
                 }
                 case ECCurve.COORD_JACOBIAN_MODIFIED:
                 {
@@ -1166,7 +1196,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
 
                     ECFieldElement X4 = (L2.Subtract(L1)).Multiply(L1.Add(L2)).Add(X1);
                     ECFieldElement Y4 = (X1.Subtract(X4)).Multiply(L2).Subtract(Y1);
-                    return new FpPoint(Curve, X4, Y4, IsCompressed);
+                    return new FpPoint(Curve, X4, Y4);
                 }
                 case ECCurve.COORD_JACOBIAN_MODIFIED:
                 {
@@ -1248,15 +1278,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
             {
             case ECCurve.COORD_AFFINE:
                 ECFieldElement zInv = Z1.Invert(), zInv2 = zInv.Square(), zInv3 = zInv2.Multiply(zInv);
-                return new FpPoint(curve, X1.Multiply(zInv2), Y1.Multiply(zInv3), IsCompressed);
+                return new FpPoint(curve, X1.Multiply(zInv2), Y1.Multiply(zInv3));
             case ECCurve.COORD_HOMOGENEOUS:
                 X1 = X1.Multiply(Z1);
                 Z1 = Z1.Multiply(Z1.Square());
-                return new FpPoint(curve, X1, Y1, new ECFieldElement[] { Z1 }, IsCompressed);
+                return new FpPoint(curve, X1, Y1, new ECFieldElement[] { Z1 });
             case ECCurve.COORD_JACOBIAN:
-                return new FpPoint(curve, X1, Y1, new ECFieldElement[] { Z1 }, IsCompressed);
+                return new FpPoint(curve, X1, Y1, new ECFieldElement[] { Z1 });
             case ECCurve.COORD_JACOBIAN_MODIFIED:
-                return new FpPoint(curve, X1, Y1, new ECFieldElement[] { Z1, W1 }, IsCompressed);
+                return new FpPoint(curve, X1, Y1, new ECFieldElement[] { Z1, W1 });
             default:
                 throw new InvalidOperationException("unsupported coordinate system");
             }
@@ -1302,10 +1332,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
 
             if (ECCurve.COORD_AFFINE != coord)
             {
-                return new FpPoint(curve, RawXCoord, RawYCoord.Negate(), RawZCoords, IsCompressed);
+                return new FpPoint(curve, RawXCoord, RawYCoord.Negate(), RawZCoords);
             }
 
-            return new FpPoint(curve, RawXCoord, RawYCoord.Negate(), IsCompressed);
+            return new FpPoint(curve, RawXCoord, RawYCoord.Negate());
         }
 
         protected virtual ECFieldElement CalculateJacobianModifiedW(ECFieldElement Z, ECFieldElement ZSquared)
@@ -1360,20 +1390,20 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
             ECFieldElement W3 = calculateW ? Two(_8T.Multiply(W1)) : null;
             ECFieldElement Z3 = Z1.IsOne ? _2Y1 : _2Y1.Multiply(Z1);
 
-            return new FpPoint(this.Curve, X3, Y3, new ECFieldElement[] { Z3, W3 }, IsCompressed);
+            return new FpPoint(this.Curve, X3, Y3, new ECFieldElement[] { Z3, W3 });
         }
     }
 
     public abstract class AbstractF2mPoint 
         : ECPointBase
     {
-        protected AbstractF2mPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, bool withCompression)
-            : base(curve, x, y, withCompression)
+        protected AbstractF2mPoint(ECCurve curve, ECFieldElement x, ECFieldElement y)
+            : base(curve, x, y)
         {
         }
 
-        protected AbstractF2mPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs, bool withCompression)
-            : base(curve, x, y, zs, withCompression)
+        protected AbstractF2mPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs)
+            : base(curve, x, y, zs)
         {
         }
 
@@ -1513,7 +1543,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                 ECFieldElement X2 = X.Multiply(scale);
                 ECFieldElement L2 = L.Add(X).Divide(scale).Add(X2);
 
-                return Curve.CreateRawPoint(X, L2, RawZCoords, IsCompressed);
+                return Curve.CreateRawPoint(X, L2, RawZCoords);
             }
             case ECCurve.COORD_LAMBDA_PROJECTIVE:
             {
@@ -1525,7 +1555,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                 ECFieldElement L2 = L.Add(X).Add(X2);
                 ECFieldElement Z2 = Z.Multiply(scale);
 
-                return Curve.CreateRawPoint(X, L2, new ECFieldElement[] { Z2 }, IsCompressed);
+                return Curve.CreateRawPoint(X, L2, new ECFieldElement[] { Z2 });
             }
             default:
             {
@@ -1554,7 +1584,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                 // Y is actually Lambda (X + Y/X) here
                 ECFieldElement L2 = L.Add(X).Multiply(scale).Add(X);
 
-                return Curve.CreateRawPoint(X, L2, RawZCoords, IsCompressed);
+                return Curve.CreateRawPoint(X, L2, RawZCoords);
             }
             default:
             {
@@ -1593,14 +1623,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
             case ECCurve.COORD_LAMBDA_AFFINE:
             {
                 ECFieldElement Y1 = this.RawYCoord;
-                return (AbstractF2mPoint)curve.CreateRawPoint(X1.Square(), Y1.Square(), IsCompressed);
+                return (AbstractF2mPoint)curve.CreateRawPoint(X1.Square(), Y1.Square());
             }
             case ECCurve.COORD_HOMOGENEOUS:
             case ECCurve.COORD_LAMBDA_PROJECTIVE:
             {
                 ECFieldElement Y1 = this.RawYCoord, Z1 = this.RawZCoords[0];
                 return (AbstractF2mPoint)curve.CreateRawPoint(X1.Square(), Y1.Square(),
-                    new ECFieldElement[] { Z1.Square() }, IsCompressed);
+                    new ECFieldElement[] { Z1.Square() });
             }
             default:
             {
@@ -1625,14 +1655,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
             case ECCurve.COORD_LAMBDA_AFFINE:
             {
                 ECFieldElement Y1 = this.RawYCoord;
-                return (AbstractF2mPoint)curve.CreateRawPoint(X1.SquarePow(pow), Y1.SquarePow(pow), IsCompressed);
+                return (AbstractF2mPoint)curve.CreateRawPoint(X1.SquarePow(pow), Y1.SquarePow(pow));
             }
             case ECCurve.COORD_HOMOGENEOUS:
             case ECCurve.COORD_LAMBDA_PROJECTIVE:
             {
                 ECFieldElement Y1 = this.RawYCoord, Z1 = this.RawZCoords[0];
                 return (AbstractF2mPoint)curve.CreateRawPoint(X1.SquarePow(pow), Y1.SquarePow(pow),
-                    new ECFieldElement[] { Z1.SquarePow(pow) }, IsCompressed);
+                    new ECFieldElement[] { Z1.SquarePow(pow) });
             }
             default:
             {
@@ -1648,33 +1678,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
     public class F2mPoint
         : AbstractF2mPoint
     {
-        /**
-         * @param curve base curve
-         * @param x x point
-         * @param y y point
-         */
-
-        public F2mPoint(
-            ECCurve			curve,
-            ECFieldElement	x,
-            ECFieldElement	y)
-            :  this(curve, x, y, false)
-        {
-        }
-
-        /**
-         * @param curve base curve
-         * @param x x point
-         * @param y y point
-         * @param withCompression true if encode with point compression.
-         */
-
-        public F2mPoint(
-            ECCurve			curve,
-            ECFieldElement	x,
-            ECFieldElement	y,
-            bool			withCompression)
-            : base(curve, x, y, withCompression)
+        internal F2mPoint(ECCurve curve, ECFieldElement x, ECFieldElement y)
+            : base(curve, x, y)
         {
             if ((x == null) != (y == null))
             {
@@ -1694,14 +1699,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
             }
         }
 
-        internal F2mPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs, bool withCompression)
-            : base(curve, x, y, zs, withCompression)
+        internal F2mPoint(ECCurve curve, ECFieldElement x, ECFieldElement y, ECFieldElement[] zs)
+            : base(curve, x, y, zs)
         {
         }
 
         protected override ECPoint Detach()
         {
-            return new F2mPoint(null, AffineXCoord, AffineYCoord, false);
+            return new F2mPoint(null, AffineXCoord, AffineYCoord);
         }
 
         public override ECFieldElement YCoord
@@ -1804,7 +1809,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement X3 = L.Square().Add(L).Add(dx).Add(curve.A);
                     ECFieldElement Y3 = L.Multiply(X1.Add(X3)).Add(X3).Add(Y1);
 
-                    return new F2mPoint(curve, X3, Y3, IsCompressed);
+                    return new F2mPoint(curve, X3, Y3);
                 }
                 case ECCurve.COORD_HOMOGENEOUS:
                 {
@@ -1851,7 +1856,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement Y3 = U.MultiplyPlusProduct(X1, V, Y1).MultiplyPlusProduct(VSqZ2, uv, A);
                     ECFieldElement Z3 = VCu.Multiply(W);
 
-                    return new F2mPoint(curve, X3, Y3, new ECFieldElement[] { Z3 }, IsCompressed);
+                    return new F2mPoint(curve, X3, Y3, new ECFieldElement[] { Z3 });
                 }
                 case ECCurve.COORD_LAMBDA_PROJECTIVE:
                 {
@@ -1909,7 +1914,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                         X3 = L.Square().Add(L).Add(X1).Add(curve.A);
                         if (X3.IsZero)
                         {
-                            return new F2mPoint(curve, X3, curve.B.Sqrt(), IsCompressed);
+                            return new F2mPoint(curve, X3, curve.B.Sqrt());
                         }
 
                         ECFieldElement Y3 = L.Multiply(X1.Add(X3)).Add(X3).Add(Y1);
@@ -1926,7 +1931,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                         X3 = AU1.Multiply(AU2);
                         if (X3.IsZero)
                         {
-                            return new F2mPoint(curve, X3, curve.B.Sqrt(), IsCompressed);
+                            return new F2mPoint(curve, X3, curve.B.Sqrt());
                         }
 
                         ECFieldElement ABZ2 = A.Multiply(B);
@@ -1944,7 +1949,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                         }
                     }
 
-                    return new F2mPoint(curve, X3, L3, new ECFieldElement[] { Z3 }, IsCompressed);
+                    return new F2mPoint(curve, X3, L3, new ECFieldElement[] { Z3 });
                 }
                 default:
                 {
@@ -1983,7 +1988,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement X3 = L1.Square().Add(L1).Add(curve.A);
                     ECFieldElement Y3 = X1.SquarePlusProduct(X3, L1.AddOne());
 
-                    return new F2mPoint(curve, X3, Y3, IsCompressed);
+                    return new F2mPoint(curve, X3, Y3);
                 }
                 case ECCurve.COORD_HOMOGENEOUS:
                 {
@@ -2004,7 +2009,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement Y3 = X1Sq.Square().MultiplyPlusProduct(V, h, sv);
                     ECFieldElement Z3 = V.Multiply(vSquared);
 
-                    return new F2mPoint(curve, X3, Y3, new ECFieldElement[] { Z3 }, IsCompressed);
+                    return new F2mPoint(curve, X3, Y3, new ECFieldElement[] { Z3 });
                 }
                 case ECCurve.COORD_LAMBDA_PROJECTIVE:
                 {
@@ -2018,7 +2023,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                     ECFieldElement T = L1.Square().Add(L1Z1).Add(aZ1Sq);
                     if (T.IsZero)
                     {
-                        return new F2mPoint(curve, T, curve.B.Sqrt(), IsCompressed);
+                        return new F2mPoint(curve, T, curve.B.Sqrt());
                     }
 
                     ECFieldElement X3 = T.Square();
@@ -2055,7 +2060,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                         L3 = X1Z1.SquarePlusProduct(T, L1Z1).Add(X3).Add(Z3);
                     }
 
-                    return new F2mPoint(curve, X3, L3, new ECFieldElement[] { Z3 }, IsCompressed);
+                    return new F2mPoint(curve, X3, L3, new ECFieldElement[] { Z3 });
                 }
                 default:
                 {
@@ -2119,14 +2124,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
 
                     if (A.IsZero)
                     {
-                        return new F2mPoint(curve, A, curve.B.Sqrt(), IsCompressed);
+                        return new F2mPoint(curve, A, curve.B.Sqrt());
                     }
 
                     ECFieldElement X3 = A.Square().Multiply(X2Z1Sq);
                     ECFieldElement Z3 = A.Multiply(B).Multiply(Z1Sq);
                     ECFieldElement L3 = A.Add(B).Square().MultiplyPlusProduct(T, L2plus1, Z3);
 
-                    return new F2mPoint(curve, X3, L3, new ECFieldElement[] { Z3 }, IsCompressed);
+                    return new F2mPoint(curve, X3, L3, new ECFieldElement[] { Z3 });
                 }
                 default:
                 {
@@ -2152,23 +2157,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC
                 case ECCurve.COORD_AFFINE:
                 {
                     ECFieldElement Y = this.RawYCoord;
-                    return new F2mPoint(curve, X, Y.Add(X), IsCompressed);
+                    return new F2mPoint(curve, X, Y.Add(X));
                 }
                 case ECCurve.COORD_HOMOGENEOUS:
                 {
                     ECFieldElement Y = this.RawYCoord, Z = this.RawZCoords[0];
-                    return new F2mPoint(curve, X, Y.Add(X), new ECFieldElement[] { Z }, IsCompressed);
+                    return new F2mPoint(curve, X, Y.Add(X), new ECFieldElement[] { Z });
                 }
                 case ECCurve.COORD_LAMBDA_AFFINE:
                 {
                     ECFieldElement L = this.RawYCoord;
-                    return new F2mPoint(curve, X, L.AddOne(), IsCompressed);
+                    return new F2mPoint(curve, X, L.AddOne());
                 }
                 case ECCurve.COORD_LAMBDA_PROJECTIVE:
                 {
                     // L is actually Lambda (X + Y/X) here
                     ECFieldElement L = this.RawYCoord, Z = this.RawZCoords[0];
-                    return new F2mPoint(curve, X, L.Add(Z), new ECFieldElement[] { Z }, IsCompressed);
+                    return new F2mPoint(curve, X, L.Add(Z), new ECFieldElement[] { Z });
                 }
                 default:
                 {

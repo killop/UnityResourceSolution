@@ -26,10 +26,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto.Impl.BC
             this.key = new KeyParameter(key, keyOff, keyLen);
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void SetKey(ReadOnlySpan<byte> key)
+        {
+            this.key = new KeyParameter(key);
+        }
+#endif
+
         public void Init(byte[] iv, int ivOff, int ivLen)
         {
             m_cipher.Init(m_isEncrypting, new ParametersWithIV(key, iv, ivOff, ivLen));
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void Init(ReadOnlySpan<byte> iv)
+        {
+            m_cipher.Init(m_isEncrypting, new ParametersWithIV(key, iv));
+        }
+#endif
 
         public int DoFinal(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset)
         {

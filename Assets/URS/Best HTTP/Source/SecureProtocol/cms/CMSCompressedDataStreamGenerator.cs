@@ -6,9 +6,9 @@ using System.IO;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.IO;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
@@ -29,10 +29,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 	*/
 	public class CmsCompressedDataStreamGenerator
 	{
-		public const string ZLib = "1.2.840.113549.1.9.16.3.8";
+        public static readonly string ZLib = CmsObjectIdentifiers.ZlibCompress.Id;
 
-		private int _bufferSize;
-		
+        private int _bufferSize;
+
 		/**
 		* base constructor
 		*/
@@ -45,24 +45,27 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		*
 		* @param bufferSize length of octet strings to buffer the data.
 		*/
-		public void SetBufferSize(
-			int bufferSize)
+		public void SetBufferSize(int bufferSize)
 		{
 			_bufferSize = bufferSize;
 		}
 
-		public Stream Open(
-			Stream	outStream,
-			string	compressionOID)
+        public Stream Open(Stream outStream)
+        {
+            return Open(outStream, CmsObjectIdentifiers.Data.Id, ZLib);
+        }
+
+        public Stream Open(Stream outStream, string compressionOid)
 		{
-			return Open(outStream, CmsObjectIdentifiers.Data.Id, compressionOID);
+			return Open(outStream, CmsObjectIdentifiers.Data.Id, compressionOid);
 		}
 
-		public Stream Open(
-			Stream	outStream,
-			string	contentOID,
-			string	compressionOID)
+		public Stream Open(Stream outStream, string contentOid, string compressionOid)
 		{
+			if (ZLib != compressionOid)
+				throw new ArgumentException("Unsupported compression algorithm: " + compressionOid,
+					nameof(compressionOid));
+
 			BerSequenceGenerator sGen = new BerSequenceGenerator(outStream);
 
 			sGen.AddObject(CmsObjectIdentifiers.CompressedData);
@@ -77,32 +80,32 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			cGen.AddObject(new DerInteger(0));
 
 			// CompressionAlgorithmIdentifier
-			cGen.AddObject(new AlgorithmIdentifier(new DerObjectIdentifier(ZLib)));
+			cGen.AddObject(new AlgorithmIdentifier(CmsObjectIdentifiers.ZlibCompress));
 
 			//
 			// Encapsulated ContentInfo
 			//
 			BerSequenceGenerator eiGen = new BerSequenceGenerator(cGen.GetRawOutputStream());
 
-			eiGen.AddObject(new DerObjectIdentifier(contentOID));
+			eiGen.AddObject(new DerObjectIdentifier(contentOid));
 
 			Stream octetStream = CmsUtilities.CreateBerOctetOutputStream(
 				eiGen.GetRawOutputStream(), 0, true, _bufferSize);
 
 			return new CmsCompressedOutputStream(
-				new ZOutputStream(octetStream, JZlib.Z_DEFAULT_COMPRESSION), sGen, cGen, eiGen);
+				Utilities.IO.Compression.ZLib.CompressOutput(octetStream, -1), sGen, cGen, eiGen);
 		}
 
 		private class CmsCompressedOutputStream
 			: BaseOutputStream
 		{
-			private ZOutputStream _out;
+			private Stream _out;
 			private BerSequenceGenerator _sGen;
 			private BerSequenceGenerator _cGen;
 			private BerSequenceGenerator _eiGen;
 
 			internal CmsCompressedOutputStream(
-				ZOutputStream			outStream,
+				Stream					outStream,
 				BerSequenceGenerator	sGen,
 				BerSequenceGenerator	cGen,
 				BerSequenceGenerator	eiGen)
@@ -113,26 +116,28 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 				_eiGen = eiGen;
 			}
 
-			public override void WriteByte(
-				byte b)
+			public override void Write(byte[] buffer, int offset, int count)
 			{
-				_out.WriteByte(b);
+				_out.Write(buffer, offset, count);
 			}
 
-			public override void Write(
-				byte[]	bytes,
-				int		off,
-				int		len)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            public override void Write(ReadOnlySpan<byte> buffer)
 			{
-				_out.Write(bytes, off, len);
+                _out.Write(buffer);
+            }
+#endif
+
+            public override void WriteByte(byte value)
+			{
+				_out.WriteByte(value);
 			}
 
-#if PORTABLE || NETFX_CORE
             protected override void Dispose(bool disposing)
             {
                 if (disposing)
                 {
-                    BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(_out);
+                    _out.Dispose();
 
                     // TODO Parent context(s) should really be be closed explicitly
 
@@ -142,19 +147,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
                 }
                 base.Dispose(disposing);
             }
-#else
-            public override void Close()
-			{
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(_out);
-
-                // TODO Parent context(s) should really be be closed explicitly
-
-                _eiGen.Close();
-				_cGen.Close();
-				_sGen.Close();
-				base.Close();
-			}
-#endif
 		}
 	}
 }

@@ -1,10 +1,9 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 {
@@ -32,7 +31,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 
 			throw new ArgumentException(
 				"Unknown object in 'OcspListID' factory: "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
 				"obj");
 		}
 
@@ -62,12 +61,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 		}
 
 		public OcspListID(
-			IEnumerable ocspResponses)
+			IEnumerable<OcspResponsesID> ocspResponses)
 		{
 			if (ocspResponses == null)
 				throw new ArgumentNullException("ocspResponses");
-			if (!CollectionUtilities.CheckElementsAreOfType(ocspResponses, typeof(OcspResponsesID)))
-				throw new ArgumentException("Must contain only 'OcspResponsesID' objects", "ocspResponses");
 
 			this.ocspResponses = new DerSequence(
 				Asn1EncodableVector.FromEnumerable(ocspResponses));

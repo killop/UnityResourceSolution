@@ -2,8 +2,6 @@
 #pragma warning disable
 using System;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Date;
-
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 {
     public class CertStatus
@@ -14,12 +12,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 
         private int status = Unrevoked;
 
-        DateTimeObject revocationDate = null;
+        DateTime? revocationDate = null;
 
         /// <summary>
         /// Returns the revocationDate.
         /// </summary>
-         public DateTimeObject RevocationDate
+         public DateTime? RevocationDate
         {
             get { return revocationDate; }
             set { this.revocationDate = value; }

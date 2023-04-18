@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -24,50 +24,47 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 {
 	public class TspUtil
 	{
-		private static ISet EmptySet = CollectionUtilities.ReadOnly(new HashSet());
-		private static IList EmptyList = CollectionUtilities.ReadOnly(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList());
-
-		private static readonly IDictionary digestLengths = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
-        private static readonly IDictionary digestNames = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+		private static readonly Dictionary<string, int> DigestLengths = new Dictionary<string, int>();
+        private static readonly Dictionary<string, string> DigestNames = new Dictionary<string, string>();
 
 		static TspUtil()
 		{
-            digestLengths.Add(PkcsObjectIdentifiers.MD5.Id, 16);
-            digestLengths.Add(OiwObjectIdentifiers.IdSha1.Id, 20);
-            digestLengths.Add(NistObjectIdentifiers.IdSha224.Id, 28);
-            digestLengths.Add(NistObjectIdentifiers.IdSha256.Id, 32);
-            digestLengths.Add(NistObjectIdentifiers.IdSha384.Id, 48);
-            digestLengths.Add(NistObjectIdentifiers.IdSha512.Id, 64);
-            digestLengths.Add(TeleTrusTObjectIdentifiers.RipeMD128.Id, 16);
-            digestLengths.Add(TeleTrusTObjectIdentifiers.RipeMD160.Id, 20);
-            digestLengths.Add(TeleTrusTObjectIdentifiers.RipeMD256.Id, 32);
-            digestLengths.Add(CryptoProObjectIdentifiers.GostR3411.Id, 32);
-            digestLengths.Add(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_256.Id, 32);
-            digestLengths.Add(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_512.Id, 64);
-            digestLengths.Add(GMObjectIdentifiers.sm3.Id, 32);
+			DigestLengths.Add(PkcsObjectIdentifiers.MD5.Id, 16);
+            DigestLengths.Add(OiwObjectIdentifiers.IdSha1.Id, 20);
+            DigestLengths.Add(NistObjectIdentifiers.IdSha224.Id, 28);
+            DigestLengths.Add(NistObjectIdentifiers.IdSha256.Id, 32);
+            DigestLengths.Add(NistObjectIdentifiers.IdSha384.Id, 48);
+            DigestLengths.Add(NistObjectIdentifiers.IdSha512.Id, 64);
+            DigestLengths.Add(TeleTrusTObjectIdentifiers.RipeMD128.Id, 16);
+            DigestLengths.Add(TeleTrusTObjectIdentifiers.RipeMD160.Id, 20);
+            DigestLengths.Add(TeleTrusTObjectIdentifiers.RipeMD256.Id, 32);
+            DigestLengths.Add(CryptoProObjectIdentifiers.GostR3411.Id, 32);
+            DigestLengths.Add(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_256.Id, 32);
+            DigestLengths.Add(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_512.Id, 64);
+            DigestLengths.Add(GMObjectIdentifiers.sm3.Id, 32);
 
-            digestNames.Add(PkcsObjectIdentifiers.MD5.Id, "MD5");
-            digestNames.Add(OiwObjectIdentifiers.IdSha1.Id, "SHA1");
-            digestNames.Add(NistObjectIdentifiers.IdSha224.Id, "SHA224");
-            digestNames.Add(NistObjectIdentifiers.IdSha256.Id, "SHA256");
-            digestNames.Add(NistObjectIdentifiers.IdSha384.Id, "SHA384");
-            digestNames.Add(NistObjectIdentifiers.IdSha512.Id, "SHA512");
-            digestNames.Add(PkcsObjectIdentifiers.MD5WithRsaEncryption.Id, "MD5");
-			digestNames.Add(PkcsObjectIdentifiers.Sha1WithRsaEncryption.Id, "SHA1");
-            digestNames.Add(PkcsObjectIdentifiers.Sha224WithRsaEncryption.Id, "SHA224");
-            digestNames.Add(PkcsObjectIdentifiers.Sha256WithRsaEncryption.Id, "SHA256");
-            digestNames.Add(PkcsObjectIdentifiers.Sha384WithRsaEncryption.Id, "SHA384");
-            digestNames.Add(PkcsObjectIdentifiers.Sha512WithRsaEncryption.Id, "SHA512");
-            digestNames.Add(TeleTrusTObjectIdentifiers.RipeMD128.Id, "RIPEMD128");
-            digestNames.Add(TeleTrusTObjectIdentifiers.RipeMD160.Id, "RIPEMD160");
-            digestNames.Add(TeleTrusTObjectIdentifiers.RipeMD256.Id, "RIPEMD256");
-            digestNames.Add(CryptoProObjectIdentifiers.GostR3411.Id, "GOST3411");
-            digestNames.Add(OiwObjectIdentifiers.DsaWithSha1.Id, "SHA1");
-            digestNames.Add(OiwObjectIdentifiers.Sha1WithRsa.Id, "SHA1");
-            digestNames.Add(OiwObjectIdentifiers.MD5WithRsa.Id, "MD5");
-            digestNames.Add(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_256.Id, "GOST3411-2012-256");
-            digestNames.Add(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_512.Id, "GOST3411-2012-512");
-            digestNames.Add(GMObjectIdentifiers.sm3.Id, "SM3");
+            DigestNames.Add(PkcsObjectIdentifiers.MD5.Id, "MD5");
+            DigestNames.Add(OiwObjectIdentifiers.IdSha1.Id, "SHA1");
+            DigestNames.Add(NistObjectIdentifiers.IdSha224.Id, "SHA224");
+            DigestNames.Add(NistObjectIdentifiers.IdSha256.Id, "SHA256");
+            DigestNames.Add(NistObjectIdentifiers.IdSha384.Id, "SHA384");
+            DigestNames.Add(NistObjectIdentifiers.IdSha512.Id, "SHA512");
+            DigestNames.Add(PkcsObjectIdentifiers.MD5WithRsaEncryption.Id, "MD5");
+			DigestNames.Add(PkcsObjectIdentifiers.Sha1WithRsaEncryption.Id, "SHA1");
+            DigestNames.Add(PkcsObjectIdentifiers.Sha224WithRsaEncryption.Id, "SHA224");
+            DigestNames.Add(PkcsObjectIdentifiers.Sha256WithRsaEncryption.Id, "SHA256");
+            DigestNames.Add(PkcsObjectIdentifiers.Sha384WithRsaEncryption.Id, "SHA384");
+            DigestNames.Add(PkcsObjectIdentifiers.Sha512WithRsaEncryption.Id, "SHA512");
+            DigestNames.Add(TeleTrusTObjectIdentifiers.RipeMD128.Id, "RIPEMD128");
+            DigestNames.Add(TeleTrusTObjectIdentifiers.RipeMD160.Id, "RIPEMD160");
+            DigestNames.Add(TeleTrusTObjectIdentifiers.RipeMD256.Id, "RIPEMD256");
+            DigestNames.Add(CryptoProObjectIdentifiers.GostR3411.Id, "GOST3411");
+            DigestNames.Add(OiwObjectIdentifiers.DsaWithSha1.Id, "SHA1");
+            DigestNames.Add(OiwObjectIdentifiers.Sha1WithRsa.Id, "SHA1");
+            DigestNames.Add(OiwObjectIdentifiers.MD5WithRsa.Id, "MD5");
+            DigestNames.Add(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_256.Id, "GOST3411-2012-256");
+            DigestNames.Add(RosstandartObjectIdentifiers.id_tc26_gost_3411_12_512.Id, "GOST3411-2012-512");
+            DigestNames.Add(GMObjectIdentifiers.sm3.Id, "SM3");
         }
 
 
@@ -80,10 +77,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 	     * @return a collection of TimeStampToken objects
 	     * @throws TSPValidationException
 	     */
-		public static ICollection GetSignatureTimestamps(
+		public static IList<TimeStampToken> GetSignatureTimestamps(
 			SignerInformation signerInfo)
 		{
-			IList timestamps = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+			var timestamps = new List<TimeStampToken>();
 
 			Asn1.Cms.AttributeTable unsignedAttrs = signerInfo.UnsignedAttributes;
 			if (unsignedAttrs != null)
@@ -150,7 +147,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 				ExtendedKeyUsage extKey = ExtendedKeyUsage.GetInstance(
 					Asn1Object.FromByteArray(ext.GetOctets()));
 
-				if (!extKey.HasKeyPurposeId(KeyPurposeID.IdKPTimeStamping) || extKey.Count != 1)
+				if (!extKey.HasKeyPurposeId(KeyPurposeID.id_kp_timeStamping) || extKey.Count != 1)
 					throw new TspValidationException("ExtendedKeyUsage not solely time stamping.");
 			}
 			catch (IOException)
@@ -163,54 +160,45 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tsp
 		/// Return the digest algorithm using one of the standard JCA string
 		/// representations rather than the algorithm identifier (if possible).
 		/// </summary>
-		internal static string GetDigestAlgName(
-			string digestAlgOID)
+		internal static string GetDigestAlgName(string digestAlgOid)
 		{
-			string digestName = (string) digestNames[digestAlgOID];
-
-			return digestName != null ? digestName : digestAlgOID;
+			return CollectionUtilities.GetValueOrKey(DigestNames, digestAlgOid);
 		}
 
-		internal static int GetDigestLength(
-			string digestAlgOID)
+		internal static int GetDigestLength(string digestAlgOid)
 		{
-			if (!digestLengths.Contains(digestAlgOID))
+			if (!DigestLengths.TryGetValue(digestAlgOid, out int length))
 				throw new TspException("digest algorithm cannot be found.");
 
-			return (int)digestLengths[digestAlgOID];
+			return length;
 		}
 
-		internal static IDigest CreateDigestInstance(
-			String digestAlgOID)
+		internal static IDigest CreateDigestInstance(string digestAlgOID)
 		{
 	        string digestName = GetDigestAlgName(digestAlgOID);
 
 			return DigestUtilities.GetDigest(digestName);
 		}
 
-		internal static ISet GetCriticalExtensionOids(X509Extensions extensions)
+		internal static ISet<DerObjectIdentifier> GetCriticalExtensionOids(X509Extensions extensions)
 		{
-			if (extensions == null)
-				return EmptySet;
-
-			return CollectionUtilities.ReadOnly(new HashSet(extensions.GetCriticalExtensionOids()));
+			return extensions == null
+				? new HashSet<DerObjectIdentifier>()
+				: new HashSet<DerObjectIdentifier>(extensions.GetCriticalExtensionOids());
 		}
 
-		internal static ISet GetNonCriticalExtensionOids(X509Extensions extensions)
+		internal static ISet<DerObjectIdentifier> GetNonCriticalExtensionOids(X509Extensions extensions)
 		{
-			if (extensions == null)
-				return EmptySet;
-
-			// TODO: should probably produce a set that imposes correct ordering
-			return CollectionUtilities.ReadOnly(new HashSet(extensions.GetNonCriticalExtensionOids()));
+			return extensions == null
+				? new HashSet<DerObjectIdentifier>()
+				: new HashSet<DerObjectIdentifier>(extensions.GetNonCriticalExtensionOids());
 		}
-		
-		internal static IList GetExtensionOids(X509Extensions extensions)
-		{
-			if (extensions == null)
-				return EmptyList;
 
-			return CollectionUtilities.ReadOnly(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(extensions.GetExtensionOids()));
+		internal static IList<DerObjectIdentifier> GetExtensionOids(X509Extensions extensions)
+		{
+			return extensions == null
+				? new List<DerObjectIdentifier>()
+				: new List<DerObjectIdentifier>(extensions.GetExtensionOids());
 		}
 	}
 }

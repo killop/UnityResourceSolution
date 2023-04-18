@@ -81,7 +81,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Bcpg.Sig
 
 		public bool IsHumanReadable
 		{
-			get { return data[0] == (byte)0x80; }
+			get { return data[0] == 0x80; }
 		}
 
 		public string GetNotationName()

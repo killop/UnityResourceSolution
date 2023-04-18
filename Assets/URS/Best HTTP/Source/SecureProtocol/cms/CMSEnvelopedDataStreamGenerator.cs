@@ -1,23 +1,18 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.IO;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
@@ -53,10 +48,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		}
 
 		/// <summary>Constructor allowing specific source of randomness</summary>
-		/// <param name="rand">Instance of <c>SecureRandom</c> to use.</param>
-		public CmsEnvelopedDataStreamGenerator(
-			SecureRandom rand)
-			: base(rand)
+		/// <param name="random">Instance of <c>SecureRandom</c> to use.</param>
+		public CmsEnvelopedDataStreamGenerator(SecureRandom random)
+			: base(random)
 		{
 		}
 
@@ -111,7 +105,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			{
 				try
 				{
-					recipientInfos.Add(rig.Generate(encKey, rand));
+					recipientInfos.Add(rig.Generate(encKey, m_random));
 				}
 				catch (InvalidKeyException e)
 				{
@@ -169,7 +163,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 					eiGen.GetRawOutputStream(), 0, false, _bufferSize);
 
                 IBufferedCipher cipher = CipherUtilities.GetCipher(encAlgID.Algorithm);
-				cipher.Init(true, new ParametersWithRandom(cipherParameters, rand));
+				cipher.Init(true, new ParametersWithRandom(cipherParameters, m_random));
 				CipherStream cOut = new CipherStream(octetOutputStream, null, cipher);
 
 				return new CmsEnvelopedDataOutputStream(this, cOut, cGen, envGen, eiGen);
@@ -198,7 +192,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		{
 			CipherKeyGenerator keyGen = GeneratorUtilities.GetKeyGenerator(encryptionOid);
 
-			keyGen.Init(new KeyGenerationParameters(rand, keyGen.DefaultStrength));
+			keyGen.Init(new KeyGenerationParameters(m_random, keyGen.DefaultStrength));
 
 			return Open(outStream, encryptionOid, keyGen);
 		}
@@ -214,7 +208,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		{
 			CipherKeyGenerator keyGen = GeneratorUtilities.GetKeyGenerator(encryptionOid);
 
-			keyGen.Init(new KeyGenerationParameters(rand, keySize));
+			keyGen.Init(new KeyGenerationParameters(m_random, keySize));
 
 			return Open(outStream, encryptionOid, keyGen);
 		}
@@ -243,68 +237,48 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 				_eiGen = eiGen;
 			}
 
-			public override void WriteByte(
-				byte b)
+			public override void Write(byte[] buffer, int offset, int count)
 			{
-				_out.WriteByte(b);
+				_out.Write(buffer, offset, count);
 			}
 
-			public override void Write(
-				byte[]	bytes,
-				int		off,
-				int		len)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            public override void Write(ReadOnlySpan<byte> buffer)
+            {
+                _out.Write(buffer);
+            }
+#endif
+
+            public override void WriteByte(byte value)
 			{
-				_out.Write(bytes, off, len);
+				_out.WriteByte(value);
 			}
 
-#if PORTABLE || NETFX_CORE
             protected override void Dispose(bool disposing)
             {
                 if (disposing)
-                {
-                    BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(_out);
+ 				{
+                    _out.Dispose();
 
                     // TODO Parent context(s) should really be closed explicitly
 
-				    _eiGen.Close();
+                    _eiGen.Close();
 
                     if (_outer.unprotectedAttributeGenerator != null)
                     {
-                        Asn1.Cms.AttributeTable attrTable = _outer.unprotectedAttributeGenerator.GetAttributes(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable());
+                        Asn1.Cms.AttributeTable attrTable = _outer.unprotectedAttributeGenerator.GetAttributes(
+                            new Dictionary<CmsAttributeTableParameter, object>());
 
                         Asn1Set unprotectedAttrs = new BerSet(attrTable.ToAsn1EncodableVector());
 
                         _envGen.AddObject(new DerTaggedObject(false, 1, unprotectedAttrs));
                     }
 
-				    _envGen.Close();
-				    _cGen.Close();
+                    _envGen.Close();
+                    _cGen.Close();
                 }
                 base.Dispose(disposing);
             }
-#else
-            public override void Close()
-			{
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(_out);
-
-                // TODO Parent context(s) should really be closed explicitly
-
-				_eiGen.Close();
-
-                if (_outer.unprotectedAttributeGenerator != null)
-                {
-                    Asn1.Cms.AttributeTable attrTable = _outer.unprotectedAttributeGenerator.GetAttributes(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable());
-
-                    Asn1Set unprotectedAttrs = new BerSet(attrTable.ToAsn1EncodableVector());
-
-                    _envGen.AddObject(new DerTaggedObject(false, 1, unprotectedAttrs));
-                }
-
-				_envGen.Close();
-				_cGen.Close();
-				base.Close();
-			}
-#endif
 		}
 	}
 }

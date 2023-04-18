@@ -1,6 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -10,12 +11,24 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
     public class DerInteger
         : Asn1Object
     {
+        internal class Meta : Asn1UniversalType
+        {
+            internal static readonly Asn1UniversalType Instance = new Meta();
+
+            private Meta() : base(typeof(DerInteger), Asn1Tags.Integer) {}
+
+            internal override Asn1Object FromImplicitPrimitive(DerOctetString octetString)
+            {
+                return CreatePrimitive(octetString.GetOctets());
+            }
+        }
+
         public const string AllowUnsafeProperty = "BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.AllowUnsafeInteger";
 
         internal static bool AllowUnsafe()
         {
-            string allowUnsafeValue = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetEnvironmentVariable(AllowUnsafeProperty);
-            return allowUnsafeValue != null && BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.EqualsIgnoreCase("true", allowUnsafeValue);
+            string allowUnsafeValue = Org.BouncyCastle.Utilities.Platform.GetEnvironmentVariable(AllowUnsafeProperty);
+            return allowUnsafeValue != null && Org.BouncyCastle.Utilities.Platform.EqualsIgnoreCase("true", allowUnsafeValue);
         }
 
         internal const int SignExtSigned = -1;
@@ -29,41 +42,45 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
          *
          * @exception ArgumentException if the object cannot be converted.
          */
-        public static DerInteger GetInstance(
-            object obj)
+        public static DerInteger GetInstance(object obj)
         {
-            if (obj == null || obj is DerInteger)
+            if (obj == null)
+                return null;
+
+            if (obj is DerInteger derInteger)
+                return derInteger;
+
+            if (obj is IAsn1Convertible asn1Convertible)
             {
-                return (DerInteger)obj;
+                Asn1Object asn1Object = asn1Convertible.ToAsn1Object();
+                if (asn1Object is DerInteger converted)
+                    return converted;
+            }
+            else if (obj is byte[] bytes)
+            {
+                try
+                {
+                    return (DerInteger)Meta.Instance.FromByteArray(bytes);
+                }
+                catch (IOException e)
+                {
+                    throw new ArgumentException("failed to construct integer from byte[]: " + e.Message);
+                }
             }
 
-            throw new ArgumentException("illegal object in GetInstance: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
         /**
          * return an Integer from a tagged object.
          *
-         * @param obj the tagged object holding the object we want
-         * @param isExplicit true if the object is meant to be explicitly
-         *              tagged false otherwise.
-         * @exception ArgumentException if the tagged object cannot
-         *               be converted.
+         * @param taggedObject the tagged object holding the object we want
+         * @param declaredExplicit true if the object is meant to be explicitly tagged false otherwise.
+         * @exception ArgumentException if the tagged object cannot  be converted.
          */
-        public static DerInteger GetInstance(
-            Asn1TaggedObject	obj,
-            bool				isExplicit)
+        public static DerInteger GetInstance(Asn1TaggedObject taggedObject, bool declaredExplicit)
         {
-            if (obj == null)
-                throw new ArgumentNullException("obj");
-
-			Asn1Object o = obj.GetObject();
-
-			if (isExplicit || o is DerInteger)
-			{
-				return GetInstance(o);
-			}
-
-			return new DerInteger(Asn1OctetString.GetInstance(o).GetOctets());
+            return (DerInteger)Meta.Instance.GetContextInstance(taggedObject, declaredExplicit);
         }
 
 		public DerInteger(int value)
@@ -171,17 +188,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
             }
         }
 
-        internal override int EncodedLength(bool withID)
+        internal override IAsn1Encoding GetEncoding(int encoding)
         {
-            return Asn1OutputStream.GetLengthOfEncodingDL(withID, bytes.Length);
+            return new PrimitiveEncoding(Asn1Tags.Universal, Asn1Tags.Integer, bytes);
         }
 
-        internal override void Encode(Asn1OutputStream asn1Out, bool withID)
+        internal override IAsn1Encoding GetEncodingImplicit(int encoding, int tagClass, int tagNo)
         {
-            asn1Out.WriteEncodingDL(withID, Asn1Tags.Integer, bytes);
+            return new PrimitiveEncoding(tagClass, tagNo, bytes);
         }
 
-		protected override int Asn1GetHashCode()
+        protected override int Asn1GetHashCode()
 		{
 			return Arrays.GetHashCode(bytes);
         }
@@ -199,6 +216,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 		{
 			return Value.ToString();
 		}
+
+        internal static DerInteger CreatePrimitive(byte[] contents)
+        {
+            return new DerInteger(contents, false);
+        }
 
         internal static int IntValue(byte[] bytes, int start, int signExt)
         {

@@ -28,8 +28,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         /// <returns>an array of supported <see cref="ProtocolVersion"/> values.</returns>
         protected virtual ProtocolVersion[] GetSupportedVersions()
         {
-            // TODO[tls13] Enable TLSv13 by default in due course
-            return ProtocolVersion.TLSv12.DownTo(ProtocolVersion.TLSv10);
+            return ProtocolVersion.TLSv13.DownTo(ProtocolVersion.TLSv12);
         }
 
         protected abstract int[] GetSupportedCipherSuites();
@@ -160,6 +159,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         {
             return HeartbeatMode.peer_not_allowed_to_send;
         }
+
+        public virtual bool IgnoreCorruptDtlsRecords => false;
     }
 }
 #pragma warning restore

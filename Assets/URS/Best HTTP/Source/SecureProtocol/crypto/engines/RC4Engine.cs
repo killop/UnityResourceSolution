@@ -47,7 +47,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
                 return;
             }
 
-            throw new ArgumentException("invalid parameter passed to RC4 init - " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
+            throw new ArgumentException("invalid parameter passed to RC4 init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
         }
 
         public virtual string AlgorithmName
@@ -85,16 +85,40 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
                 x = (x + 1) & 0xff;
                 y = (engineState[x] + y) & 0xff;
 
+                byte sx = engineState[x];
+                byte sy = engineState[y];
+
                 // swap
-                byte tmp = engineState[x];
-                engineState[x] = engineState[y];
-                engineState[y] = tmp;
+                engineState[x] = sy;
+                engineState[y] = sx;
 
                 // xor
-                output[i+outOff] = (byte)(input[i + inOff]
-                        ^ engineState[(engineState[x] + engineState[y]) & 0xff]);
+                output[i+outOff] = (byte)(input[i + inOff] ^ engineState[(sx + sy) & 0xff]);
             }
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual void ProcessBytes(ReadOnlySpan<byte> input, Span<byte> output)
+        {
+            Check.OutputLength(output, input.Length, "output buffer too short");
+
+            for (int i = 0; i < input.Length; i++)
+            {
+                x = (x + 1) & 0xff;
+                y = (engineState[x] + y) & 0xff;
+
+                byte sx = engineState[x];
+                byte sy = engineState[y];
+
+                // swap
+                engineState[x] = sy;
+                engineState[y] = sx;
+
+                // xor
+                output[i] = (byte)(input[i] ^ engineState[(sx + sy) & 0xff]);
+            }
+        }
+#endif
 
         public virtual void Reset()
         {

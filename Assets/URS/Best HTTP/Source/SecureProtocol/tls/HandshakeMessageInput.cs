@@ -4,7 +4,6 @@ using System;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
@@ -15,46 +14,28 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         private readonly int m_offset;
 
         internal HandshakeMessageInput(byte[] buf, int offset, int length)
-#if PORTABLE || NETFX_CORE
-            : base(buf, offset, length, false)
-#else
             : base(buf, offset, length, false, true)
-#endif
         {
-#if PORTABLE || NETFX_CORE
-            this.m_offset = 0;
-#else
-            this.m_offset = offset;
-#endif
+            m_offset = offset;
         }
 
         public void UpdateHash(TlsHash hash)
         {
-            Streams.WriteBufTo(this, new TlsHashSink(hash));
+            WriteTo(new TlsHashSink(hash));
         }
 
         internal void UpdateHashPrefix(TlsHash hash, int bindersSize)
         {
-#if PORTABLE || NETFX_CORE
-            byte[] buf = ToArray();
-            int count = buf.Length;
-#else
             byte[] buf = GetBuffer();
-            int count = (int)Length;
-#endif
+            int count = Convert.ToInt32(Length);
 
             hash.Update(buf, m_offset, count - bindersSize);
         }
 
         internal void UpdateHashSuffix(TlsHash hash, int bindersSize)
         {
-#if PORTABLE || NETFX_CORE
-            byte[] buf = ToArray();
-            int count = buf.Length;
-#else
             byte[] buf = GetBuffer();
-            int count = (int)Length;
-#endif
+            int count = Convert.ToInt32(Length);
 
             hash.Update(buf, m_offset + count - bindersSize, bindersSize);
         }

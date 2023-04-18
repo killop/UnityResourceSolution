@@ -1,9 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
@@ -15,11 +16,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 	public class PkixPolicyNode
 //		: IPolicyNode
 	{
-		protected IList				mChildren;
+		protected IList<PkixPolicyNode> mChildren;
 		protected int				mDepth;
-		protected ISet				mExpectedPolicies;
+		protected ISet<string>		mExpectedPolicies;
 		protected PkixPolicyNode	mParent;
-		protected ISet				mPolicyQualifiers;
+		protected ISet<PolicyQualifierInfo> mPolicyQualifiers;
 		protected string			mValidPolicy;
 		protected bool				mCritical;
 
@@ -28,9 +29,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			get { return this.mDepth; }
 		}
 
-		public virtual IEnumerable Children
+		public virtual IEnumerable<PkixPolicyNode> Children
 		{
-			get { return new EnumerableProxy(mChildren); }
+			get { return CollectionUtilities.Proxy(mChildren); }
 		}
 
 		public virtual bool IsCritical
@@ -39,9 +40,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			set { this.mCritical = value; }
 		}
 
-		public virtual ISet PolicyQualifiers
+		public virtual ISet<PolicyQualifierInfo> PolicyQualifiers
 		{
-			get { return new HashSet(this.mPolicyQualifiers); }
+			get { return new HashSet<PolicyQualifierInfo>(this.mPolicyQualifiers); }
 		}
 
 		public virtual string ValidPolicy
@@ -54,10 +55,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			get { return mChildren.Count != 0; }
 		}
 
-		public virtual ISet ExpectedPolicies
+		public virtual ISet<string> ExpectedPolicies
 		{
-			get { return new HashSet(this.mExpectedPolicies); }
-			set { this.mExpectedPolicies = new HashSet(value); }
+			get { return new HashSet<string>(this.mExpectedPolicies); }
+			set { this.mExpectedPolicies = new HashSet<string>(value); }
 		}
 
 		public virtual PkixPolicyNode Parent
@@ -68,21 +69,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 
 		/// Constructors
 		public PkixPolicyNode(
-			IList			children,
+			IEnumerable<PkixPolicyNode> children,
 			int				depth,
-			ISet			expectedPolicies,
+			ISet<string>	expectedPolicies,
 			PkixPolicyNode	parent,
-			ISet			policyQualifiers,
+			ISet<PolicyQualifierInfo> policyQualifiers,
 			string			validPolicy,
 			bool			critical)
 		{
             if (children == null)
             {
-                this.mChildren = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+				this.mChildren = new List<PkixPolicyNode>();
             }
             else
             {
-                this.mChildren = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(children);
+				this.mChildren = new List<PkixPolicyNode>(children);
             }
 
             this.mDepth = depth;
@@ -111,14 +112,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			return ToString("");
 		}
 
-		public virtual string ToString(
-			string indent)
+		public virtual string ToString(string indent)
 		{
 			StringBuilder buf = new StringBuilder();
 			buf.Append(indent);
 			buf.Append(mValidPolicy);
-			buf.Append(" {");
-			buf.Append(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine);
+			buf.AppendLine(" {");
 
 			foreach (PkixPolicyNode child in mChildren)
 			{
@@ -126,8 +125,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 			}
 
 			buf.Append(indent);
-			buf.Append("}");
-			buf.Append(BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine);
+			buf.AppendLine("}");
 			return buf.ToString();
 		}
 
@@ -139,11 +137,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkix
 		public virtual PkixPolicyNode Copy()
 		{
 			PkixPolicyNode node = new PkixPolicyNode(
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(),
+				new List<PkixPolicyNode>(),
 				mDepth,
-				new HashSet(mExpectedPolicies),
+				new HashSet<string>(mExpectedPolicies),
 				null,
-				new HashSet(mPolicyQualifiers),
+				new HashSet<PolicyQualifierInfo>(mPolicyQualifiers),
 				mValidPolicy,
 				mCritical);
 

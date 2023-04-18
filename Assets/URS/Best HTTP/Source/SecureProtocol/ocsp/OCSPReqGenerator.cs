@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -18,7 +18,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 {
 	public class OcspReqGenerator
 	{
-		private IList			list = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+		private List<RequestObject> list = new List<RequestObject>();
 		private GeneralName		requestorName = null;
 		private X509Extensions	requestExtensions = null;
 
@@ -167,9 +167,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 					{
 						for (int i = 0; i != chain.Length; i++)
 						{
-							v.Add(
-								X509CertificateStructure.GetInstance(
-									Asn1Object.FromByteArray(chain[i].GetEncoded())));
+							v.Add(chain[i].CertificateStructure);
 						}
 					}
 					catch (IOException e)
@@ -237,7 +235,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp
 		 *
 		 * @return an IEnumerable containing recognised names.
 		 */
-		public IEnumerable SignatureAlgNames
+		public IEnumerable<string> SignatureAlgNames
 		{
 			get { return OcspUtilities.AlgNames; }
 		}

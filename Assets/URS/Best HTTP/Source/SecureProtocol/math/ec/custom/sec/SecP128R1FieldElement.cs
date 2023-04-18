@@ -117,7 +117,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Math.EC.Custom.Sec
 
         public override ECFieldElement Invert()
         {
-    //        return new SecP128R1FieldElement(toBigInteger().modInverse(Q));
             uint[] z = Nat128.Create();
             SecP128R1Field.Inv(x, z);
             return new SecP128R1FieldElement(z);

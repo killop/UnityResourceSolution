@@ -1,31 +1,33 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.Runtime.Serialization;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
-#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || PORTABLE || NETFX_CORE)
     [Serializable]
-#endif
     public class CmsAttributeTableGenerationException
 		: CmsException
 	{
-		public CmsAttributeTableGenerationException()
-		{
-		}
+        public CmsAttributeTableGenerationException()
+            : base()
+        {
+        }
 
-		public CmsAttributeTableGenerationException(
-			string name)
-			: base(name)
-		{
-		}
+        public CmsAttributeTableGenerationException(string message)
+            : base(message)
+        {
+        }
 
-		public CmsAttributeTableGenerationException(
-			string		name,
-			Exception	e)
-			: base(name, e)
-		{
-		}
+        public CmsAttributeTableGenerationException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
+
+        protected CmsAttributeTableGenerationException(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+        }
 	}
 }
 #pragma warning restore

@@ -14,15 +14,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
         /**
          * return the message digest used as the basis for the function
          */
-        IDigest Digest
-        {
-            get;
-        }
+        IDigest Digest { get; }
 
         int GenerateBytes(byte[] output, int outOff, int length);
-        //throws DataLengthException, ArgumentException;
-    }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        int GenerateBytes(Span<byte> output);
+#endif
+    }
 }
 #pragma warning restore
 #endif

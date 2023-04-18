@@ -1,7 +1,5 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System.Collections;
-
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9
 {
     /**
@@ -22,10 +20,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9
             this.counter = counter;
         }
 
-		public KeySpecificInfo(
-            Asn1Sequence seq)
+		public KeySpecificInfo(Asn1Sequence seq)
         {
-            IEnumerator e = seq.GetEnumerator();
+            var e = seq.GetEnumerator();
 
 			e.MoveNext();
             algorithm = (DerObjectIdentifier)e.Current;

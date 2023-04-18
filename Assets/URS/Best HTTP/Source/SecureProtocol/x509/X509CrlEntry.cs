@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.Text;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
@@ -168,24 +167,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		public override string ToString()
 		{
 			StringBuilder buf = new StringBuilder();
-			string nl = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.NewLine;
 
-			buf.Append("        userCertificate: ").Append(this.SerialNumber).Append(nl);
-			buf.Append("         revocationDate: ").Append(this.RevocationDate).Append(nl);
-			buf.Append("      certificateIssuer: ").Append(this.GetCertificateIssuer()).Append(nl);
+			buf.Append("        userCertificate: ").Append(this.SerialNumber).AppendLine();
+			buf.Append("         revocationDate: ").Append(this.RevocationDate).AppendLine();
+			buf.Append("      certificateIssuer: ").Append(this.GetCertificateIssuer()).AppendLine();
 
 			X509Extensions extensions = c.Extensions;
 
 			if (extensions != null)
 			{
-				IEnumerator e = extensions.ExtensionOids.GetEnumerator();
+				var e = extensions.ExtensionOids.GetEnumerator();
 				if (e.MoveNext())
 				{
-					buf.Append("   crlEntryExtensions:").Append(nl);
+					buf.Append("   crlEntryExtensions:").AppendLine();
 
 					do
 					{
-						DerObjectIdentifier oid = (DerObjectIdentifier)e.Current;
+						DerObjectIdentifier oid = e.Current;
 						X509Extension ext = extensions.GetExtension(oid);
 
 						if (ext.Value != null)
@@ -211,17 +209,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 									buf.Append(oid.Id);
 									buf.Append(" value = ").Append(Asn1Dump.DumpAsString(obj));
 								}
-								buf.Append(nl);
+								buf.AppendLine();
 							}
 							catch (Exception)
 							{
 								buf.Append(oid.Id);
-								buf.Append(" value = ").Append("*****").Append(nl);
+								buf.Append(" value = ").Append("*****").AppendLine();
 							}
 						}
 						else
 						{
-							buf.Append(nl);
+							buf.AppendLine();
 						}
 					}
 					while (e.MoveNext());

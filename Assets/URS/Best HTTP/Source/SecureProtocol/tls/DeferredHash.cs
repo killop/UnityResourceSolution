@@ -1,11 +1,10 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
@@ -18,7 +17,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         private readonly TlsContext m_context;
 
         private DigestInputBuffer m_buf;
-        private readonly IDictionary m_hashes;
+        private IDictionary<int, TlsHash> m_hashes;
         private bool m_forceBuffering;
         private bool m_sealed;
 
@@ -26,18 +25,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         {
             this.m_context = context;
             this.m_buf = new DigestInputBuffer();
-            this.m_hashes = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+            this.m_hashes = new Dictionary<int, TlsHash>();
             this.m_forceBuffering = false;
             this.m_sealed = false;
-        }
-
-        private DeferredHash(TlsContext context, IDictionary hashes)
-        {
-            this.m_context = context;
-            this.m_buf = null;
-            this.m_hashes = hashes;
-            this.m_forceBuffering = false;
-            this.m_sealed = true;
         }
 
         /// <exception cref="IOException"/>
@@ -45,11 +35,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         {
             if (m_buf == null)
             {
-                // If you see this, you need to call forceBuffering() before SealHashAlgorithms()
+                // If you see this, you need to call ForceBuffering() before SealHashAlgorithms()
                 throw new InvalidOperationException("Not buffering");
             }
 
-            m_buf.CopyTo(output);
+            m_buf.CopyInputTo(output);
         }
 
         public void ForceBuffering()
@@ -98,18 +88,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             CheckStopBuffering();
         }
 
-        public TlsHandshakeHash StopTracking()
+        public void StopTracking()
         {
             SecurityParameters securityParameters = m_context.SecurityParameters;
 
-            IDictionary newHashes = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+            IDictionary<int, TlsHash> newHashes = new Dictionary<int, TlsHash>();
             switch (securityParameters.PrfAlgorithm)
             {
             case PrfAlgorithm.ssl_prf_legacy:
             case PrfAlgorithm.tls_prf_legacy:
             {
-                CloneHash(newHashes, HashAlgorithm.md5);
-                CloneHash(newHashes, HashAlgorithm.sha1);
+                CloneHash(newHashes, CryptoHashAlgorithm.md5);
+                CloneHash(newHashes, CryptoHashAlgorithm.sha1);
                 break;
             }
             default:
@@ -118,7 +108,11 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 break;
             }
             }
-            return new DeferredHash(m_context, newHashes);
+
+            this.m_buf = null;
+            this.m_hashes = newHashes;
+            this.m_forceBuffering = false;
+            this.m_sealed = true;
         }
 
         public TlsHash ForkPrfHash()
@@ -133,7 +127,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             case PrfAlgorithm.ssl_prf_legacy:
             case PrfAlgorithm.tls_prf_legacy:
             {
-                prfHash = new CombinedHash(m_context, CloneHash(HashAlgorithm.md5), CloneHash(HashAlgorithm.sha1));
+                TlsHash md5Hash = CloneHash(CryptoHashAlgorithm.md5);
+                TlsHash sha1Hash = CloneHash(CryptoHashAlgorithm.sha1);
+                prfHash = new CombinedHash(m_context, md5Hash, sha1Hash);
                 break;
             }
             default:
@@ -153,20 +149,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         public byte[] GetFinalHash(int cryptoHashAlgorithm)
         {
-            TlsHash d = (TlsHash)m_hashes[cryptoHashAlgorithm];
-            if (d == null)
+            if (!m_hashes.TryGetValue(cryptoHashAlgorithm, out var hash))
                 throw new InvalidOperationException("CryptoHashAlgorithm." + cryptoHashAlgorithm
                     + " is not being tracked");
 
             CheckStopBuffering();
 
-            d = d.CloneHash();
+            hash = hash.CloneHash();
             if (m_buf != null)
             {
-                m_buf.UpdateDigest(d);
+                m_buf.UpdateDigest(hash);
             }
 
-            return d.CalculateHash();
+            return hash.CalculateHash();
         }
 
         public void Update(byte[] input, int inOff, int len)
@@ -182,6 +177,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 hash.Update(input, inOff, len);
             }
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void Update(ReadOnlySpan<byte> input)
+        {
+            if (m_buf != null)
+            {
+                m_buf.Write(input);
+                return;
+            }
+
+            foreach (TlsHash hash in m_hashes.Values)
+            {
+                hash.Update(input);
+            }
+        }
+#endif
 
         public byte[] CalculateHash()
         {
@@ -222,7 +233,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         private void CheckTrackingHash(int cryptoHashAlgorithm)
         {
-            if (!m_hashes.Contains(cryptoHashAlgorithm))
+            if (!m_hashes.ContainsKey(cryptoHashAlgorithm))
             {
                 TlsHash hash = m_context.Crypto.CreateHash(cryptoHashAlgorithm);
                 m_hashes[cryptoHashAlgorithm] = hash;
@@ -231,10 +242,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         private TlsHash CloneHash(int cryptoHashAlgorithm)
         {
-            return ((TlsHash)m_hashes[cryptoHashAlgorithm]).CloneHash();
+            return m_hashes[cryptoHashAlgorithm].CloneHash();
         }
 
-        private void CloneHash(IDictionary newHashes, int cryptoHashAlgorithm)
+        private void CloneHash(IDictionary<int, TlsHash> newHashes, int cryptoHashAlgorithm)
         {
             TlsHash hash = CloneHash(cryptoHashAlgorithm);
             if (m_buf != null)

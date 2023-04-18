@@ -4,6 +4,7 @@ using System;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 {
@@ -25,6 +26,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
             if (!modulus.Gcd(SmallPrimesProduct).Equals(BigInteger.One))
                 throw new ArgumentException("RSA modulus has a small prime factor");
 
+            int maxBitLength = AsInteger("BestHTTP.SecureProtocol.Org.BouncyCastle.Rsa.MaxSize", 15360);
+
+            int modBitLength = modulus.BitLength;
+            if (maxBitLength < modBitLength)
+            {
+                throw new ArgumentException("modulus value out of range");
+            }
+        
             // TODO: add additional primePower/Composite test - expensive!!
 
             return modulus;
@@ -82,6 +91,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters
 		public override int GetHashCode()
         {
             return modulus.GetHashCode() ^ exponent.GetHashCode() ^ IsPrivate.GetHashCode();
+        }
+
+        internal static int AsInteger(string envVariable, int defaultValue)
+        {
+            string v = Org.BouncyCastle.Utilities.Platform.GetEnvironmentVariable(envVariable);
+
+            if (v == null)
+            {
+                return defaultValue;
+            }
+
+            return int.Parse(v);
         }
     }
 }

@@ -189,6 +189,7 @@ namespace YooAsset
 				}
 				else
 				{
+					AssetBundleOccupyPersistentFileTraceManager.Instance.Register(this);
 					Status = EStatus.Success;
 				}
 			}
@@ -212,7 +213,8 @@ namespace YooAsset
 
 			if (CacheBundle != null)
 			{
-				CacheBundle.Unload(true);
+                AssetBundleOccupyPersistentFileTraceManager.Instance.Unregister(this);
+                CacheBundle.Unload(true);
 				CacheBundle = null;
 			}
 		}

@@ -3,6 +3,8 @@
 using System;
 using System.Text;
 
+using BestHTTP.PlatformSupport.Text;
+
 using PlatformSupport.Collections.ObjectModel;
 
 #if !NETFX_CORE
@@ -14,6 +16,15 @@ using PlatformSupport.Collections.ObjectModel;
 namespace BestHTTP.SocketIO3
 {
     public delegate void HTTPRequestCallbackDelegate(SocketManager manager, HTTPRequest request);
+
+    public sealed class WebsocketOptions
+    {
+#if !BESTHTTP_DISABLE_WEBSOCKET && (!UNITY_WEBGL || UNITY_EDITOR)
+        public Func<WebSocket.Extensions.IExtension[]> ExtensionsFactory { get; set; } = WebSocket.WebSocket.GetDefaultExtensions;
+
+        public TimeSpan? PingIntervalOverride { get; set; } = TimeSpan.Zero;
+#endif
+    }
 
     public sealed class SocketOptions
     {
@@ -102,6 +113,11 @@ namespace BestHTTP.SocketIO3
         /// </summary>
         public Func<SocketManager, Socket, object> Auth;
 
+        /// <summary>
+        /// Customization options for the websocket transport.
+        /// </summary>
+        public WebsocketOptions WebsocketOptions { get; set; } = new WebsocketOptions();
+
         #endregion
 
         /// <summary>
@@ -138,7 +154,7 @@ namespace BestHTTP.SocketIO3
             if (!string.IsNullOrEmpty(BuiltQueryParams))
                 return BuiltQueryParams;
 
-            StringBuilder sb = new StringBuilder(AdditionalQueryParams.Count * 4);
+            StringBuilder sb = StringBuilderPool.Get(AdditionalQueryParams.Count * 4); //new StringBuilder(AdditionalQueryParams.Count * 4);
 
             foreach(var kvp in AdditionalQueryParams)
             {
@@ -152,7 +168,7 @@ namespace BestHTTP.SocketIO3
                 }
             }
 
-            return BuiltQueryParams = sb.ToString();
+            return BuiltQueryParams = StringBuilderPool.ReleaseAndGrab(sb);
         }
 
         /// <summary>

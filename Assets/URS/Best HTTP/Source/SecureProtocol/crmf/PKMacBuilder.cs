@@ -17,7 +17,7 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
 {
     internal class PKMacStreamCalculator
-        : IStreamCalculator
+        : IStreamCalculator<DefaultPKMacResult>
     {
         private readonly MacSink _stream;
 
@@ -31,7 +31,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
             get { return _stream; }
         }
 
-        public object GetResult()
+        public DefaultPKMacResult GetResult()
         {
             return new DefaultPKMacResult(_stream.Mac);
         }
@@ -54,7 +54,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
             get { return new AlgorithmIdentifier(CmpObjectIdentifiers.passwordBasedMac, parameters); }
         }
 
-        public virtual IStreamCalculator CreateCalculator()
+        public virtual IStreamCalculator<IBlockResult> CreateCalculator()
         {
             IMac mac = MacUtilities.GetMac(parameters.Mac.Algorithm);
             mac.Init(new KeyParameter(key));
@@ -85,6 +85,15 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
             signature.CopyTo(sig, sigOff);
             return signature.Length;
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int Collect(Span<byte> destination)
+        {
+            byte[] result = Collect();
+            result.CopyTo(destination);
+            return result.Length;
+        }
+#endif
     }
 
     public class PKMacBuilder
@@ -217,10 +226,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crmf
 
             byte[] salt = new byte[saltLength];
 
-            if (random == null)
-            {
-                this.random = new SecureRandom();
-            }
+            this.random = CryptoServicesRegistrar.GetSecureRandom(random);
 
             random.NextBytes(salt);
 

@@ -32,13 +32,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			CheckSingleUsage();
 
 			Streams.PipeAll(input, output);
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(input);
-		}
-
-        [Obsolete]
-		public virtual object GetContent()
-		{
-			return GetInputStream();
+            input.Dispose();
 		}
 
         protected virtual void CheckSingleUsage()

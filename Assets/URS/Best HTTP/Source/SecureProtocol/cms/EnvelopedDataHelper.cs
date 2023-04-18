@@ -1,49 +1,43 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
-using System;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Oiw;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
     internal class EnvelopedDataHelper
     {
-        private static readonly IDictionary BaseCipherNames = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
-        private static readonly IDictionary MacAlgNames = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
-        //private static readonly IDictionary PrfDigests = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+        //private static readonly IDictionary<DerObjectIdentifier, string> BaseCipherNames =
+        //    new Dictionary<DerObjectIdentifier, string>();
+        //private static readonly IDictionary<DerObjectIdentifier, string> MacAlgNames =
+        //    new Dictionary<DerObjectIdentifier, string>();
+        //private static readonly IDictionary<DerObjectIdentifier, string> PrfDigests =
+        //    new Dictionary<DerObjectIdentifier, string>();
 
-        static EnvelopedDataHelper()
-        {
-            //PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha1, "SHA-1");
-            //PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha224, "SHA-224");
-            //PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha256, "SHA-256");
-            //PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha384, "SHA-384");
-            //PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha512, "SHA-512");
+        //static EnvelopedDataHelper()
+        //{
+        //    PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha1, "SHA-1");
+        //    PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha224, "SHA-224");
+        //    PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha256, "SHA-256");
+        //    PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha384, "SHA-384");
+        //    PrfDigests.Add(PkcsObjectIdentifiers.IdHmacWithSha512, "SHA-512");
 
-            BaseCipherNames.Add(PkcsObjectIdentifiers.DesEde3Cbc, "DESEDE");
-            BaseCipherNames.Add(NistObjectIdentifiers.IdAes128Cbc, "AES");
-            BaseCipherNames.Add(NistObjectIdentifiers.IdAes192Cbc, "AES");
-            BaseCipherNames.Add(NistObjectIdentifiers.IdAes256Cbc, "AES");
+        //    BaseCipherNames.Add(PkcsObjectIdentifiers.DesEde3Cbc, "DESEDE");
+        //    BaseCipherNames.Add(NistObjectIdentifiers.IdAes128Cbc, "AES");
+        //    BaseCipherNames.Add(NistObjectIdentifiers.IdAes192Cbc, "AES");
+        //    BaseCipherNames.Add(NistObjectIdentifiers.IdAes256Cbc, "AES");
 
-            MacAlgNames.Add(PkcsObjectIdentifiers.DesEde3Cbc, "DESEDEMac");
-            MacAlgNames.Add(NistObjectIdentifiers.IdAes128Cbc, "AESMac");
-            MacAlgNames.Add(NistObjectIdentifiers.IdAes192Cbc, "AESMac");
-            MacAlgNames.Add(NistObjectIdentifiers.IdAes256Cbc, "AESMac");
-            MacAlgNames.Add(PkcsObjectIdentifiers.RC2Cbc, "RC2Mac");
-        }
+        //    MacAlgNames.Add(PkcsObjectIdentifiers.DesEde3Cbc, "DESEDEMac");
+        //    MacAlgNames.Add(NistObjectIdentifiers.IdAes128Cbc, "AESMac");
+        //    MacAlgNames.Add(NistObjectIdentifiers.IdAes192Cbc, "AESMac");
+        //    MacAlgNames.Add(NistObjectIdentifiers.IdAes256Cbc, "AESMac");
+        //    MacAlgNames.Add(PkcsObjectIdentifiers.RC2Cbc, "RC2Mac");
+        //}
 
         //internal static IDigest GetPrf(AlgorithmIdentifier algID)
         //{
@@ -58,7 +52,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
         //        || NistObjectIdentifiers.IdAes192Cbc.Equals(algorithm)
         //        || NistObjectIdentifiers.IdAes256Cbc.Equals(algorithm))
         //    {
-        //        return new Rfc3211WrapEngine(new AesEngine());
+        //        return new Rfc3211WrapEngine(AesUtilities.CreateEngine());
         //    }
         //    else if (PkcsObjectIdentifiers.DesEde3Cbc.Equals(algorithm))
         //    {
@@ -84,7 +78,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
             return CipherFactory.CreateContentCipher(forEncryption, encKey, encryptionAlgID);
         }
 
-        public AlgorithmIdentifier GenerateEncryptionAlgID(DerObjectIdentifier encryptionOID, KeyParameter encKey, SecureRandom random)
+        public AlgorithmIdentifier GenerateEncryptionAlgID(DerObjectIdentifier encryptionOID, KeyParameter encKey,
+            SecureRandom random)
         {
             return AlgorithmIdentifierFactory.GenerateEncryptionAlgID(encryptionOID, encKey.GetKey().Length * 8, random);
         }

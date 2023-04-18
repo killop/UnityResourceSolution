@@ -42,7 +42,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 		public IAsn1Convertible GetEncryptedContent(
 			int tag)
 		{
-			return _encryptedContent.GetObjectParser(tag, false);
+			return Asn1Utilities.ParseContextBaseUniversal(_encryptedContent, 0, false, tag);
 		}
 	}
 }

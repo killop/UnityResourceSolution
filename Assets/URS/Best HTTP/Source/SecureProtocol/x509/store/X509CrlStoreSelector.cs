@@ -1,30 +1,29 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Date;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Extension;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 {
 	public class X509CrlStoreSelector
-		: IX509Selector
+		: ISelector<X509Crl>
 	{
 		// TODO Missing criteria?
 
 		private X509Certificate certificateChecking;
-		private DateTimeObject dateAndTime;
-		private ICollection issuers;
+		private DateTime? dateAndTime;
+		private IList<X509Name> issuers;
 		private BigInteger maxCrlNumber;
 		private BigInteger minCrlNumber;
 
-		private IX509AttributeCertificate attrCertChecking;
+		private X509V2AttributeCertificate attrCertChecking;
 		private bool completeCrlEnabled;
 		private bool deltaCrlIndicatorEnabled;
 		private byte[] issuingDistributionPoint;
@@ -63,7 +62,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 			set { certificateChecking = value; }
 		}
 
-		public DateTimeObject DateAndTime
+		public DateTime? DateAndTime
 		{
 			get { return dateAndTime; }
 			set { dateAndTime = value; }
@@ -72,10 +71,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		/// <summary>
 		/// An <code>ICollection</code> of <code>X509Name</code> objects
 		/// </summary>
-		public ICollection Issuers
+		public IList<X509Name> Issuers
 		{
-			get { return BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(issuers); }
-            set { issuers = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(value); }
+			get { return new List<X509Name>(issuers); }
+            set { issuers = new List<X509Name>(value); }
 		}
 
 		public BigInteger MaxCrlNumber
@@ -101,7 +100,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 		 *             <code>null</code>)
 		 * @see #getAttrCertificateChecking()
 		 */
-		public IX509AttributeCertificate AttrCertChecking
+		public X509V2AttributeCertificate AttrCertChecking
 		{
 			get { return attrCertChecking; }
 			set { this.attrCertChecking = value; }
@@ -183,11 +182,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 			set { this.maxBaseCrlNumber = value; }
 		}
 
-		public virtual bool Match(
-			object obj)
+		public virtual bool Match(X509Crl c)
 		{
-			X509Crl c = obj as X509Crl;
-
 			if (c == null)
 				return false;
 
@@ -195,7 +191,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509.Store
 			{
 				DateTime dt = dateAndTime.Value;
 				DateTime tu = c.ThisUpdate;
-				DateTimeObject nu = c.NextUpdate;
+				DateTime? nu = c.NextUpdate;
 
 				if (dt.CompareTo(tu) < 0 || nu == null || dt.CompareTo(nu.Value) >= 0)
 					return false;

@@ -81,14 +81,17 @@ namespace YooAsset
 			{
 				if (_asyncOp.isDone)
 				{
-					SceneObject = SceneManager.GetSceneByName(System.IO.Path.GetFileNameWithoutExtension(AssetName));
+                    UnityEngine.Profiling.Profiler.BeginSample("_asyncOp.isDone");
+                    SceneObject = SceneManager.GetSceneByName(System.IO.Path.GetFileNameWithoutExtension(AssetName));
                     if (SceneObject.IsValid() && _activateOnLoad) {
                         SceneManager.SetActiveScene(SceneObject);
                     }
-
+                    UnityEngine.Profiling.Profiler.EndSample();
                     Status = SceneObject.IsValid() ? EStatus.Success : EStatus.Fail;
-					InvokeCompletion();
-				}
+                    UnityEngine.Profiling.Profiler.BeginSample("InvokeCompletion");
+                    InvokeCompletion();
+                    UnityEngine.Profiling.Profiler.EndSample();
+                }
 			}
 		}
 	}

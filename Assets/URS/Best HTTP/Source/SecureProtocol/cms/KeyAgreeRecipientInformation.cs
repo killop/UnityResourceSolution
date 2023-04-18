@@ -1,14 +1,13 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms.Ecc;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Utilities;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
@@ -16,7 +15,6 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.X509;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
@@ -30,7 +28,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
         private KeyAgreeRecipientInfo info;
         private Asn1OctetString       encryptedKey;
 
-        internal static void ReadRecipientInfo(IList infos, KeyAgreeRecipientInfo info,
+        internal static void ReadRecipientInfo(IList<RecipientInformation> infos, KeyAgreeRecipientInfo info,
             CmsSecureReadable secureReadable)
         {
             try
@@ -212,10 +210,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
         public override CmsTypedStream GetContentStream(
             ICipherParameters key)
         {
-            if (!(key is AsymmetricKeyParameter))
+            if (!(key is AsymmetricKeyParameter receiverPrivateKey))
                 throw new ArgumentException("KeyAgreement requires asymmetric key", "key");
-
-            AsymmetricKeyParameter receiverPrivateKey = (AsymmetricKeyParameter) key;
 
             if (!receiverPrivateKey.IsPrivate)
                 throw new ArgumentException("Expected private key", "key");

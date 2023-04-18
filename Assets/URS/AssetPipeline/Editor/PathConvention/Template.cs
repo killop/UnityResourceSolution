@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Debug = UnityEngine.Debug;
 using System.Text.RegularExpressions;
 
 namespace Daihenka.AssetPipeline.NamingConvention
@@ -405,6 +406,10 @@ namespace Daihenka.AssetPipeline.NamingConvention
             if (Anchor == Anchor.End || Anchor == Anchor.Exact)
             {
                 expression += "$";
+            }
+            if (Anchor == Anchor.Regex)
+            {
+                expression = rePattern;
             }
 
             Regex compiled;

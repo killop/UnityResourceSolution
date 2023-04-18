@@ -155,6 +155,7 @@ namespace Daihenka.AssetPipeline
                     {
                         var tooltip = string.Empty;
                         GUIContent icon = null;
+                           // Debug.LogError(" asset path "+ item.assetPath+ "  item.profileState "+ item.profileState);
                         switch (item.profileState)
                         {
                             case AssetProfileState.NoMatchingFilters:

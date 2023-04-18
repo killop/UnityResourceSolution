@@ -46,7 +46,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 				return false;
 
 			return Arrays.AreEqual(SubjectKeyIdentifier, id.SubjectKeyIdentifier)
-				&& BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Equals(SerialNumber, id.SerialNumber)
+				&& Org.BouncyCastle.Utilities.Platform.Equals(SerialNumber, id.SerialNumber)
 				&& IssuersMatch(Issuer, id.Issuer);
         }
     }

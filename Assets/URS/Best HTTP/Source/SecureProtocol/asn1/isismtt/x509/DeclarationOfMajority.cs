@@ -66,7 +66,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 		}
 
 		public DeclarationOfMajority(
-			DerGeneralizedTime dateOfBirth)
+            Asn1GeneralizedTime dateOfBirth)
 		{
 			this.declaration = new DerTaggedObject(false, 2, dateOfBirth);
 		}
@@ -84,7 +84,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 				return new DeclarationOfMajority((Asn1TaggedObject) obj);
 			}
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		private DeclarationOfMajority(
@@ -157,14 +157,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.IsisMtt.X509
 			}
 		}
 
-		public virtual DerGeneralizedTime DateOfBirth
+		public virtual Asn1GeneralizedTime DateOfBirth
 		{
 			get
 			{
 				switch ((Choice) declaration.TagNo)
 				{
 					case Choice.DateOfBirth:
-						return DerGeneralizedTime.GetInstance(declaration, false);
+						return Asn1GeneralizedTime.GetInstance(declaration, false);
 					default:
 						return null;
 				}

@@ -3,67 +3,76 @@
 using System;
 using System.IO;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
-	public class BerTaggedObjectParser
+	internal class BerTaggedObjectParser
 		: Asn1TaggedObjectParser
 	{
-		private bool				_constructed;
-		private int					_tagNumber;
-		private Asn1StreamParser	_parser;
+        internal readonly int m_tagClass;
+        internal readonly int m_tagNo;
+        internal readonly Asn1StreamParser m_parser;
 
-		[Obsolete]
-		internal BerTaggedObjectParser(
-			int		baseTag,
-			int		tagNumber,
-			Stream	contentStream)
-			: this((baseTag & Asn1Tags.Constructed) != 0, tagNumber, new Asn1StreamParser(contentStream))
+		internal BerTaggedObjectParser(int tagClass, int tagNo, Asn1StreamParser parser)
 		{
+            m_tagClass = tagClass;
+            m_tagNo = tagNo;
+            m_parser = parser;
 		}
 
-		internal BerTaggedObjectParser(
-			bool				constructed,
-			int					tagNumber,
-			Asn1StreamParser	parser)
+		public virtual bool IsConstructed
 		{
-			_constructed = constructed;
-			_tagNumber = tagNumber;
-			_parser = parser;
+			get { return true; }
 		}
 
-		public bool IsConstructed
-		{
-			get { return _constructed; }
-		}
+        public int TagClass
+        {
+            get { return m_tagClass; }
+        }
 
 		public int TagNo
 		{
-			get { return _tagNumber; }
+			get { return m_tagNo; }
 		}
 
-		public IAsn1Convertible GetObjectParser(
-			int		tag,
-			bool	isExplicit)
-		{
-			if (isExplicit)
-			{
-				if (!_constructed)
-					throw new IOException("Explicit tags must be constructed (see X.690 8.14.2)");
+        public bool HasContextTag(int tagNo)
+        {
+            return m_tagClass == Asn1Tags.ContextSpecific && m_tagNo == tagNo;
+        }
 
-				return _parser.ReadObject();
-			}
+        public bool HasTag(int tagClass, int tagNo)
+        {
+            return m_tagClass == tagClass && m_tagNo == tagNo;
+        }
 
-			return _parser.ReadImplicit(_constructed, tag);
-		}
+        public virtual IAsn1Convertible ParseBaseUniversal(bool declaredExplicit, int baseTagNo)
+        {
+            if (declaredExplicit)
+                return m_parser.ParseObject(baseTagNo);
 
-		public Asn1Object ToAsn1Object()
+            return m_parser.ParseImplicitConstructedIL(baseTagNo);
+        }
+
+        public virtual IAsn1Convertible ParseExplicitBaseObject()
+        {
+            return m_parser.ReadObject();
+        }
+
+        public virtual Asn1TaggedObjectParser ParseExplicitBaseTagged()
+        {
+            return m_parser.ParseTaggedObject();
+        }
+
+        public virtual Asn1TaggedObjectParser ParseImplicitBaseTagged(int baseTagClass, int baseTagNo)
+        {
+            return new BerTaggedObjectParser(baseTagClass, baseTagNo, m_parser);
+        }
+
+        public virtual Asn1Object ToAsn1Object()
 		{
 			try
 			{
-				return _parser.ReadTaggedObject(_constructed, _tagNumber);
-			}
+                return m_parser.LoadTaggedIL(TagClass, TagNo);
+            }
 			catch (IOException e)
 			{
 				throw new Asn1ParsingException(e.Message);

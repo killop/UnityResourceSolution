@@ -1,15 +1,9 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
-using System.IO;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Nist;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO.Pem;
@@ -91,10 +85,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.OpenSsl
 
 			// TODO Theoretically, the amount of salt needed depends on the algorithm
 			byte[] salt = new byte[20];
-			if (random == null)
-			{
-				random = new SecureRandom();
-			}
+			random = CryptoServicesRegistrar.GetSecureRandom(random);
 			random.NextBytes(salt);
 
 			try

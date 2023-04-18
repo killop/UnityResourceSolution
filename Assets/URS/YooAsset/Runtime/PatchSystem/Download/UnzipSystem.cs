@@ -54,7 +54,7 @@ namespace YooAsset
 			}
 
 			// 如果资源已经缓存
-			if(SandboxFileSystem.ContainsFile(hardiskFileSearchResult.GetRelativePath()))
+			if(URSFileSystem.PersistentDownloadFolder.ContainsFile(hardiskFileSearchResult.GetRelativePath()))
 			{
 				var newDownloader = new Unziper(hardiskFileSearchResult);
 				newDownloader.SetDone();

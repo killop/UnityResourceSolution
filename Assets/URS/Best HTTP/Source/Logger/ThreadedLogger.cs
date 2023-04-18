@@ -2,11 +2,13 @@ using System;
 using System.Collections.Concurrent;
 using System.Text;
 
+using BestHTTP.PlatformSupport.Threading;
+
 namespace BestHTTP.Logger
 {
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.NullChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.ArrayBoundsChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.DivideByZeroChecks, false)]
+    
+    
+    
     public sealed class ThreadedLogger : BestHTTP.Logger.ILogger, IDisposable
     {
         public Loglevels Level { get; set; }
@@ -123,7 +125,7 @@ namespace BestHTTP.Logger
 #if !UNITY_WEBGL || UNITY_EDITOR
         private void ThreadFunc()
         {
-            System.Threading.Thread.CurrentThread.Name = "BestHTTP.Logger";
+            ThreadedRunner.SetThreadName("BestHTTP.Logger");
             try
             {
                 do

@@ -47,13 +47,13 @@ namespace BestHTTP.Extensions
                 offset += readCount;
                 count -= readCount;
 
-                if (readCount >= buff.Count)
+                this.bufferList[0] = buff = buff.Slice(buff.Offset + readCount);
+
+                if (buff.Count == 0)
                 {
                     this.bufferList.RemoveAt(0);
                     BufferPool.Release(buff.Data);
                 }
-                else
-                    this.bufferList[0] = new BufferSegment(buff.Data, buff.Offset + readCount, buff.Count - readCount);
             }
 
             this._length -= sumReadCount;
@@ -84,7 +84,7 @@ namespace BestHTTP.Extensions
         {
             base.Dispose(disposing);
 
-            this._length = 0;
+            Reset();
         }
 
         public override void Flush() { }

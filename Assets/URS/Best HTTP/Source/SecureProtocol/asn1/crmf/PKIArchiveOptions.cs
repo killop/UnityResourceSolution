@@ -23,7 +23,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Crmf
             if (obj is Asn1TaggedObject)
                 return new PkiArchiveOptions((Asn1TaggedObject)obj);
 
-            throw new ArgumentException("Invalid object: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("Invalid object: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
         }
 
         private PkiArchiveOptions(Asn1TaggedObject tagged)

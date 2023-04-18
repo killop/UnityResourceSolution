@@ -188,6 +188,7 @@ namespace Daihenka.AssetPipeline
 
         void OnPostprocessTexture(Texture2D texture)
         {
+            CustomAssetImportPostprocessor.OnPostprocessTexture(assetPath, assetImporter);
             foreach (var processor in GetProcessors(assetPath, MethodBase.GetCurrentMethod().Name))
             {
                 processor.OnPostprocessTexture(assetPath, assetImporter as TextureImporter, texture);

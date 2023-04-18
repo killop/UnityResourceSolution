@@ -66,19 +66,19 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		private static AlgorithmIdentifier DetermineKeyEncAlg(
 			string algorithm, KeyParameter key)
 		{
-			if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "DES"))
+			if (Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "DES"))
 			{
 				return new AlgorithmIdentifier(
 					PkcsObjectIdentifiers.IdAlgCms3DesWrap,
 					DerNull.Instance);
 			}
-            else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "RC2"))
+            else if (Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "RC2"))
 			{
 				return new AlgorithmIdentifier(
 					PkcsObjectIdentifiers.IdAlgCmsRC2Wrap,
 					new DerInteger(58));
 			}
-			else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "AES"))
+			else if (Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "AES"))
 			{
 				int length = key.GetKey().Length * 8;
 				DerObjectIdentifier wrapOid;
@@ -102,12 +102,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 
 				return new AlgorithmIdentifier(wrapOid);  // parameters absent
 			}
-			else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "SEED"))
+			else if (Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "SEED"))
 			{
 				// parameters absent
 				return new AlgorithmIdentifier(KisaObjectIdentifiers.IdNpkiAppCmsSeedWrap);
 			}
-			else if (BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "CAMELLIA"))
+			else if (Org.BouncyCastle.Utilities.Platform.StartsWith(algorithm, "CAMELLIA"))
 			{
 				int length = key.GetKey().Length * 8;
 				DerObjectIdentifier wrapOid;

@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
@@ -38,7 +38,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
         private X509Name			issuer;
         private Time				thisUpdate, nextUpdate;
         private X509Extensions		extensions;
-        private IList			    crlEntries;
+        private List<Asn1Sequence>  crlEntries;
 
 		public V2TbsCertListGenerator()
         {
@@ -57,13 +57,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
         }
 
 		public void SetThisUpdate(
-            DerUtcTime thisUpdate)
+            Asn1UtcTime thisUpdate)
         {
             this.thisUpdate = new Time(thisUpdate);
         }
 
 		public void SetNextUpdate(
-            DerUtcTime nextUpdate)
+            Asn1UtcTime nextUpdate)
         {
             this.nextUpdate = (nextUpdate != null)
 				?	new Time(nextUpdate)
@@ -82,18 +82,17 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
             this.nextUpdate = nextUpdate;
         }
 
-		public void AddCrlEntry(
-			Asn1Sequence crlEntry)
+		public void AddCrlEntry(Asn1Sequence crlEntry)
 		{
 			if (crlEntries == null)
 			{
-				crlEntries = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+                crlEntries = new List<Asn1Sequence>();
 			}
 
 			crlEntries.Add(crlEntry);
 		}
 
-		public void AddCrlEntry(DerInteger userCertificate, DerUtcTime revocationDate, int reason)
+		public void AddCrlEntry(DerInteger userCertificate, Asn1UtcTime revocationDate, int reason)
 		{
 			AddCrlEntry(userCertificate, new Time(revocationDate), reason);
 		}
@@ -104,10 +103,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 		}
 
 		public void AddCrlEntry(DerInteger userCertificate, Time revocationDate, int reason,
-			DerGeneralizedTime invalidityDate)
+            Asn1GeneralizedTime invalidityDate)
 		{
-            IList extOids = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
-            IList extValues = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+            var extOids = new List<DerObjectIdentifier>();
+            var extValues = new List<X509Extension>();
 
 			if (reason != 0)
 			{
@@ -149,8 +148,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 
 		public void AddCrlEntry(DerInteger userCertificate, Time revocationDate, X509Extensions extensions)
 		{
-			Asn1EncodableVector v = new Asn1EncodableVector(
-				userCertificate, revocationDate);
+			Asn1EncodableVector v = new Asn1EncodableVector(userCertificate, revocationDate);
 
 			if (extensions != null)
 			{
@@ -184,12 +182,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509
 			// Add CRLEntries if they exist
             if (crlEntries != null)
             {
-                Asn1Sequence[] certs = new Asn1Sequence[crlEntries.Count];
-                for (int i = 0; i < crlEntries.Count; ++i)
-                {
-                    certs[i] = (Asn1Sequence)crlEntries[i];
-                }
-				v.Add(new DerSequence(certs));
+				v.Add(new DerSequence(crlEntries.ToArray()));
             }
 
 			if (extensions != null)

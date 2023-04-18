@@ -2,6 +2,7 @@
 using System;
 using BestHTTP.Core;
 using BestHTTP.Logger;
+using BestHTTP.PlatformSupport.Threading;
 
 #if !BESTHTTP_DISABLE_CACHING
 using BestHTTP.Caching;
@@ -37,7 +38,7 @@ namespace BestHTTP.Connections
         {
             HTTPManager.Logger.Information("HTTP1Handler", string.Format("[{0}] started processing request '{1}'", this, this.conn.CurrentRequest.CurrentUri.ToString()), this.Context, this.conn.CurrentRequest.Context);
 
-            System.Threading.Thread.CurrentThread.Name = "BestHTTP.HTTP1 R&W";
+            ThreadedRunner.SetThreadName("BestHTTP.HTTP1 R&W");
 
             HTTPConnectionStates proposedConnectionState = HTTPConnectionStates.Processing;
 
@@ -115,7 +116,7 @@ namespace BestHTTP.Connections
                     exceptionMessage = "null";
                 else
                 {
-                    System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                    System.Text.StringBuilder sb = PlatformSupport.Text.StringBuilderPool.Get(1);
 
                     Exception exception = e;
                     int counter = 1;
@@ -129,7 +130,7 @@ namespace BestHTTP.Connections
                             sb.AppendLine();
                     }
 
-                    exceptionMessage = sb.ToString();
+                    exceptionMessage = PlatformSupport.Text.StringBuilderPool.ReleaseAndGrab(sb);
                 }
                 HTTPManager.Logger.Verbose("HTTP1Handler", exceptionMessage, this.Context, this.conn.CurrentRequest.Context);
 

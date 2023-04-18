@@ -7,6 +7,7 @@ using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities;
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Math.Raw;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
@@ -25,7 +26,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
         ///     <code>2^(128 * r / 8)</code>.</param>
         /// <param name="r">the block size, must be >= 1.</param>
         /// <param name="p">Parallelization parameter. Must be a positive integer less than or equal to
-        ///     <code>Int32.MaxValue / (128 * r * 8)</code>.</param>
+        ///     <code>int.MaxValue / (128 * r * 8)</code>.</param>
         /// <param name="dkLen">the length of the key to generate.</param>
         /// <returns>the generated key.</returns>
         public static byte[] Generate(byte[] P, byte[] S, int N, int r, int p, int dkLen)
@@ -41,7 +42,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
                 throw new ArgumentException("Cost parameter N must be > 1 and < 65536.");
             if (r < 1)
                 throw new ArgumentException("Block size r must be >= 1.");
-            int maxParallel = Int32.MaxValue / (128 * r * 8);
+            int maxParallel = int.MaxValue / (128 * r * 8);
             if (p < 1 || p > maxParallel)
             {
                 throw new ArgumentException("Parallelisation parameter p must be >= 1 and <= " + maxParallel
@@ -83,7 +84,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 				{
 					// TODO These can be done in parallel threads
                     SMix(B, BOff, N, d, r);
-				}
+                }
 
 				Pack.UInt32_To_LE(B, bytes, 0);
 
@@ -103,7 +104,76 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 			return key.GetKey();
 		}
 
-		private static void SMix(uint[] B, int BOff, int N, int d, int r)
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        private static void SMix(uint[] B, int BOff, int N, int d, int r)
+		{
+            int powN = Integers.NumberOfTrailingZeros(N);
+            int blocksPerChunk = N >> d;
+            int chunkCount = 1 << d, chunkMask = blocksPerChunk - 1, chunkPow = powN - d;
+
+			int BCount = r * 32;
+
+			uint[] blockY = new uint[BCount];
+
+            uint[][] VV = new uint[chunkCount][];
+
+			try
+			{
+                var X = B.AsSpan(BOff, BCount);
+
+                for (int c = 0; c < chunkCount; ++c)
+                {
+                    uint[] V = new uint[blocksPerChunk * BCount];
+                    VV[c] = V;
+
+                    Nat.Copy(BCount, X, V);
+                    int off = 0;
+                    for (int i = 1; i < blocksPerChunk; ++i)
+                    {
+                        BlockMix(V.AsSpan(off, BCount), V.AsSpan(off + BCount));
+                        off += BCount;
+                    }
+                    BlockMix(V.AsSpan()[^BCount..], X);
+                }
+
+                uint mask = (uint)N - 1;
+                for (int i = 0; i < N; ++i)
+                {
+                    int j = (int)(X[BCount - 16] & mask);
+                    uint[] V = VV[j >> chunkPow];
+                    int VOff = (j & chunkMask) * BCount;
+                    Nat.Xor(BCount, V.AsSpan(VOff), X, blockY);
+                    BlockMix(blockY, X);
+                }
+            }
+            finally
+			{
+				ClearAll(VV);
+                Clear(blockY);
+			}
+		}
+
+        private static void BlockMix(Span<uint> B, Span<uint> Y)
+		{
+            int BCount = B.Length;
+            int half = BCount >> 1;
+            var y1 = B[^16..];
+
+            for (int pos = 0; pos < BCount; pos += 32)
+            {
+                var b0 = B[pos..];
+                var y0 = Y[(pos >> 1)..];
+                Nat512.Xor(y1, b0, y0);
+                Salsa20Engine.SalsaCore(8, y0, y0);
+
+                var b1 = b0[16..];
+                    y1 = y0[half..];
+                Nat512.Xor(y0, b1, y1);
+                Salsa20Engine.SalsaCore(8, y1, y1);
+            }
+        }
+#else
+        private static void SMix(uint[] B, int BOff, int N, int d, int r)
 		{
             int powN = Integers.NumberOfTrailingZeros(N);
             int blocksPerChunk = N >> d;
@@ -112,7 +182,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 			int BCount = r * 32;
 
 			uint[] blockX1 = new uint[16];
-			uint[] blockX2 = new uint[16];
 			uint[] blockY = new uint[BCount];
 
 			uint[] X = new uint[BCount];
@@ -127,27 +196,27 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
                     uint[] V = new uint[blocksPerChunk * BCount];
                     VV[c] = V;
 
-                int off = 0;
+                    int off = 0;
                     for (int i = 0; i < blocksPerChunk; i += 2)
-                {
-                    Array.Copy(X, 0, V, off, BCount);
-                    off += BCount;
-                    BlockMix(X, blockX1, blockX2, blockY, r);
-                    Array.Copy(blockY, 0, V, off, BCount);
-                    off += BCount;
-                    BlockMix(blockY, blockX1, blockX2, X, r);
-                }
+                    {
+                        Array.Copy(X, 0, V, off, BCount);
+                        off += BCount;
+                        BlockMix(X, blockX1, blockY, r);
+                        Array.Copy(blockY, 0, V, off, BCount);
+                        off += BCount;
+                        BlockMix(blockY, blockX1, X, r);
+                    }
                 }
 
-				uint mask = (uint)N - 1;
-				for (int i = 0; i < N; ++i)
-				{
-					int j = (int)(X[BCount - 16] & mask);
+                uint mask = (uint)N - 1;
+                for (int i = 0; i < N; ++i)
+                {
+                    int j = (int)(X[BCount - 16] & mask);
                     uint[] V = VV[j >> chunkPow];
                     int VOff = (j & chunkMask) * BCount;
-                    Array.Copy(V, VOff, blockY, 0, BCount);
-                    Xor(blockY, X, 0, blockY);
-                    BlockMix(blockY, blockX1, blockX2, X, r);
+                    Nat.Xor(BCount, V, VOff, X, 0, blockY, 0);
+
+                    BlockMix(blockY, blockX1, X, r);
                 }
 
 				Array.Copy(X, 0, B, BOff, BCount);
@@ -155,37 +224,30 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Generators
 			finally
 			{
 				ClearAll(VV);
-				ClearAll(X, blockX1, blockX2, blockY);
+				ClearAll(X, blockX1, blockY);
 			}
 		}
 
-		private static void BlockMix(uint[] B, uint[] X1, uint[] X2, uint[] Y, int r)
+        private static void BlockMix(uint[] B, uint[] X1, uint[] Y, int r)
 		{
-			Array.Copy(B, B.Length - 16, X1, 0, 16);
+            Array.Copy(B, B.Length - 16, X1, 0, 16);
 
-			int BOff = 0, YOff = 0, halfLen = B.Length >> 1;
+            int BOff = 0, YOff = 0, halfLen = B.Length >> 1;
 
-			for (int i = 2 * r; i > 0; --i)
-			{
-				Xor(X1, B, BOff, X2);
+            for (int i = 2 * r; i > 0; --i)
+            {
+                Nat512.XorTo(B, BOff, X1, 0);
 
-				Salsa20Engine.SalsaCore(8, X2, X1);
-				Array.Copy(X1, 0, Y, YOff, 16);
+            	Salsa20Engine.SalsaCore(8, X1, X1);
+            	Array.Copy(X1, 0, Y, YOff, 16);
 
-				YOff = halfLen + BOff - YOff;
-				BOff += 16;
-			}
-		}
+            	YOff = halfLen + BOff - YOff;
+            	BOff += 16;
+            }
+        }
+#endif
 
-		private static void Xor(uint[] a, uint[] b, int bOff, uint[] output)
-		{
-			for (int i = output.Length - 1; i >= 0; --i)
-			{
-				output[i] = a[i] ^ b[bOff + i];
-			}
-		}
-
-		private static void Clear(Array array)
+        private static void Clear(Array array)
 		{
 			if (array != null)
 			{

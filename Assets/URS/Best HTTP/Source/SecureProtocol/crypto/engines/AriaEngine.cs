@@ -149,7 +149,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
 
             if (keyParameter == null)
                 throw new ArgumentException("invalid parameter passed to ARIA init - "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
 
             this.m_roundKeys = KeySchedule(forEncryption, keyParameter.GetKey());
         }
@@ -157,11 +157,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
         public virtual string AlgorithmName
         {
             get { return "ARIA"; }
-        }
-
-        public virtual bool IsPartialBlockOkay
-        {
-            get { return false; }
         }
 
         public virtual int GetBlockSize()
@@ -197,10 +192,35 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines
             return BlockSize;
         }
 
-        public virtual void Reset()
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public virtual int ProcessBlock(ReadOnlySpan<byte> input, Span<byte> output)
         {
-            // Empty
+            if (m_roundKeys == null)
+                throw new InvalidOperationException("ARIA engine not initialised");
+
+            Check.DataLength(input, BlockSize, "input buffer too short");
+            Check.OutputLength(output, BlockSize, "output buffer too short");
+
+            byte[] z = new byte[BlockSize];
+            input[..BlockSize].CopyTo(z);
+
+            int i = 0, rounds = m_roundKeys.Length - 3;
+            while (i < rounds)
+            {
+                FO(z, m_roundKeys[i++]);
+                FE(z, m_roundKeys[i++]);
+            }
+
+            FO(z, m_roundKeys[i++]);
+            Xor(z, m_roundKeys[i++]);
+            SL2(z);
+            Xor(z, m_roundKeys[i]);
+
+            z.CopyTo(output);
+
+            return BlockSize;
         }
+#endif
 
         protected static void A(byte[] z)
         {

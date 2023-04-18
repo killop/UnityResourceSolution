@@ -2,7 +2,6 @@
 #pragma warning disable
 using System;
 
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities;
 
@@ -12,7 +11,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Fpe
         : FpeEngine
     {
         public FpeFf1Engine()
-            : this(new AesEngine())
+            : this(AesUtilities.CreateEngine())
         {
         }
 

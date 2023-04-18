@@ -58,6 +58,8 @@ namespace BestHTTP.SocketIO.Transports
             Implementation = new WebSocket(uri);
 
 #if !UNITY_WEBGL || UNITY_EDITOR
+            Implementation.StartPingThread = true;
+
             if (this.Manager.Options.HTTPRequestCustomizationCallback != null)
                 Implementation.OnInternalRequestCreated = (ws, internalRequest) => this.Manager.Options.HTTPRequestCustomizationCallback(this.Manager, internalRequest);
 #endif

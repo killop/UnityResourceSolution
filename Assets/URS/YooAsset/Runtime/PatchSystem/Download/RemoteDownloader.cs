@@ -11,6 +11,7 @@ using MHLab.Patch.Core.Utilities;
 using System.Net;
 using MHLab.Patch.Core.Octodiff;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Ocsp;
+using YooAsset.Utility;
 
 namespace YooAsset
 {
@@ -171,12 +172,23 @@ namespace YooAsset
                         try
                         {
                             File.WriteAllBytes(_updateEntry.GetLocalSaveFilePath(), _response.Data);
+                          
                         }
                         catch (Exception e) 
                         {
                             isError = true;
                         }
                     }
+                    try
+                    {
+                        isError = !CheckDownLoadedFileIntegrity(_updateEntry.GetLocalSaveFilePath(), _updateEntry.GetRemoteDownloadFileHash(), _updateEntry.GetRemoteDownloadFileSize());
+                       // Debug.Log("全文件下载成功 " + _updateEntry.GetLocalSaveFilePath());
+                    }
+                    catch (Exception e)
+                    {
+                        isError = true;
+                    }
+                   
                     if (!isError)
                     {
                         if (_updateEntry.IsPatch())
@@ -190,9 +202,10 @@ namespace YooAsset
                             try
                             {
                                 DeltaFileApplier.Apply(patchTargetTemp, _updateEntry.GetLocalSaveFilePath(), _updateEntry.GetPatchTargetPath());
-                                if (SandboxFileSystem.CheckContentIntegrity(_updateEntry.RemoteFileMeta, _updateEntry.GetPatchTargetPath()))
+                                if (URSFileSystem.DownloadFolderCheckContentIntegrity(_updateEntry.RemoteFileMeta, _updateEntry.GetPatchTargetPath()))
                                 {
-                                    SandboxFileSystem.RegisterVerifyFile(_updateEntry.RemoteFileMeta);
+                                   // Debug.Log("补丁成功 " + _updateEntry.RemoteFileMeta.RelativePath);
+                                    URSFileSystem.DownloadFolderRegisterVerifyFile(_updateEntry.RemoteFileMeta);
                                 }
                                 else
                                 {
@@ -204,26 +217,31 @@ namespace YooAsset
                             }
                             catch (Exception e)
                             {
+                                URSFileSystem.DownloadFolderDeleteFile(_updateEntry.GetRelativePath());
+                                _lastError = $"patch failed message : {e.Message}";
+                                isError = true;
+                            }
+                            finally
+                            {
                                 if (File.Exists(patchTargetTemp))
                                 {
                                     File.Delete(patchTargetTemp);
                                 }
-                                SandboxFileSystem.DeleteSandboxFile(_updateEntry.GetRelativePath());
-                                _lastError = $"patch failed message : {e.Message}";
-                                isError = true;
                             }
                         }
                         else
                         {
-                            if (SandboxFileSystem.CheckContentIntegrity(_updateEntry.RemoteFileMeta, _updateEntry.GetLocalSaveFilePath()))
-                            {
-                                SandboxFileSystem.RegisterVerifyFile(_updateEntry.RemoteFileMeta);
-                            }
-                            else
-                            {
-                                isError = true;
-                                _lastError = $"Verification failed";
-                            }
+                            URSFileSystem.DownloadFolderRegisterVerifyFile(_updateEntry.RemoteFileMeta);
+                            //if (URSFileSystem.DownloadFolderCheckContentIntegrity(_updateEntry.RemoteFileMeta, _updateEntry.GetLocalSaveFilePath()))
+                            //{
+                            //    Debug.Log("全文件下载成功 " + _updateEntry.RemoteFileMeta.RelativePath);
+                            //    URSFileSystem.DownloadFolderRegisterVerifyFile(_updateEntry.RemoteFileMeta);
+                            //}
+                            //else
+                            //{
+                            //    isError = true;
+                            //    _lastError = $"Verification failed";
+                            //}
                         }
                     }
                 }
@@ -238,7 +256,6 @@ namespace YooAsset
                 {
                     _steps = ESteps.Succeed;
                     Logger.Log($"下载完毕{_requestURL} ");
-                    // SandboxFileSystem.RegisterVerifyFile(_downloadInfo.FileMeta);
                 }
 
                 // 释放下载器
@@ -262,6 +279,23 @@ namespace YooAsset
             _steps = ESteps.Succeed;
         }
 
+        public bool CheckDownLoadedFileIntegrity(string filePath, uint hash,long size)
+        {
+            if (File.Exists(filePath)) 
+            {
+                var currentFileHash = Hashing.GetFileXXhash(filePath);
+                if (currentFileHash == hash) 
+                {
+                    long fileSize = FileUtility.GetFileSize(filePath);
+                    if (fileSize == size)
+                    {
+                        //Logger.Error($"验证失败，文件大小不通过 目标大小 {size} ，当前文件大小{fileSize}");
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
         public void ClearLocalSaveFile() 
         {
             if (File.Exists(_updateEntry.GetLocalSaveFilePath()))
@@ -393,6 +427,11 @@ namespace YooAsset
         private void OnDownloadProgress(HTTPRequest request, long downloaded, long length)
         {
             DownloadedBytes = downloaded;
+            //Debug.LogError(
+            //    "path "+ 
+            //    _updateEntry.RemoteFileMeta.RelativePath+
+            //    " totalSize"+ _updateEntry.GetRemoteDownloadFileSize()+
+            //    "downloaded "+ downloaded);
             DownloadProgress = (downloaded / (float)length) * 100.0f;
         }
       

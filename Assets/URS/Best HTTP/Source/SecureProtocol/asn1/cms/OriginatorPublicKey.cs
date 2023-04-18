@@ -21,9 +21,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
             this.mPublicKey = new DerBitString(publicKey);
         }
 
-
-		public OriginatorPublicKey(
-            Asn1Sequence seq)
+		private OriginatorPublicKey(Asn1Sequence seq)
         {
             this.mAlgorithm = AlgorithmIdentifier.GetInstance(seq[0]);
             this.mPublicKey = DerBitString.GetInstance(seq[1]);
@@ -60,7 +58,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
 			if (obj is Asn1Sequence)
                 return new OriginatorPublicKey(Asn1Sequence.GetInstance(obj));
 
-            throw new ArgumentException("Invalid OriginatorPublicKey: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+            throw new ArgumentException("Invalid OriginatorPublicKey: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
 		public AlgorithmIdentifier Algorithm

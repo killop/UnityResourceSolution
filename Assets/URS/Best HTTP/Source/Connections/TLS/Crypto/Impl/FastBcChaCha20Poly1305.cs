@@ -1,4 +1,5 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
+#pragma warning disable
 using System;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Engines;
@@ -28,13 +29,16 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
             this.m_isEncrypting = isEncrypting;
         }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        unsafe
+#endif
         public int DoFinal(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset)
         {
             if (m_isEncrypting)
             {
                 int ciphertextLength = inputLength;
 
-                m_cipher.ProcessBytes(input, inputOffset, inputLength, output, outputOffset);
+                m_cipher.DoFinal(input, inputOffset, inputLength, output, outputOffset);
                 int outputLength = inputLength;
 
                 if (ciphertextLength != outputLength)
@@ -42,14 +46,25 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
 
                 UpdateMac(output, outputOffset, ciphertextLength);
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+                Span<byte> lengths = stackalloc byte[16];
+
+                Pack.UInt64_To_LE((ulong)m_additionalDataLength, lengths);
+                Pack.UInt64_To_LE((ulong)ciphertextLength, lengths[8..]);
+
+                m_mac.BlockUpdate(lengths);
+                m_mac.DoFinal(output.AsSpan(outputOffset + ciphertextLength));
+#else
                 byte[] lengths = BufferPool.Get(16, true);
-                Pack.UInt64_To_LE((ulong)m_additionalDataLength, lengths, 0);
-                Pack.UInt64_To_LE((ulong)ciphertextLength, lengths, 8);
-                m_mac.BlockUpdate(lengths, 0, 16);
+                using (var _ = new PooledBuffer(lengths))
+                {
+                    Pack.UInt64_To_LE((ulong)m_additionalDataLength, lengths, 0);
+                    Pack.UInt64_To_LE((ulong)ciphertextLength, lengths, 8);
 
-                BufferPool.Release(lengths);
-
-                m_mac.DoFinal(output, outputOffset + ciphertextLength);
+                    m_mac.BlockUpdate(lengths, 0, 16);
+                    m_mac.DoFinal(output, outputOffset + ciphertextLength);
+                }
+#endif
 
                 return ciphertextLength + 16;
             }
@@ -59,18 +74,37 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
 
                 UpdateMac(input, inputOffset, ciphertextLength);
 
-                byte[] expectedMac = BufferPool.Get(16, true);
-                Pack.UInt64_To_LE((ulong)m_additionalDataLength, expectedMac, 0);
-                Pack.UInt64_To_LE((ulong)ciphertextLength, expectedMac, 8);
-                m_mac.BlockUpdate(expectedMac, 0, 16);
-                m_mac.DoFinal(expectedMac, 0);
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+                Span<byte> expectedMac = stackalloc byte[16];
+
+                Pack.UInt64_To_LE((ulong)m_additionalDataLength, expectedMac);
+                Pack.UInt64_To_LE((ulong)ciphertextLength, expectedMac[8..]);
+
+                m_mac.BlockUpdate(expectedMac);
+                m_mac.DoFinal(expectedMac);
 
                 bool badMac = !TlsUtilities.ConstantTimeAreEqual(16, expectedMac, 0, input, inputOffset + ciphertextLength);
-                BufferPool.Release(expectedMac);
+
                 if (badMac)
                     throw new TlsFatalAlert(AlertDescription.bad_record_mac);
+#else
+                byte[] expectedMac = BufferPool.Get(16, true);
+                using (var _ = new PooledBuffer(expectedMac))
+                {
+                    Pack.UInt64_To_LE((ulong)m_additionalDataLength, expectedMac, 0);
+                    Pack.UInt64_To_LE((ulong)ciphertextLength, expectedMac, 8);
 
-                m_cipher.ProcessBytes(input, inputOffset, ciphertextLength, output, outputOffset);
+                    m_mac.BlockUpdate(expectedMac, 0, 16);
+                    m_mac.DoFinal(expectedMac, 0);
+
+                    bool badMac = !TlsUtilities.ConstantTimeAreEqual(16, expectedMac, 0, input, inputOffset + ciphertextLength);
+
+                    if (badMac)
+                        throw new TlsFatalAlert(AlertDescription.bad_record_mac);
+                }
+#endif
+
+                m_cipher.DoFinal(input, inputOffset, ciphertextLength, output, outputOffset);
                 int outputLength = ciphertextLength;
 
                 if (ciphertextLength != outputLength)
@@ -90,7 +124,7 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
             if (nonce == null || nonce.Length != 12 || macSize != 16)
                 throw new TlsFatalAlert(AlertDescription.internal_error);
 
-            m_cipher.Init(m_isEncrypting, new FastParametersWithIV(null, nonce));
+            m_cipher.Init(m_isEncrypting, new ParametersWithIV(null, nonce));
             InitMac();
             if (additionalData == null)
             {
@@ -103,30 +137,53 @@ namespace BestHTTP.Connections.TLS.Crypto.Impl
             }
         }
 
-        public void SetKey(byte[] key, int keyOff, int keyLen)
+        public void Reset()
         {
-            NoCopyKeyParameter cipherKey = new NoCopyKeyParameter(key, keyOff, keyLen);
-            m_cipher.Init(m_isEncrypting, new FastParametersWithIV(cipherKey, Zeroes, 0, 12));
+            m_cipher.Reset();
+            m_mac.Reset();
         }
 
+        public void SetKey(byte[] key, int keyOff, int keyLen)
+        {
+            KeyParameter cipherKey = new KeyParameter(key, keyOff, keyLen);
+            m_cipher.Init(m_isEncrypting, new ParametersWithIV(cipherKey, Zeroes, 0, 12));
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void SetKey(ReadOnlySpan<byte> key)
+        {
+            KeyParameter cipherKey = new KeyParameter(key);
+            m_cipher.Init(m_isEncrypting, new ParametersWithIV(cipherKey, Zeroes[..12]));
+        }
+#endif
+
+        byte[] firstBlock = new byte[64];
         private void InitMac()
         {
-            byte[] firstBlock = new byte[64];
             m_cipher.ProcessBytes(firstBlock, 0, 64, firstBlock, 0);
-            m_mac.Init(new NoCopyKeyParameter(firstBlock, 0, 32));
+            m_mac.Init(new KeyParameter(firstBlock, 0, 32));
             Array.Clear(firstBlock, 0, firstBlock.Length);
         }
 
         private void UpdateMac(byte[] buf, int off, int len)
         {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            m_mac.BlockUpdate(buf.AsSpan(off, len));
+#else
             m_mac.BlockUpdate(buf, off, len);
+#endif
 
             int partial = len % 16;
             if (partial != 0)
             {
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+                m_mac.BlockUpdate(Zeroes.AsSpan(0, 16 - partial));
+#else
                 m_mac.BlockUpdate(Zeroes, 0, 16 - partial);
+#endif
             }
         }
     }
 }
+#pragma warning restore
 #endif

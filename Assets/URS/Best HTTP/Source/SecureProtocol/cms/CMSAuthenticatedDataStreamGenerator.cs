@@ -44,20 +44,14 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		private int                 _bufferSize;
 		private bool                _berEncodeRecipientSet;
 
-		/**
-		* base constructor
-		*/
 		public CmsAuthenticatedDataStreamGenerator()
 		{
 		}
 
-		/**
-		* constructor allowing specific source of randomness
-		* @param rand instance of SecureRandom to use
-		*/
-		public CmsAuthenticatedDataStreamGenerator(
-			SecureRandom rand)
-			: base(rand)
+        /// <summary>Constructor allowing specific source of randomness</summary>
+        /// <param name="random">Instance of <c>SecureRandom</c> to use.</param>
+		public CmsAuthenticatedDataStreamGenerator(SecureRandom random)
+			: base(random)
 		{
 		}
 
@@ -107,7 +101,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 			{
 				try
 				{
-					recipientInfos.Add(rig.Generate(encKey, rand));
+					recipientInfos.Add(rig.Generate(encKey, m_random));
 				}
 				catch (InvalidKeyException e)
 				{
@@ -197,7 +191,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		{
 			CipherKeyGenerator keyGen = GeneratorUtilities.GetKeyGenerator(encryptionOid);
 
-			keyGen.Init(new KeyGenerationParameters(rand, keyGen.DefaultStrength));
+			keyGen.Init(new KeyGenerationParameters(m_random, keyGen.DefaultStrength));
 
 			return Open(outStr, encryptionOid, keyGen);
 		}
@@ -212,7 +206,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 		{
 			CipherKeyGenerator keyGen = GeneratorUtilities.GetKeyGenerator(encryptionOid);
 
-			keyGen.Init(new KeyGenerationParameters(rand, keySize));
+			keyGen.Init(new KeyGenerationParameters(m_random, keySize));
 
 			return Open(outStr, encryptionOid, keyGen);
 		}
@@ -240,26 +234,28 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 				this.eiGen = eiGen;
 			}
 
-			public override void WriteByte(
-				byte b)
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                macStream.Write(buffer, offset, count);
+            }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+            public override void Write(ReadOnlySpan<byte> buffer)
+            {
+                macStream.Write(buffer);
+            }
+#endif
+
+            public override void WriteByte(byte value)
 			{
-				macStream.WriteByte(b);
+				macStream.WriteByte(value);
 			}
 
-			public override void Write(
-				byte[]	bytes,
-				int		off,
-				int		len)
-			{
-				macStream.Write(bytes, off, len);
-			}
-
-#if PORTABLE || NETFX_CORE
             protected override void Dispose(bool disposing)
             {
                 if (disposing)
                 {
-                    BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(macStream);
+                    macStream.Dispose();
 
                     // TODO Parent context(s) should really be be closed explicitly
 
@@ -275,25 +271,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
                 }
                 base.Dispose(disposing);
             }
-#else
-            public override void Close()
-			{
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(macStream);
-
-                // TODO Parent context(s) should really be be closed explicitly
-
-				eiGen.Close();
-
-				// [TODO] auth attributes go here 
-				byte[] macOctets = MacUtilities.DoFinal(mac);
-				authGen.AddObject(new DerOctetString(macOctets));
-				// [TODO] unauth attributes go here
-
-				authGen.Close();
-				cGen.Close();
-                base.Close();
-			}
-#endif
 		}
 	}
 }

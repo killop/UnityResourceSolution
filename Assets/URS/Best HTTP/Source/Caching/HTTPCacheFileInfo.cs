@@ -396,19 +396,18 @@ namespace BestHTTP.Caching
             return stream;
         }
 
-        internal HTTPResponse ReadResponseTo(HTTPRequest request)
+        internal void ReadResponseTo(HTTPRequest request)
         {
             if (!IsExists())
-                return null;
+                return;
 
             LastAccess = DateTime.UtcNow;
 
             using (Stream stream = HTTPManager.IOService.CreateFileStream(GetPath(), FileStreamModes.OpenRead))
             {
-                var response = new HTTPResponse(request, stream, request.UseStreaming, true);
-                response.CacheFileInfo = this;
-                response.Receive(BodyLength);
-                return response;
+                request.Response = new HTTPResponse(request, stream, request.UseStreaming, true);
+                request.Response.CacheFileInfo = this;
+                request.Response.Receive(BodyLength);
             }
         }
 

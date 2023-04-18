@@ -82,7 +82,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms
                 return new KeyAgreeRecipientInfo((Asn1Sequence)obj);
 
 			throw new ArgumentException(
-                "Illegal object in KeyAgreeRecipientInfo: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
+                "Illegal object in KeyAgreeRecipientInfo: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
 
         }
 

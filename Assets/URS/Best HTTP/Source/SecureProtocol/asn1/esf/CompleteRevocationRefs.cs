@@ -1,10 +1,9 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Collections;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 {
@@ -30,7 +29,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 
 			throw new ArgumentException(
 				"Unknown object in 'CompleteRevocationRefs' factory: "
-                    + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj),
 				"obj");
 		}
 
@@ -58,12 +57,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Esf
 		}
 
 		public CompleteRevocationRefs(
-			IEnumerable crlOcspRefs)
+			IEnumerable<CrlOcspRef> crlOcspRefs)
 		{
 			if (crlOcspRefs == null)
 				throw new ArgumentNullException("crlOcspRefs");
-			if (!CollectionUtilities.CheckElementsAreOfType(crlOcspRefs, typeof(CrlOcspRef)))
-				throw new ArgumentException("Must contain only 'CrlOcspRef' objects", "crlOcspRefs");
 
 			this.crlOcspRefs = new DerSequence(
 				Asn1EncodableVector.FromEnumerable(crlOcspRefs));

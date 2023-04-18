@@ -1,7 +1,6 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X500;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
@@ -32,7 +31,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.SigI
 	{
 		private readonly NameOrPseudonym	nameOrPseudonym;
 		private readonly BigInteger			nameDistinguisher;
-		private readonly DerGeneralizedTime	dateOfBirth;
+		private readonly Asn1GeneralizedTime dateOfBirth;
 		private readonly DirectoryString	placeOfBirth;
 		private readonly string				gender;
 		private readonly DirectoryString	postalAddress;
@@ -50,7 +49,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.SigI
 				return new PersonalData((Asn1Sequence) obj);
 			}
 
-            throw new ArgumentException("unknown object in factory: " + BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
+            throw new ArgumentException("unknown object in factory: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		/**
@@ -71,13 +70,12 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.SigI
 		*
 		* @param seq The ASN.1 sequence.
 		*/
-		private PersonalData(
-			Asn1Sequence seq)
+		private PersonalData(Asn1Sequence seq)
 		{
 			if (seq.Count < 1)
 				throw new ArgumentException("Bad sequence size: " + seq.Count);
 
-			IEnumerator e = seq.GetEnumerator();
+			var e = seq.GetEnumerator();
 			e.MoveNext();
 
 			nameOrPseudonym = NameOrPseudonym.GetInstance(e.Current);
@@ -88,23 +86,23 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.SigI
 				int tag = o.TagNo;
 				switch (tag)
 				{
-					case 0:
-						nameDistinguisher = DerInteger.GetInstance(o, false).Value;
-						break;
-					case 1:
-						dateOfBirth = DerGeneralizedTime.GetInstance(o, false);
-						break;
-					case 2:
-						placeOfBirth = DirectoryString.GetInstance(o, true);
-						break;
-					case 3:
-						gender = DerPrintableString.GetInstance(o, false).GetString();
-						break;
-					case 4:
-						postalAddress = DirectoryString.GetInstance(o, true);
-						break;
-					default:
-						throw new ArgumentException("Bad tag number: " + o.TagNo);
+				case 0:
+					nameDistinguisher = DerInteger.GetInstance(o, false).Value;
+					break;
+				case 1:
+					dateOfBirth = Asn1GeneralizedTime.GetInstance(o, false);
+					break;
+				case 2:
+					placeOfBirth = DirectoryString.GetInstance(o, true);
+					break;
+				case 3:
+					gender = DerPrintableString.GetInstance(o, false).GetString();
+					break;
+				case 4:
+					postalAddress = DirectoryString.GetInstance(o, true);
+					break;
+				default:
+					throw new ArgumentException("Bad tag number: " + o.TagNo);
 				}
 			}
 		}
@@ -122,7 +120,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.SigI
 		public PersonalData(
 			NameOrPseudonym		nameOrPseudonym,
 			BigInteger			nameDistinguisher,
-			DerGeneralizedTime	dateOfBirth,
+            Asn1GeneralizedTime dateOfBirth,
 			DirectoryString		placeOfBirth,
 			string				gender,
 			DirectoryString		postalAddress)
@@ -145,7 +143,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509.SigI
 			get { return nameDistinguisher; }
 		}
 
-		public DerGeneralizedTime DateOfBirth
+		public Asn1GeneralizedTime DateOfBirth
 		{
 			get { return dateOfBirth; }
 		}

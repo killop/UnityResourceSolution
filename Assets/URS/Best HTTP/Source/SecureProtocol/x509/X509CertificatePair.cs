@@ -103,8 +103,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 			if (other == null)
 				return false;
 
-			return BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Equals(this.forward, other.forward)
-				&& BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Equals(this.reverse, other.reverse);
+			return Org.BouncyCastle.Utilities.Platform.Equals(this.forward, other.forward)
+				&& Org.BouncyCastle.Utilities.Platform.Equals(this.reverse, other.reverse);
 		}
 
 		public override int GetHashCode()

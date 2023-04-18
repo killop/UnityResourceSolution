@@ -36,7 +36,7 @@ namespace BestHTTP.Connections.HTTP2
             // Add usage of SETTINGS_MAX_HEADER_LIST_SIZE to be able to create a header and one or more continuation fragments
             // (https://httpwg.org/specs/rfc7540.html#SettingValues)
 
-            using (BufferPoolMemoryStream bufferStream = new BufferPoolMemoryStream())
+            using (BufferPoolMemoryStream bufferStream = new BufferPoolMemoryStream(HTTPRequest.UploadChunkSize))
             {
                 WriteHeader(bufferStream, ":method", HTTPRequest.MethodNames[(int)request.MethodType]);
                 // add path
@@ -52,7 +52,7 @@ namespace BestHTTP.Connections.HTTP2
                 request.EnumerateHeaders((header, values) =>
                 {
                     if (header.Equals("connection", StringComparison.OrdinalIgnoreCase) ||
-                        header.Equals("te", StringComparison.OrdinalIgnoreCase) ||
+                        (header.Equals("te", StringComparison.OrdinalIgnoreCase) && !values.Contains("trailers") && values.Count <= 1) ||
                         header.Equals("host", StringComparison.OrdinalIgnoreCase) ||
                         header.Equals("keep-alive", StringComparison.OrdinalIgnoreCase) ||
                         header.StartsWith("proxy-", StringComparison.OrdinalIgnoreCase))
@@ -295,9 +295,11 @@ namespace BestHTTP.Connections.HTTP2
 
                 stream.Read(buffer, 0, (int)stringLength);
 
+                var result = System.Text.Encoding.UTF8.GetString(buffer, 0, (int)stringLength);
+
                 BufferPool.Release(buffer);
 
-                return System.Text.Encoding.UTF8.GetString(buffer, 0, (int)stringLength);
+                return result;
             }
             else
             {
@@ -305,7 +307,7 @@ namespace BestHTTP.Connections.HTTP2
                 byte currentByte = (byte)stream.ReadByte();
                 byte bitIdx = 0; // 0..7
 
-                using (BufferPoolMemoryStream bufferStream = new BufferPoolMemoryStream())
+                using (BufferPoolMemoryStream bufferStream = new BufferPoolMemoryStream((int)(stringLength * 1.5f)))
                 {
                     do
                     {
@@ -333,11 +335,9 @@ namespace BestHTTP.Connections.HTTP2
                         }
                     } while (stringLength > 0);
 
-                    byte[] buffer = bufferStream.ToArray(true);
+                    byte[] buffer = bufferStream.GetBuffer();
 
                     string result = System.Text.Encoding.UTF8.GetString(buffer, 0, (int)bufferStream.Length);
-
-                    BufferPool.Release(buffer);
 
                     return result;
                 }

@@ -1,16 +1,13 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Pkcs;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Encoders;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.IO;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
@@ -21,33 +18,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 
 		private readonly bool lazyAsn1;
 
-		private Asn1Set	sCrlData;
-		private int		sCrlDataObjectCount;
-		private Stream	currentCrlStream;
+		private Asn1Set sCrlData;
+		private int sCrlDataObjectCount;
+		private Stream currentCrlStream;
 
-		public X509CrlParser()
-			: this(false)
-		{
-		}
-
-		public X509CrlParser(
-			bool lazyAsn1)
+		public X509CrlParser(bool lazyAsn1 = false)
 		{
 			this.lazyAsn1 = lazyAsn1;
 		}
 
-		private X509Crl ReadPemCrl(
-			Stream inStream)
-		{
-			Asn1Sequence seq = PemCrlParser.ReadPemObject(inStream);
-
-			return seq == null
-				?	null
-				:	CreateX509Crl(CertificateList.GetInstance(seq));
-		}
-
-		private X509Crl ReadDerCrl(
-			Asn1InputStream dIn)
+		private X509Crl ReadDerCrl(Asn1InputStream dIn)
 		{
 			Asn1Sequence seq = (Asn1Sequence)dIn.ReadObject();
 
@@ -62,33 +42,29 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 				}
 			}
 
-			return CreateX509Crl(CertificateList.GetInstance(seq));
+			return new X509Crl(CertificateList.GetInstance(seq));
+		}
+
+		private X509Crl ReadPemCrl(Stream inStream)
+		{
+			Asn1Sequence seq = PemCrlParser.ReadPemObject(inStream);
+
+			return seq == null ? null : new X509Crl(CertificateList.GetInstance(seq));
 		}
 
 		private X509Crl GetCrl()
 		{
 			if (sCrlData == null || sCrlDataObjectCount >= sCrlData.Count)
-			{
 				return null;
-			}
 
-			return CreateX509Crl(
-				CertificateList.GetInstance(
-					sCrlData[sCrlDataObjectCount++]));
-		}
-
-		protected virtual X509Crl CreateX509Crl(
-			CertificateList c)
-		{
-			return new X509Crl(c);
+			return new X509Crl(CertificateList.GetInstance(sCrlData[sCrlDataObjectCount++]));
 		}
 
 		/// <summary>
 		/// Create loading data from byte array.
 		/// </summary>
 		/// <param name="input"></param>
-		public X509Crl ReadCrl(
-			byte[] input)
+		public X509Crl ReadCrl(byte[] input)
 		{
 			return ReadCrl(new MemoryStream(input, false));
 		}
@@ -97,8 +73,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		/// Create loading data from byte array.
 		/// </summary>
 		/// <param name="input"></param>
-		public ICollection ReadCrls(
-			byte[] input)
+		public IList<X509Crl> ReadCrls(byte[] input)
 		{
 			return ReadCrls(new MemoryStream(input, false));
 		}
@@ -107,8 +82,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		 * Generates a certificate revocation list (CRL) object and initializes
 		 * it with the data read from the input stream inStream.
 		 */
-		public X509Crl ReadCrl(
-			Stream inStream)
+		public X509Crl ReadCrl(Stream inStream)
 		{
 			if (inStream == null)
 				throw new ArgumentNullException("inStream");
@@ -133,31 +107,34 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 				if (sCrlData != null)
 				{
 					if (sCrlDataObjectCount != sCrlData.Count)
-					{
 						return GetCrl();
-					}
 
 					sCrlData = null;
 					sCrlDataObjectCount = 0;
 					return null;
 				}
 
-				PushbackStream pis = new PushbackStream(inStream);
-				int tag = pis.ReadByte();
+                int tag = inStream.ReadByte();
+                if (tag < 0)
+                    return null;
 
-				if (tag < 0)
-					return null;
+                if (inStream.CanSeek)
+                {
+                    inStream.Seek(-1L, SeekOrigin.Current);
+                }
+                else
+                {
+                    PushbackStream pis = new PushbackStream(inStream);
+                    pis.Unread(tag);
+                    inStream = pis;
+                }
 
-				pis.Unread(tag);
-
-				if (tag != 0x30)	// assume ascii PEM encoded.
-				{
-					return ReadPemCrl(pis);
-				}
+                if (tag != 0x30)	// assume ascii PEM encoded.
+					return ReadPemCrl(inStream);
 
 				Asn1InputStream asn1 = lazyAsn1
-					?	new LazyAsn1InputStream(pis)
-					:	new Asn1InputStream(pis);
+					?	new LazyAsn1InputStream(inStream)
+					:	new Asn1InputStream(inStream);
 
 				return ReadDerCrl(asn1);
 			}
@@ -180,18 +157,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		 * only significant field being crls.  In particular the signature
 		 * and the contents are ignored.
 		 */
-		public ICollection ReadCrls(
-			Stream inStream)
+		public IList<X509Crl> ReadCrls(Stream inStream)
+		{
+			return new List<X509Crl>(ParseCrls(inStream));
+		}
+
+		public IEnumerable<X509Crl> ParseCrls(Stream inStream)
 		{
 			X509Crl crl;
-			IList crls = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
-
 			while ((crl = ReadCrl(inStream)) != null)
 			{
-				crls.Add(crl);
+				yield return crl;
 			}
-
-			return crls;
 		}
 	}
 }

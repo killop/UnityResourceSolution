@@ -112,13 +112,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Utilities
 
         private static BufferedBlockCipher CreateCipher(DerObjectIdentifier algorithm)
         {
-            IBlockCipher cipher;
+            IBlockCipherMode cipher;
 
             if (NistObjectIdentifiers.IdAes128Cbc.Equals(algorithm)
                 || NistObjectIdentifiers.IdAes192Cbc.Equals(algorithm)
                 || NistObjectIdentifiers.IdAes256Cbc.Equals(algorithm))
             {
-                cipher = new CbcBlockCipher(new AesEngine());
+                cipher = new CbcBlockCipher(AesUtilities.CreateEngine());
             }
             else if (PkcsObjectIdentifiers.DesEde3Cbc.Equals(algorithm))
             {

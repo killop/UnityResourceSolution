@@ -10,10 +10,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
     * base implementation of MD4 family style digest as outlined in
     * "Handbook of Applied Cryptography", pages 344 - 347.
     */
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.NullChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.ArrayBoundsChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppSetOption(BestHTTP.PlatformSupport.IL2CPP.Option.DivideByZeroChecks, false)]
-    [BestHTTP.PlatformSupport.IL2CPP.Il2CppEagerStaticClassConstructionAttribute]
     public abstract class GeneralDigest
 		: IDigest, IMemoable
     {
@@ -56,7 +52,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             byteCount++;
         }
 
-        public unsafe void BlockUpdate(
+        public void BlockUpdate(
             byte[]  input,
             int     inOff,
             int     length)
@@ -69,23 +65,22 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             int i = 0;
             if (xBufOff != 0)
             {
-                fixed (byte* pxBuf = xBuf, pinput = input)
-                    while (i < length)
+                while (i < length)
+                {
+                    xBuf[xBufOff++] = input[inOff + i++];
+                    if (xBufOff == 4)
                     {
-                        pxBuf[xBufOff++] = pinput[inOff + i++];
-                        if (xBufOff == 4)
-                        {
-                            ProcessWord(xBuf, 0);
-                            xBufOff = 0;
-                            break;
-                        }
+                        ProcessWord(xBuf, 0);
+                        xBufOff = 0;
+                        break;
                     }
+                }
             }
 
             //
             // process whole words.
             //
-            int limit = ((length - i) & ~3) + i;
+            int limit = length - 3;
             for (; i < limit; i += 4)
             {
                 ProcessWord(input, inOff + i);
@@ -94,19 +89,57 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
             //
             // load in the remainder.
             //
-            //while (i < length)
-            //{
-            //    xBuf[xBufOff++] = input[inOff + i++];
-            //}
-
-            fixed (byte* pxBuf = xBuf, pinput = input)
+            while (i < length)
             {
-                while (i < length)
-                    pxBuf[xBufOff++] = pinput[inOff + i++];
+                xBuf[xBufOff++] = input[inOff + i++];
             }
 
             byteCount += length;
         }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public void BlockUpdate(ReadOnlySpan<byte> input)
+        {
+            int length = input.Length;
+
+            //
+            // fill the current word
+            //
+            int i = 0;
+            if (xBufOff != 0)
+            {
+                while (i < length)
+                {
+                    xBuf[xBufOff++] = input[i++];
+                    if (xBufOff == 4)
+                    {
+                        ProcessWord(xBuf, 0);
+                        xBufOff = 0;
+                        break;
+                    }
+                }
+            }
+
+            //
+            // process whole words.
+            //
+            int limit = length - 3;
+            for (; i < limit; i += 4)
+            {
+                ProcessWord(input.Slice(i, 4));
+            }
+
+            //
+            // load in the remainder.
+            //
+            while (i < length)
+            {
+                xBuf[xBufOff++] = input[i++];
+            }
+
+            byteCount += length;
+        }
+#endif
 
         public void Finish()
         {
@@ -135,6 +168,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
 		}
 
 		internal abstract void ProcessWord(byte[] input, int inOff);
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        internal abstract void ProcessWord(ReadOnlySpan<byte> word);
+#endif
         internal abstract void ProcessLength(long bitLength);
         internal abstract void ProcessBlock();
         public abstract string AlgorithmName { get; }
@@ -142,6 +178,9 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Digests
         public abstract int DoFinal(byte[] output, int outOff);
 		public abstract IMemoable Copy();
 		public abstract void Reset(IMemoable t);
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public abstract int DoFinal(Span<byte> output);
+#endif
     }
 }
 #pragma warning restore

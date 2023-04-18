@@ -1,18 +1,17 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 {
     public class DefaultTlsSrpConfigVerifier
         : TlsSrpConfigVerifier
     {
-        private static readonly IList DefaultGroups = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList();
+        private static readonly List<Srp6Group> DefaultGroups = new List<Srp6Group>();
 
         static DefaultTlsSrpConfigVerifier()
         {
@@ -26,7 +25,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         }
 
         // IList is (SRP6Group)
-        protected readonly IList m_groups;
+        protected readonly IList<Srp6Group> m_groups;
 
         /// <summary>Accept only the group parameters specified in RFC 5054 Appendix A.</summary>
         public DefaultTlsSrpConfigVerifier()
@@ -35,10 +34,10 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         }
 
         /// <summary>Specify a custom set of acceptable group parameters.</summary>
-        /// <param name="groups">an <see cref="IList"/> of acceptable <see cref="Srp6Group"/>.</param>
-        public DefaultTlsSrpConfigVerifier(IList groups)
+        /// <param name="groups">an <see cref="IList{T}"/> of acceptable <see cref="Srp6Group"/>.</param>
+        public DefaultTlsSrpConfigVerifier(IList<Srp6Group> groups)
         {
-            this.m_groups = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateArrayList(groups);
+            this.m_groups = new List<Srp6Group>(groups);
         }
 
         public virtual bool Accept(TlsSrpConfig srpConfig)

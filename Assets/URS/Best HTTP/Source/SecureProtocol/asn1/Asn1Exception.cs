@@ -2,12 +2,11 @@
 #pragma warning disable
 using System;
 using System.IO;
+using System.Runtime.Serialization;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 {
-#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || PORTABLE || NETFX_CORE)
     [Serializable]
-#endif
     public class Asn1Exception
 		: IOException
 	{
@@ -16,16 +15,18 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1
 		{
 		}
 
-		public Asn1Exception(
-			string message)
+		public Asn1Exception(string message)
 			: base(message)
 		{
 		}
 
-		public Asn1Exception(
-			string		message,
-			Exception	exception)
-			: base(message, exception)
+		public Asn1Exception(string message, Exception innerException)
+			: base(message, innerException)
+		{
+		}
+
+		protected Asn1Exception(SerializationInfo info, StreamingContext context)
+			: base(info, context)
 		{
 		}
 	}

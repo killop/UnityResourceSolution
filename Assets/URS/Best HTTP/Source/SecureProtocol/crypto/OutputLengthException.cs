@@ -1,32 +1,34 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.Runtime.Serialization;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto
 {
-#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || PORTABLE || NETFX_CORE)
     [Serializable]
-#endif
     public class OutputLengthException
         : DataLengthException
     {
-        public OutputLengthException()
-        {
-        }
+		public OutputLengthException()
+			: base()
+		{
+		}
 
-        public OutputLengthException(
-            string message)
-            : base(message)
-        {
-        }
+		public OutputLengthException(string message)
+			: base(message)
+		{
+		}
 
-        public OutputLengthException(
-            string message,
-            Exception exception)
-            : base(message, exception)
-        {
-        }
-    }
+		public OutputLengthException(string message, Exception innerException)
+			: base(message, innerException)
+		{
+		}
+
+		protected OutputLengthException(SerializationInfo info, StreamingContext context)
+			: base(info, context)
+		{
+		}
+	}
 }
 #pragma warning restore
 #endif

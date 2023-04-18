@@ -1,7 +1,7 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Tls.Crypto;
@@ -18,21 +18,21 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         protected int[] m_cipherSuites;
 
         protected int[] m_offeredCipherSuites;
-        protected IDictionary m_clientExtensions;
+        protected IDictionary<int, byte[]> m_clientExtensions;
 
         protected bool m_encryptThenMACOffered;
         protected short m_maxFragmentLengthOffered;
         protected bool m_truncatedHMacOffered;
         protected bool m_clientSentECPointFormats;
         protected CertificateStatusRequest m_certificateStatusRequest;
-        protected IList m_statusRequestV2;
-        protected IList m_trustedCAKeys;
+        protected IList<CertificateStatusRequestItemV2> m_statusRequestV2;
+        protected IList<TrustedAuthority> m_trustedCAKeys;
 
         protected int m_selectedCipherSuite;
-        protected IList m_clientProtocolNames;
+        protected IList<ProtocolName> m_clientProtocolNames;
         protected ProtocolName m_selectedProtocolName;
 
-        protected readonly IDictionary m_serverExtensions = BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+        protected readonly IDictionary<int, byte[]> m_serverExtensions = new Dictionary<int, byte[]>();
 
         public AbstractTlsServer(TlsCrypto crypto)
             : base(crypto)
@@ -101,13 +101,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             return maxBits;
         }
 
-        protected virtual IList GetProtocolNames()
+        protected virtual IList<ProtocolName> GetProtocolNames()
         {
             return null;
         }
 
         protected virtual bool IsSelectableCipherSuite(int cipherSuite, int availCurveBits, int availFiniteFieldBits,
-            IList sigAlgs)
+            IList<short> sigAlgs)
         {
             // TODO[tls13] The version check should be separated out (eventually select ciphersuite before version)
             return TlsUtilities.IsValidVersionForCipherSuite(cipherSuite, m_context.ServerVersion)
@@ -182,7 +182,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
 
         protected virtual ProtocolName SelectProtocolName()
         {
-            IList serverProtocolNames = GetProtocolNames();
+            IList<ProtocolName> serverProtocolNames = GetProtocolNames();
             if (null == serverProtocolNames || serverProtocolNames.Count < 1)
                 return null;
 
@@ -193,7 +193,8 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             return result;
         }
 
-        protected virtual ProtocolName SelectProtocolName(IList clientProtocolNames, IList serverProtocolNames)
+        protected virtual ProtocolName SelectProtocolName(IList<ProtocolName> clientProtocolNames,
+            IList<ProtocolName> serverProtocolNames)
         {
             foreach (ProtocolName serverProtocolName in serverProtocolNames)
             {
@@ -206,6 +207,16 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         protected virtual bool ShouldSelectProtocolNameEarly()
         {
             return true;
+        }
+
+        protected virtual bool PreferLocalClientCertificateTypes()
+        {
+            return false;
+        }
+
+        protected virtual short[] GetAllowedClientCertificateTypes()
+        {
+            return null;
         }
 
         public virtual void Init(TlsServerContext context)
@@ -252,7 +263,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             return null;
         }
 
-        public virtual TlsPskExternal GetExternalPsk(IList identities)
+        public virtual TlsPskExternal GetExternalPsk(IList<PskIdentity> identities)
         {
             return null;
         }
@@ -304,7 +315,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             this.m_offeredCipherSuites = offeredCipherSuites;
         }
 
-        public virtual void ProcessClientExtensions(IDictionary clientExtensions)
+        public virtual void ProcessClientExtensions(IDictionary<int, byte[]> clientExtensions)
         {
             this.m_clientExtensions = clientExtensions;
 
@@ -384,7 +395,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                  * somewhat inelegant but is a compromise designed to minimize changes to the original
                  * cipher suite design.
                  */
-                IList sigAlgs = TlsUtilities.GetUsableSignatureAlgorithms(securityParameters.ClientSigAlgs);
+                var sigAlgs = TlsUtilities.GetUsableSignatureAlgorithms(securityParameters.ClientSigAlgs);
 
                 /*
                  * RFC 4429 5.1. A server that receives a ClientHello containing one or both of these
@@ -414,7 +425,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
         }
 
         // IDictionary is (Int32 -> byte[])
-        public virtual IDictionary GetServerExtensions()
+        public virtual IDictionary<int, byte[]> GetServerExtensions()
         {
             bool isTlsV13 = TlsUtilities.IsTlsV13(m_context);
 
@@ -492,10 +503,70 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
                 TlsExtensionsUtilities.AddMaxFragmentLengthExtension(m_serverExtensions, m_maxFragmentLengthOffered);
             }
 
+            // RFC 7250 4.2 for server_certificate_type
+            short[] serverCertTypes = TlsExtensionsUtilities.GetServerCertificateTypeExtensionClient(
+                m_clientExtensions);
+            if (serverCertTypes != null)
+            {
+                TlsCredentials credentials = GetCredentials();
+
+                if (credentials == null || !Arrays.Contains(serverCertTypes, credentials.Certificate.CertificateType))
+                {
+                    // outcome 2: we support the extension but have no common types
+                    throw new TlsFatalAlert(AlertDescription.unsupported_certificate);
+                }
+
+                // outcome 3: we support the extension and have a common type
+                TlsExtensionsUtilities.AddServerCertificateTypeExtensionServer(m_serverExtensions,
+                    credentials.Certificate.CertificateType);
+            }
+
+            // RFC 7250 4.2 for client_certificate_type
+            short[] remoteClientCertTypes = TlsExtensionsUtilities.GetClientCertificateTypeExtensionClient(
+                m_clientExtensions);
+            if (remoteClientCertTypes != null)
+            {
+                short[] localClientCertTypes = GetAllowedClientCertificateTypes();
+                if (localClientCertTypes != null)
+                {
+                    short[] preferredTypes;
+                    short[] nonPreferredTypes;
+                    if (PreferLocalClientCertificateTypes())
+                    {
+                        preferredTypes = localClientCertTypes;
+                        nonPreferredTypes = remoteClientCertTypes;
+                    }
+                    else
+                    {
+                        preferredTypes = remoteClientCertTypes;
+                        nonPreferredTypes = localClientCertTypes;
+                    }
+
+                    short selectedType = -1;
+                    for (int i = 0; i < preferredTypes.Length; i++)
+                    {
+                        if (Arrays.Contains(nonPreferredTypes, preferredTypes[i]))
+                        {
+                            selectedType = preferredTypes[i];
+                            break;
+                        }
+                    }
+
+                    if (selectedType == -1)
+                    {
+                        // outcome 2: we support the extension but have no common types
+                        throw new TlsFatalAlert(AlertDescription.unsupported_certificate);
+                    }
+
+                    // outcome 3: we support the extension and have a common type
+                    TlsExtensionsUtilities.AddClientCertificateTypeExtensionServer(m_serverExtensions, selectedType);
+                } // else outcome 1: we don't support the extension
+            }
+
             return m_serverExtensions;
         }
 
-        public virtual void GetServerExtensionsForConnection(IDictionary serverExtensions)
+        public virtual void GetServerExtensionsForConnection(IDictionary<int, byte[]> serverExtensions)
         {
             if (!ShouldSelectProtocolNameEarly())
             {
@@ -520,7 +591,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             }
         }
 
-        public virtual IList GetServerSupplementalData()
+        public virtual IList<SupplementalDataEntry> GetServerSupplementalData()
         {
             return null;
         }
@@ -561,7 +632,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Tls
             return TlsEccUtilities.CreateNamedECConfig(m_context, namedGroup);
         }
 
-        public virtual void ProcessClientSupplementalData(IList clientSupplementalData)
+        public virtual void ProcessClientSupplementalData(IList<SupplementalDataEntry> clientSupplementalData)
         {
             if (clientSupplementalData != null)
                 throw new TlsFatalAlert(AlertDescription.unexpected_message);

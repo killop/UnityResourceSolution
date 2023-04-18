@@ -1,17 +1,13 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Collections;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Parameters;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Operators;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Math;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security.Certificates;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
@@ -21,10 +17,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 	/// </summary>
 	public class X509V1CertificateGenerator
 	{
-		private V1TbsCertificateGenerator   tbsGen;
-		private DerObjectIdentifier         sigOID;
-		private AlgorithmIdentifier         sigAlgId;
-		private string                      signatureAlgorithm;
+		private V1TbsCertificateGenerator tbsGen;
 
 		/// <summary>
 		/// Default Constructor.
@@ -120,91 +113,35 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.X509
 		}
 
 		/// <summary>
-		/// Set the signature algorithm that will be used to sign this certificate.
-		/// This can be either a name or an OID, names are treated as case insensitive.
+		/// Generate a new <see cref="X509Certificate"/> using the provided <see cref="ISignatureFactory"/>.
 		/// </summary>
-		/// <param name="signatureAlgorithm">string representation of the algorithm name</param>
-
-		public void SetSignatureAlgorithm(
-			string signatureAlgorithm)
+		/// <param name="signatureFactory">A <see cref="ISignatureFactory">signature factory</see> with the necessary
+		/// algorithm details.</param>
+		/// <returns>An <see cref="X509Certificate"/>.</returns>
+		public X509Certificate Generate(ISignatureFactory signatureFactory)
 		{
-			this.signatureAlgorithm = signatureAlgorithm;
+			var sigAlgID = (AlgorithmIdentifier)signatureFactory.AlgorithmDetails;
 
-			try
-			{
-				sigOID = X509Utilities.GetAlgorithmOid(signatureAlgorithm);
-			}
-			catch (Exception)
-			{
-				throw new ArgumentException("Unknown signature type requested", "signatureAlgorithm");
-			}
-
-			sigAlgId = X509Utilities.GetSigAlgID(sigOID, signatureAlgorithm);
-
-			tbsGen.SetSignature(sigAlgId);
-		}
-
-		/// <summary>
-		/// Generate a new X509Certificate.
-		/// </summary>
-		/// <param name="privateKey">The private key of the issuer used to sign this certificate.</param>
-		/// <returns>An X509Certificate.</returns>
-
-		public X509Certificate Generate(
-			AsymmetricKeyParameter privateKey)
-		{
-			return Generate(privateKey, null);
-		}
-
-        /// <summary>
-        /// Generate a new X509Certificate specifying a SecureRandom instance that you would like to use.
-        /// </summary>
-        /// <param name="privateKey">The private key of the issuer used to sign this certificate.</param>
-        /// <param name="random">The Secure Random you want to use.</param>
-        /// <returns>An X509Certificate.</returns>
-
-		public X509Certificate Generate(
-			AsymmetricKeyParameter	privateKey,
-			SecureRandom			random)
-		{
-			return Generate(new Asn1SignatureFactory(signatureAlgorithm, privateKey, random));
-		}
-
-		/// <summary>
-		/// Generate a new X509Certificate using the passed in SignatureCalculator.
-		/// </summary>
-		/// <param name="signatureCalculatorFactory">A signature calculator factory with the necessary algorithm details.</param>
-		/// <returns>An X509Certificate.</returns>
-		public X509Certificate Generate(ISignatureFactory signatureCalculatorFactory)
-		{
-			tbsGen.SetSignature ((AlgorithmIdentifier)signatureCalculatorFactory.AlgorithmDetails);
+			tbsGen.SetSignature(sigAlgID);
 
 			TbsCertificateStructure tbsCert = tbsGen.GenerateTbsCertificate();
 
-            IStreamCalculator streamCalculator = signatureCalculatorFactory.CreateCalculator();
+			IStreamCalculator<IBlockResult> streamCalculator = signatureFactory.CreateCalculator();
+			using (Stream sigStream = streamCalculator.Stream)
+			{
+				tbsCert.EncodeTo(sigStream, Asn1Encodable.Der);
+			}
 
-            byte[] encoded = tbsCert.GetDerEncoded();
+			var signature = streamCalculator.GetResult().Collect();
 
-            streamCalculator.Stream.Write(encoded, 0, encoded.Length);
-
-            BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(streamCalculator.Stream);
-
-            return GenerateJcaObject(tbsCert, (AlgorithmIdentifier)signatureCalculatorFactory.AlgorithmDetails, ((IBlockResult)streamCalculator.GetResult()).Collect());
-		}
-
-		private X509Certificate GenerateJcaObject(
-			TbsCertificateStructure	tbsCert,
-			AlgorithmIdentifier     sigAlg,
-			byte[]					signature)
-		{
 			return new X509Certificate(
-				new X509CertificateStructure(tbsCert, sigAlg, new DerBitString(signature)));
+				new X509CertificateStructure(tbsCert, sigAlgID, new DerBitString(signature)));
 		}
 
 		/// <summary>
 		/// Allows enumeration of the signature names supported by the generator.
 		/// </summary>
-		public IEnumerable SignatureAlgNames
+		public IEnumerable<string> SignatureAlgNames
 		{
 			get { return X509Utilities.GetAlgNames(); }
 		}

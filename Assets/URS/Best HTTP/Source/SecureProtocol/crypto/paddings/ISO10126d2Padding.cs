@@ -1,9 +1,8 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 
+using BestHTTP.SecureProtocol.Org.BouncyCastle.Security;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 {
@@ -24,7 +23,7 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
 			SecureRandom random)
             //throws ArgumentException
         {
-			this.random = (random != null) ? random : new SecureRandom();
+            this.random = CryptoServicesRegistrar.GetSecureRandom(random);
         }
 
 		/**
@@ -37,44 +36,58 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Crypto.Paddings
             get { return "ISO10126-2"; }
         }
 
-		/**
-        * add the pad bytes to the passed in block, returning the
-        * number of bytes added.
-        */
-        public int AddPadding(
-            byte[]	input,
-            int		inOff)
+        public int AddPadding(byte[] input, int inOff)
         {
-            byte code = (byte)(input.Length - inOff);
-
-            while (inOff < (input.Length - 1))
+            int count = input.Length - inOff;
+            if (count > 1)
             {
-                input[inOff] = (byte)random.NextInt();
-                inOff++;
+                random.NextBytes(input, inOff, count - 1);
             }
-
-            input[inOff] = code;
-
-            return code;
-        }
-
-        /**
-        * return the number of pad bytes present in the block.
-        */
-        public int PadCount(byte[] input)
-            //throws InvalidCipherTextException
-        {
-            int count = input[input.Length - 1] & 0xff;
-
-            if (count > input.Length)
-            {
-                throw new InvalidCipherTextException("pad block corrupted");
-            }
+            input[input.Length - 1] = (byte)count;
 
             return count;
         }
-    }
 
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int AddPadding(Span<byte> block, int position)
+        {
+            int count = block.Length - position;
+            if (count > 1)
+            {
+                random.NextBytes(block[position..(block.Length - 1)]);
+            }
+            block[block.Length - 1] = (byte)count;
+
+            return count;
+        }
+#endif
+
+        public int PadCount(byte[] input)
+        {
+            int count = input[input.Length -1];
+            int position = input.Length - count;
+
+            int failed = (position | (count - 1)) >> 31;
+            if (failed != 0)
+                throw new InvalidCipherTextException("pad block corrupted");
+
+            return count;
+        }
+
+#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || _UNITY_2021_2_OR_NEWER_
+        public int PadCount(ReadOnlySpan<byte> block)
+        {
+            int count = block[block.Length - 1];
+            int position = block.Length - count;
+
+            int failed = (position | (count - 1)) >> 31;
+            if (failed != 0)
+                throw new InvalidCipherTextException("pad block corrupted");
+
+            return count;
+        }
+#endif
+    }
 }
 #pragma warning restore
 #endif

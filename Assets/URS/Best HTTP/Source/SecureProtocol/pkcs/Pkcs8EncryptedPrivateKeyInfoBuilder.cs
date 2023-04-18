@@ -38,11 +38,13 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Pkcs
                 ICipher cOut = encryptor.BuildCipher(bOut);
                 byte[] keyData = privateKeyInfo.GetEncoded();
 
-                Stream str = cOut.Stream;
-                str.Write(keyData, 0, keyData.Length);
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(str);
+                using (var str = cOut.Stream)
+                {
+                    str.Write(keyData, 0, keyData.Length);
+                }
 
-                return new Pkcs8EncryptedPrivateKeyInfo(new EncryptedPrivateKeyInfo((AlgorithmIdentifier)encryptor.AlgorithmDetails, bOut.ToArray()));
+                return new Pkcs8EncryptedPrivateKeyInfo(
+                    new EncryptedPrivateKeyInfo((AlgorithmIdentifier)encryptor.AlgorithmDetails, bOut.ToArray()));
             }
             catch (IOException)
             {

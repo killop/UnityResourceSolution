@@ -1,14 +1,12 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 #pragma warning disable
 using System;
-using System.Collections;
 using System.IO;
 
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.Cms;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X509;
 using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities;
-using BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Zlib;
 
 namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
 {
@@ -25,32 +23,34 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Cms
     */
     public class CmsCompressedDataGenerator
     {
-        public const string ZLib = "1.2.840.113549.1.9.16.3.8";
+        public static readonly string ZLib = CmsObjectIdentifiers.ZlibCompress.Id;
 
-		public CmsCompressedDataGenerator()
+        public CmsCompressedDataGenerator()
         {
         }
 
 		/**
         * Generate an object that contains an CMS Compressed Data
         */
-        public CmsCompressedData Generate(
-            CmsProcessable	content,
-            string			compressionOid)
+        public CmsCompressedData Generate(CmsProcessable content, string compressionOid)
         {
+            if (ZLib != compressionOid)
+                throw new ArgumentException("Unsupported compression algorithm: " + compressionOid,
+                    nameof(compressionOid));
+
             AlgorithmIdentifier comAlgId;
             Asn1OctetString comOcts;
 
             try
             {
                 MemoryStream bOut = new MemoryStream();
-                ZOutputStream zOut = new ZOutputStream(bOut, JZlib.Z_DEFAULT_COMPRESSION);
 
-				content.Write(zOut);
+                using (var zOut = Utilities.IO.Compression.ZLib.CompressOutput(bOut, -1))
+                {
+                    content.Write(zOut);
+                }
 
-                BestHTTP.SecureProtocol.Org.BouncyCastle.Utilities.Platform.Dispose(zOut);
-
-                comAlgId = new AlgorithmIdentifier(new DerObjectIdentifier(compressionOid));
+                comAlgId = new AlgorithmIdentifier(CmsObjectIdentifiers.ZlibCompress);
 				comOcts = new BerOctetString(bOut.ToArray());
             }
             catch (IOException e)

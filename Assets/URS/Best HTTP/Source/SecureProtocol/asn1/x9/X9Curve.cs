@@ -49,14 +49,6 @@ namespace BestHTTP.SecureProtocol.Org.BouncyCastle.Asn1.X9
             }
         }
 
-
-        public X9Curve(
-            X9FieldID		fieldID,
-            Asn1Sequence	seq)
-            : this(fieldID, null, null, seq)
-        {
-        }
-
         public X9Curve(
             X9FieldID		fieldID,
             BigInteger      order,
