@@ -86,8 +86,8 @@ namespace UnityEditor.Build.Pipeline.WriteTypes
                 hashes.Add(Command.GetHash128());
             using (log.ScopedStep(LogLevel.Verbose, $"Hashing UsageSet", Command.fileName))
                 hashes.Add(UsageSet.GetHash128());
-            using (log.ScopedStep(LogLevel.Verbose, $"Hashing ReferenceMap", Command.fileName))
-                hashes.Add(ReferenceMap.GetHash128());
+           using (log.ScopedStep(LogLevel.Verbose, $"Hashing ReferenceMap", Command.fileName))
+               hashes.Add(ReferenceMap.GetHash128());
             using (log.ScopedStep(LogLevel.Verbose, $"Hashing PreloadInfo", Command.fileName))
                 hashes.Add(PreloadInfo.GetHash128());
             using (log.ScopedStep(LogLevel.Verbose, $"Hashing Info", Command.fileName))

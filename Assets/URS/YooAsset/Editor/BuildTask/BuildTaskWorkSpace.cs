@@ -46,6 +46,17 @@ public class BuildTaskWorkSpace
             }
         }
     }
+
+    public void StartAndWaitComplete()
+    {
+        this.DoNextTask();
+
+        while (this.HasAnyWork() && !this.hasException)
+        {
+            this.Update();
+        }
+    }
+    
     public void Update()
     {
         if (_buildException != null)

@@ -8,7 +8,7 @@ using URS;
 
 namespace YooAsset
 {
-	internal class Unziper
+	public class Unziper
 	{
 		private enum ESteps
 		{
@@ -138,16 +138,24 @@ namespace YooAsset
 				{
 					ReportError();
 					if (_failedTryAgain > 0)
+					{
 						_steps = ESteps.TryAgain;
-					else
-						_steps = ESteps.Failed;
+					}
+					else 
+					{
+                        _steps = ESteps.Failed;
+                        OnFinish();
+                    }
+						
 				}
 				else
 				{
-					_steps = ESteps.Succeed;
-                    Logger.Log($"下载完毕{_unzipEntry.HardiskSavePath} ");
+					
+                    //Logger.Log($"unzip 下载完毕{_unzipEntry.HardiskSavePath} ");
                     URSFileSystem.DownloadFolderRegisterVerifyFile(_unzipEntry.StreamFileMeta);
-				}
+                    _steps = ESteps.Succeed;
+                    OnFinish();
+                }
 
 				// 释放下载器
 				DisposeWebRequest();
@@ -168,7 +176,17 @@ namespace YooAsset
 		internal void SetDone()
 		{
 			_steps = ESteps.Succeed;
-		}
+			OnFinish();
+
+        }
+		private void OnFinish() 
+		{
+			var callback = _unzipEntry.OnFinish;
+			if (callback != null)
+			{
+                callback(this);
+            }
+        }
 
 		private string GetRequestURL()
 		{

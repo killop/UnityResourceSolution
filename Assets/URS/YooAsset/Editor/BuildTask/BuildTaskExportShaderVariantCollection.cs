@@ -24,7 +24,7 @@ public class BuildTaskExportShaderVariantCollection : BuildTask
     {
         base.BeginTask();
         _materialList.Clear();
-        Prepare();
+        ProcessMaterials();
     }
 
     public override void FinishTask()
@@ -33,27 +33,17 @@ public class BuildTaskExportShaderVariantCollection : BuildTask
         base.FinishTask();
     }
     
-    public void Prepare()
+    public void collect()
     {
         var assetInfos = this.GetData<Dictionary<string, AssetInfo>>(CONTEXT_ASSET_INFO);
-        var allMaterial = new HashSet<string>();
 
-        foreach (var assetPath in assetInfos.Keys)
-        {
-            if (Path.GetExtension(assetPath) == ".mat")
-            {
-                if (!allMaterial.Contains(assetPath))
-                {
-                    allMaterial.Add(assetPath);
-                }
-            }
-        }
         _materialList = new List<Material>();
         var shaderDict = new Dictionary<Shader, List<Material>>();
-        foreach (var key in allMaterial)
+        var allMaterial = new HashSet<string>();
+
+        Action<Material> collectAction = (Material material) => 
         {
-            var material = AssetDatabase.LoadAssetAtPath<Material>(key);
-            if (material != null)
+            if (material)
             {
                 if (material.shader != null)
                 {
@@ -71,9 +61,51 @@ public class BuildTaskExportShaderVariantCollection : BuildTask
                     _materialList.Add(material);
                 }
             }
+        };
+        foreach (var assetPath in assetInfos.Keys)
+        {
+            var extension = Path.GetExtension(assetPath);
+            if (extension == ".mat")
+            {
+                var material = AssetDatabase.LoadAssetAtPath<Material>(assetPath);
+                collectAction(material);
+            }
+            /*
+            else if (extension == ".prefab")
+            {
+                var gm = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+                var mvs=  gm.GetComponentsInChildren<UIMaterialVariant>(true);
+                foreach (var mv in mvs)
+                {
+                    if (mv is UIMaterialBlock uIMaterialBlock)
+                    {
+                        var material = mv.GetModifiedMaterial(uIMaterialBlock.material);
+                        if (!material)
+                            Debug.LogWarning(assetPath + "material variant is null  name :" + mv.gameObject.name);
+                        else 
+                        {
+                            collectAction(material);
+                        }
+                    }
+                    else
+                    {
+                        var graphic = mv.gameObject.GetComponent<UnityEngine.UI.Graphic>();
+                        if (graphic)
+                        {
+                            var material = mv.GetModifiedMaterial(graphic.material);
+                            if (!material)
+                                Debug.LogWarning(assetPath + "material variant is null  name :" + mv.gameObject.name);
+                            else
+                            {
+                                collectAction(material);
+                            }
+                        }
+                    }
+                }
+            }
+            */
         }
-
-        ProcessMaterials();
+        /*
         var sb = new System.Text.StringBuilder();
         foreach (var kvp in shaderDict)
         {
@@ -90,10 +122,12 @@ public class BuildTaskExportShaderVariantCollection : BuildTask
             }
         }
         Debug.Log(sb.ToString());
+        */
     }
     private void ProcessMaterials()
     {
         EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects);
+        collect();
         InvokeInternalStaticMethod(typeof(ShaderUtil), "ClearCurrentShaderVariantCollection");
         Debug.Log(InvokeInternalStaticMethod(typeof(ShaderUtil), "GetCurrentShaderVariantCollectionShaderCount"));
 
@@ -120,12 +154,10 @@ public class BuildTaskExportShaderVariantCollection : BuildTask
 
         Selection.activeGameObject = camera.gameObject;
         EditorApplication.ExecuteMenuItem("GameObject/Align View to Selected");
-
         int xMax = (int)(width - 1);
 
         int x = 0;
         int y = 0;
-
         for (int i = 0; i < _materialList.Count; i++)
         {
             var material = _materialList[i];

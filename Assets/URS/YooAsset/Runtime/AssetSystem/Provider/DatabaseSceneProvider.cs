@@ -40,6 +40,13 @@ namespace YooAsset
 			// 1. 加载资源对象
 			if (Status == EStatus.Loading)
 			{
+				// 检测资源文件是否在Library中
+				string guid = UnityEditor.AssetDatabase.AssetPathToGUID(AssetPath);
+				if (!s_SmartLibraryAssetPathHashSet.Contains(guid))
+				{
+					Logger.Error($"URS SmartLibrary 中找不到资源 \'{this.AssetPath}\' Window/SmartLibrary 中添加该资源后重试，如果你是资源的制作者，那么这条信息非常重要！！！！！如果不是可以当作没看见" );
+				}
+				
 				LoadSceneParameters loadSceneParameters = new LoadSceneParameters();
 				loadSceneParameters.loadSceneMode = SceneMode;
 				_asyncOp = UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(AssetPath, loadSceneParameters);

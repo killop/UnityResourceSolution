@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Daihenka.AssetPipeline.Import;
 using UnityEditor;
 using UnityEditor.Presets;
@@ -26,10 +27,26 @@ namespace Daihenka.AssetPipeline.Processors
         {
             ApplyPresetToSpriteAtlas(asset, assetPath);
         }
+        
+        public override void OnPostprocessTexture(string assetPath, TextureImporter importer, Texture2D tex)
+        {
+            OnPostprocessTexture(assetPath, importer);
+        }
+        
+        public override void OnPostprocessCubemap(string assetPath, TextureImporter importer, Cubemap texture)
+        {
+            OnPostprocessTexture(assetPath, importer);
+        }
 
         public override bool ShouldImport(string assetPath)
         {
             return IsForceApply(assetPath) || !ImportProfileUserData.HasProcessor(assetPath, this);
+        }
+
+        public override bool IsConfigOK(AssetImporter importer)
+        {
+            if (importer == null || preset == null) return false;
+            return DataEquals(preset, importer);
         }
 
         public override void OnPreprocessAsset(string assetPath, AssetImporter importer)
@@ -131,6 +148,36 @@ namespace Daihenka.AssetPipeline.Processors
 
             atlas.Add(packables);
             EditorUtility.SetDirty(atlas);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[{GetName()}] Preset applied for <b>{assetPath}</b>");
+            ImportProfileUserData.AddOrUpdateProcessor(assetPath, this);
+        }
+
+        static bool DataEquals(Preset preset, UnityEngine.Object obj)
+        {
+            if (preset == null || obj == null)
+                return false;
+            var properties = preset.PropertyModifications;
+            var so = new SerializedObject(obj);
+            foreach (var prop in properties)
+            {
+                if (prop.propertyPath == "m_UserData" || prop.propertyPath == "m_PSDShowRemoveMatteOption")
+                    continue;
+                var value = so.FindProperty(prop.propertyPath);
+                if (value.GetPropertyValueAsString() != prop.value)
+                    return false;
+            }
+
+            return true;
+        }
+        
+        void OnPostprocessTexture(string assetPath, TextureImporter importer)
+        {
+            if (DataEquals(preset, importer))
+                return;
+            if (!preset.ApplyTo(importer))
+                return;
+            EditorUtility.SetDirty(importer);
             AssetDatabase.SaveAssets();
             Debug.Log($"[{GetName()}] Preset applied for <b>{assetPath}</b>");
             ImportProfileUserData.AddOrUpdateProcessor(assetPath, this);

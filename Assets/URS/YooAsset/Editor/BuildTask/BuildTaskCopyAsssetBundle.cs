@@ -22,6 +22,7 @@ using BuildCompression = UnityEngine.BuildCompression;
 using UnityEditor.Search;
 using Context = System.Collections.Generic.Dictionary<string, object>;
 using MHLab.Patch.Core.Utilities;
+using URS.Editor;
 
 public class BuildTaskCopyAsssetBundle : BuildTask
 {
@@ -34,7 +35,63 @@ public class BuildTaskCopyAsssetBundle : BuildTask
         var results = GetData<IBundleBuildResults>(CONTEXT_BUNDLE_RESULT);
         GenerateBundleManifest(outFolder, results, bundleInfo, assets, out var bundleManifest);
         CopyBundleFilesToVersionFolder(outFolder, bundleManifest);
+        var debug = GetData<bool>(CONTEXT_DEBUG);
+        var bundleLayout = GetData<LayoutLookupTables>(CONTEXT_BUNDLE_LAYOUT);
+        var bundleHash = GetData<BundleHash>(CONTEXT_VERSION_BUNDLE_HASH);
+        if (debug) 
+        {
+            GenerateVersionHistory(outFolder,assets, bundleInfo, results, bundleLayout, bundleHash);
+        }
         this.FinishTask();
+    }
+
+    public void GenerateVersionHistory(string bundleOutDirectory, Dictionary<string, AssetInfo> assetInfos, Dictionary<string, BundleInfo> bundleInfos, IBundleBuildResults bundleDetail, LayoutLookupTables bundleLayout,BundleHash bundleHash) 
+    {
+        var versionHistory = GetOrAddData<VersionHistory>(CONTEXT_VERSION_HISTORY);
+        versionHistory.AssetVersion = new AssetVersionHistory();
+        versionHistory.AssetBundleVersion= new AssetBundleVersionHistory();
+        versionHistory.BundleLayout = bundleLayout;
+        versionHistory.BundleHash= bundleHash;
+
+        var buidLogFilePath = $"{bundleOutDirectory}/buildlogtep.json";
+        if (File.Exists(buidLogFilePath)) 
+        {
+            versionHistory.BundleBuildLog= File.ReadAllText(buidLogFilePath) ;
+        }
+        List<AssetVersionItem> items= new List<AssetVersionItem>();
+        foreach (var kv in assetInfos)
+        {
+            var assetInfo = kv.Value;
+            var assetVersionItem = new AssetVersionItem()
+            {
+                AssetPath = assetInfo.assetPath,
+                AssetFileHash = Hashing.GetFileXXhash(assetInfo.assetPath),
+                HasAssetBundleName = assetInfo.HasAssetBundleName(),
+            };
+            if (assetInfo.HasAssetBundleName()) 
+            {
+                assetVersionItem.AssetBundleName= assetInfo.GetAssetBundleName();
+            }
+            items.Add(assetVersionItem);
+        }
+        versionHistory.AssetVersion.Assets= items.ToArray();
+
+
+        List<AssetBundleVersionItem> abItems = new List<AssetBundleVersionItem>();
+        foreach (var kv in bundleInfos)
+        {
+            var bundleInfo = kv.Value;
+            var bundleName = bundleInfo.bundleName;
+            var detail = bundleDetail.BundleInfos[bundleName];
+            var assetBundleVersionItem = new AssetBundleVersionItem()
+            {
+                BundleName = bundleInfo.bundleName,
+                AssetPaths = bundleInfo.paths.ToArray(),
+            };
+            abItems.Add(assetBundleVersionItem);
+        }
+        versionHistory.AssetBundleVersion.AssetBundles = abItems.ToArray();
+
     }
     public void CopyBundleFilesToVersionFolder(string srcBundleFolder, BundleManifest bundleManifest)
     {

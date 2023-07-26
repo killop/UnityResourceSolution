@@ -26,7 +26,7 @@ namespace YooAsset
 		{
 			foreach (var loader in _dependBundles)
 			{
-				if (loader.IsDone() == false)
+				if (loader.IsDone == false)
 					return false;
 			}
 			return true;
@@ -39,7 +39,7 @@ namespace YooAsset
 		{
 			foreach (var loader in _dependBundles)
 			{
-				if (loader.IsDone() == false)
+				if (loader.IsDone == false)
 					loader.WaitForAsyncComplete();
 			}
 		}

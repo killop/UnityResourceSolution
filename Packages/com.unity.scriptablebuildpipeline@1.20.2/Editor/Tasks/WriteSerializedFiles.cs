@@ -165,7 +165,7 @@ namespace UnityEditor.Build.Pipeline.Tasks
             string targetDir = m_UseCache != null ? m_UseCache.GetCachedArtifactsDirectory(item.entry) : m_Parameters.TempOutputFolder;
             Directory.CreateDirectory(targetDir);
 
-            using (m_Log.ScopedStep(LogLevel.Info, $"Writing {op.GetType().Name}", op.Command.fileName))
+            using (m_Log.ScopedStep(LogLevel.Info, $"ProcessUncached Writing {op.GetType().Name}", op.Command.fileName))
             {
 #if UNITY_2020_2_OR_NEWER || ENABLE_DETAILED_PROFILE_CAPTURING
                 using (new ProfileCaptureScope(m_Log, ProfileCaptureOptions.None))

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor.Search;
+using System;
 
 namespace Bewildered.SmartLibrary
 {
@@ -13,7 +14,13 @@ namespace Bewildered.SmartLibrary
         private bool _isSearching;
 
         [SerializeField] private List<FolderReference> _folders = new List<FolderReference>();
-        
+
+        [NonSerialized]
+        public AssetGUIDHashSet _items = new AssetGUIDHashSet();
+        public override AssetGUIDHashSet GetGUIDHashSet()
+        {
+            return _items;
+        }
         /// <summary>
         /// Folders to search in for valid assets to add to the <see cref="SmartCollection"/>, or to exclude.
         /// </summary>
@@ -100,17 +107,21 @@ namespace Bewildered.SmartLibrary
 
             foreach (var path in paths)
             {
-               //Object obj = item.ToObject();
+                if (path.Contains(".DS_Store"))
+                    continue;
+                //Object obj = item.ToObject();
 
                 // QuickSearch does not remove entries of deleted assets right away.
                 // So we need to handle when the SearchItem may not have an asset associated with it any more.
                 //if (obj == null)
-                  //  continue;
-
-                LibraryItem libraryItem = LibraryItem.GetItemInstanceByPath(path);
+                //  continue;
+                var path2= path.Replace('\\', '/');
+                
+                LibraryItem libraryItem = LibraryItem.GetItemInstanceByPath(path2);
 
                 // Item is added to this second list to be used when sending the items changed notification.
                 addedItems.Add(libraryItem);
+                //Debug.LogError("path " + path2 + " cc name " + this.CollectionName+" null"+ (libraryItem==null));
                 // Now that the item has been fully validated it can be added to the collection.
                 AddItem(libraryItem, false);
             }
@@ -125,7 +136,7 @@ namespace Bewildered.SmartLibrary
 
             foreach (SearchItem item in items)
             {
-                Object obj = item.ToObject();
+               UnityEngine.Object obj = item.ToObject();
 
                 // QuickSearch does not remove entries of deleted assets right away.
                 // So we need to handle when the SearchItem may not have an asset associated with it any more.

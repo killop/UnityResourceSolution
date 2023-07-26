@@ -11,58 +11,58 @@ namespace URS
     public class AssetMeta
     {
         /// <summary>
-        /// ×ÊÔ´Â·¾¶
+        /// èµ„æºè·¯å¾„
         /// </summary>
         public string AssetPath;
 
         /// <summary>
-        /// ËùÊô×ÊÔ´°üID
+        /// æ‰€å±èµ„æºåŒ…ID
         /// </summary>
         public int BundleID;
 
         /// <summary>
-        /// ÒÀÀµµÄ×ÊÔ´°üIDÁĞ±í
+        /// ä¾èµ–çš„èµ„æºåŒ…IDåˆ—è¡¨
         /// </summary>
         public int[] DependIDs;
     }
 
     /// <summary>
-    /// BundleÒÀÀµ
+    /// Bundleä¾èµ–
     /// </summary>
     [Serializable]
     public class BundleManifest
     {
         /// <summary>
-        /// ×ÊÔ´ÁĞ±í£¨Ö÷¶¯ÊÕ¼¯µÄ×ÊÔ´ÁĞ±í£©
+        /// èµ„æºåˆ—è¡¨ï¼ˆä¸»åŠ¨æ”¶é›†çš„èµ„æºåˆ—è¡¨ï¼‰
         /// </summary>
         public AssetMeta[] AssetList;
 
         /// <summary>
-        /// ×ÊÔ´°üÁĞ±í
+        /// èµ„æºåŒ…åˆ—è¡¨
         /// </summary>
         public FileMeta[] BundleList;
 
         /// <summary>
-        /// ×ÊÔ´°ü¼¯ºÏ£¨Ìá¹©BundleName»ñÈ¡PatchBundle£©
+        /// èµ„æºåŒ…é›†åˆï¼ˆæä¾›BundleNameè·å–PatchBundleï¼‰
         /// </summary>
         [NonSerialized]
         private  Dictionary<string, FileMeta> BundleMap = new Dictionary<string, FileMeta>();
 
         /// <summary>
-        /// ×ÊÔ´Ó³Éä¼¯ºÏ£¨Ìá¹©AssetPath»ñÈ¡PatchAsset£©
+        /// èµ„æºæ˜ å°„é›†åˆï¼ˆæä¾›AssetPathè·å–PatchAssetï¼‰
         /// </summary>
         [NonSerialized]
         private  Dictionary<string, AssetMeta> AssetMap = new Dictionary<string, AssetMeta>();
 
 
         /// <summary>
-        /// »ñÈ¡×ÊÔ´ÒÀÀµÁĞ±í
+        /// è·å–èµ„æºä¾èµ–åˆ—è¡¨
         /// </summary>
         public List<FileMeta> GetAllDependenciesRelativePath(string assetPath)
         {
             if (AssetMap.TryGetValue(assetPath, out AssetMeta patchAsset))
             {
-                List<FileMeta> result = new List<FileMeta>(patchAsset.DependIDs.Length); // TODO:ÓÅ»¯gc
+                List<FileMeta> result = new List<FileMeta>(patchAsset.DependIDs.Length); // TODO:ä¼˜åŒ–gc
                 foreach (var dependID in patchAsset.DependIDs)
                 {
                     if (dependID >= 0 && dependID < BundleList.Length)
@@ -79,13 +79,13 @@ namespace URS
             }
             else
             {
-                Debug.LogWarning($"Not found asset path in patch manifest : {assetPath}");
+                Debug.LogError($"Not found asset path in patch manifest : {assetPath}");
                 return null;
             }
         }
 
         /// <summary>
-        /// »ñÈ¡×ÊÔ´°üÃû³Æ
+        /// è·å–èµ„æºåŒ…åç§°
         /// </summary>
         public FileMeta GetBundleFileMeta(string assetPath)
         {
@@ -134,7 +134,7 @@ namespace URS
             }
         }
         /// <summary>
-        /// ĞòÁĞ»¯
+        /// åºåˆ—åŒ–
         /// </summary>
         public static void Serialize(string savePath, BundleManifest patchManifest,bool pretty=false)
         {
@@ -143,7 +143,7 @@ namespace URS
         }
 
         /// <summary>
-        /// ·´ĞòÁĞ»¯
+        /// ååºåˆ—åŒ–
         /// </summary>
         public static BundleManifest Deserialize(string jsonData)
         {

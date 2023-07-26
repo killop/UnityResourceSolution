@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using URS;
 namespace YooAsset
@@ -17,28 +18,154 @@ namespace YooAsset
 			Success,
 			Fail,
 		}
+		
+		public delegate void OnValueChanged(AssetBundleLoader loader);
 
+		private static int s_IidAllocator = 0;
+		public int Iid { get; }
+		
 		/// <summary>
 		/// 资源包文件信息
 		/// </summary>
-		public HardiskFileSearchResult HardiskFileSearchResult { private set; get; }
+		public HardiskFileSearchResult HardiskFileSearchResult { private set; get; }		
+
+		private int _refCount = 0;
 
 		/// <summary>
 		/// 引用计数
 		/// </summary>
-		public int RefCount { private set; get; }
+		public int RefCount
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private set
+			{
+				var old = _refCount;
+				_refCount = value;
+				if (old != value)
+				{
+					RefreshCanDestroyProvider();
+					RefreshCanDestroy();	
+				}
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => _refCount;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		private void RefreshCanDestroy()
+		{
+			CanDestroy = IsDone && RefCount <= 0;
+		}
+
+		public OnValueChanged OnCanDestroyChanged = null;
+		private bool _canDestroy = false;
+		/// <summary>
+		/// 是否可以销毁
+		/// </summary>
+		public bool CanDestroy
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private set
+			{
+				var old = _canDestroy;
+				_canDestroy = value;
+				if (old != value)
+					OnCanDestroyChanged?.Invoke(this);
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => _canDestroy;
+		}
+		
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		private bool CalcCanDestroyProvider()
+		{
+			if (IsDone == false)
+				return false;
+
+			// 注意：必须等待所有Provider可以销毁的时候，才可以释放Bundle文件。
+			foreach (var pair in _providers)
+			{
+				var provider = pair.Value;
+				if (provider.CanDestroy == false)
+					return false;
+			}
+
+			// 除了自己没有其它引用
+			if (RefCount > _providers.Count)
+				return false;
+
+			return true;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		private void RefreshCanDestroyProvider()
+		{
+			CanDestroyProvider = CalcCanDestroyProvider();
+		}
+
+		public OnValueChanged OnCanDestroyProviderChanged = null;
+		private bool _canDestroyProvider;
+		public bool CanDestroyProvider
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private set
+			{
+				var old = _canDestroyProvider;
+				_canDestroyProvider = value;
+				if (old != value)
+					OnCanDestroyProviderChanged?.Invoke(this);
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => _canDestroyProvider;
+		}
+
+		protected EStatus _status = EStatus.None;
 
 		/// <summary>
 		/// 加载状态
 		/// </summary>
-		public EStatus Status { private set; get; }
+		public EStatus Status
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			protected set
+			{
+				_status = value;
+				IsDone = _status == EStatus.Success || _status == EStatus.Fail;
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => _status;
+		}
+
+		public OnValueChanged OnIsDoneChanged = null;
+		private bool _isDone = false;
+
+		/// <summary>
+		/// 是否完毕（无论成功或失败）
+		/// </summary>
+		public bool IsDone
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private set
+			{
+				var old = _isDone;
+				_isDone = value;
+				if (old != value)
+				{
+					OnIsDoneChanged?.Invoke(this);
+					RefreshCanDestroyProvider();
+					RefreshCanDestroy();	
+				}
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => _isDone;
+		}
 
 		/// <summary>
 		/// 是否已经销毁
 		/// </summary>
 		public bool IsDestroyed { private set; get; } = false;
 
-		private readonly List<ProviderBase> _providers = new List<ProviderBase>(100);
+		private readonly Dictionary<int, ProviderBase> _providers = new Dictionary<int, ProviderBase>(100);
 		private bool _isWaitForAsyncComplete = false;
 		private bool _isShowWaitForAsyncError = false;
 		private RemoteDownloader _fileDownloader;
@@ -48,6 +175,7 @@ namespace YooAsset
 
 		public AssetBundleLoader(HardiskFileSearchResult hardiskFileSearchResult)
 		{
+			Iid = ++s_IidAllocator;
             HardiskFileSearchResult = hardiskFileSearchResult;
 			RefCount = 0;
 			Status = EStatus.None;
@@ -58,8 +186,11 @@ namespace YooAsset
 		/// </summary>
 		public void AddProvider(ProviderBase provider)
 		{
-			if (_providers.Contains(provider) == false)
-				_providers.Add(provider);
+			if (_providers.TryAdd(provider.Iid, provider))
+			{
+				provider.OnCanDestroyChanged += _ => RefreshCanDestroyProvider();
+				RefreshCanDestroyProvider();
+			}
 		}
 
 		/// <summary>
@@ -84,7 +215,7 @@ namespace YooAsset
 		public void Update()
 		{
 			// 如果资源文件加载完毕
-			if (IsDone())
+			if (IsDone)
 				return;
 
 			if (Status == EStatus.None)
@@ -201,13 +332,16 @@ namespace YooAsset
 		public void Destroy(bool forceDestroy)
 		{
 			IsDestroyed = true;
+			OnIsDoneChanged = null;
+			OnCanDestroyChanged = null;
+			OnCanDestroyProviderChanged = null;
 
 			// Check fatal
 			if (forceDestroy == false)
 			{
 				if (RefCount > 0)
 					throw new Exception($"Bundle file loader ref is not zero : {HardiskFileSearchResult.OrignRelativePath}");
-				if (IsDone() == false)
+				if (IsDone == false)
 					throw new Exception($"Bundle file loader is not done : {HardiskFileSearchResult.OrignRelativePath}");
 			}
 
@@ -220,52 +354,24 @@ namespace YooAsset
 		}
 
 		/// <summary>
-		/// 是否完毕（无论成功或失败）
-		/// </summary>
-		public bool IsDone()
-		{
-			return Status == EStatus.Success || Status == EStatus.Fail;
-		}
-
-		/// <summary>
-		/// 是否可以销毁
-		/// </summary>
-		public bool CanDestroy()
-		{
-			if (IsDone() == false)
-				return false;
-
-			return RefCount <= 0;
-		}
-
-		/// <summary>
 		/// 在满足条件的前提下，销毁所有资源提供者
 		/// </summary>
 		public void TryDestroyAllProviders()
 		{
-			if (IsDone() == false)
-				return;
-
-			// 注意：必须等待所有Provider可以销毁的时候，才可以释放Bundle文件。
-			foreach (var provider in _providers)
-			{
-				if (provider.CanDestroy() == false)
-					return;
-			}
-
-			// 除了自己没有其它引用
-			if (RefCount > _providers.Count)
+			if (!CanDestroyProvider)
 				return;
 
 			// 销毁所有Providers
-			foreach (var provider in _providers)
+			foreach (var pair in _providers)
 			{
-				provider.Destory();
+				var provider = pair.Value;
+				provider.Destroy();
 			}
 
 			// 从列表里移除Providers
 			AssetSystem.RemoveBundleProviders(_providers);
 			_providers.Clear();
+			RefreshCanDestroyProvider();
 		}
 
 		/// <summary>
@@ -295,7 +401,7 @@ namespace YooAsset
 				Update();
 
 				// 完成后退出
-				if (IsDone())
+				if (IsDone)
 					break;
 			}
 		}

@@ -39,7 +39,7 @@ public class BuildTaskCollectAsset : BuildTask
 #if SPRITE_STRIP
         BuildTaskStripSpriteInAtlas.Checker checker = GetOrAddData<BuildTaskStripSpriteInAtlas.Checker>(CONTEXT_SPRITE_CHECHER);
 #endif
-        EditorUtility.DisplayProgressBar("CollectAssets", "ÕûÀí×ÊÔ´", 0);
+        EditorUtility.DisplayProgressBar("CollectAssets", "æ•´ç†èµ„æº", 0);
         var dependencyCache = new Dictionary<string, List<string>>();
         System.Func<string, List<string>> getDependencys = (string assetPath) =>
         {
@@ -85,7 +85,7 @@ public class BuildTaskCollectAsset : BuildTask
                     {
                         var first = assets[item.AssetPath];
                         var second = collection;
-                        Debug.LogErrorFormat("´æÔÚ2¸ö×éÖØ¸´ÊÕ¼¯µÄ×ÊÔ´ ×ÊÔ´Â·¾¶ {0}£¬ÕâÖÖÇé¿öÒ»ÏÂÖ»»áÓ¦ÓÃµÚÒ»×éµÄÅäÖÃ", item.AssetPath);
+                        Debug.LogErrorFormat("å­˜åœ¨2ä¸ªç»„é‡å¤æ”¶é›†çš„èµ„æº èµ„æºè·¯å¾„ {0}ï¼Œè¿™ç§æƒ…å†µä¸€ä¸‹åªä¼šåº”ç”¨ç¬¬ä¸€ç»„çš„é…ç½®", item.AssetPath);
                     }
                     else
                     {
@@ -187,6 +187,7 @@ public class BuildTaskCollectAsset : BuildTask
                                 isMain = false,
                                 refrenceCount = 1,
                             };
+                            dpInfo.AddShareReferencedMainAssets(assetInfo.assetPath);
                             dependencyAssets[dp] = dpInfo;
                         }
                         else
@@ -195,6 +196,7 @@ public class BuildTaskCollectAsset : BuildTask
                             dpInfo.assetBundleNames.UnionWith(assetInfo.assetBundleNames);
                             dpInfo.customTag.UnionWith(assetInfo.customTag);
                             dpInfo.refrenceCount = dpInfo.refrenceCount + 1;
+                            dpInfo.AddShareReferencedMainAssets(assetInfo.assetPath);
                         }
                     }
                 }
@@ -208,6 +210,10 @@ public class BuildTaskCollectAsset : BuildTask
             {
                 bool remove = false;
                 var extension= Path.GetExtension(path);
+                if (path.Contains("/Resources/")) 
+                {
+                    Debug.LogWarning("å‡ºç°AB å¼•ç”¨Resourceçš„æƒ…å†µï¼Œå»ºè®®abçš„å¼•ç”¨éƒ½ä¸è¦æ”¾åˆ°Resourceæ–‡ä»¶å¤¹ :::"+ path);
+                }
                 if (extension==".cs")
                 {
                     remove = true;
@@ -279,7 +285,7 @@ public class BuildTaskCollectAsset : BuildTask
                             assetBundleName = $"{GetParentDiretoryName(item)}_{selfName}.bundle";
                             break;
                         }
-                        /// Èç¹û¶Ô·Ö°üÓĞÌØÊâµÄÒªÇó£¬¿ÉÒÔÔÚÕâÀïÀ©Õ¹
+                        /// å¦‚æœå¯¹åˆ†åŒ…æœ‰ç‰¹æ®Šçš„è¦æ±‚ï¼Œå¯ä»¥åœ¨è¿™é‡Œæ‰©å±•
                 }
             }
         }

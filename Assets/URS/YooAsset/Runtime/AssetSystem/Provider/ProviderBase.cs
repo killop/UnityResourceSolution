@@ -1,9 +1,13 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using UnityEngine.Pool;
+using NinjaBeats;
+
 namespace YooAsset
 {
-	public  abstract class ProviderBase
+	public abstract class ProviderBase
 	{
 		public enum EStatus
 		{
@@ -14,7 +18,12 @@ namespace YooAsset
 			Success,
 			Fail,
 		}
+		
+		public delegate void OnValueChanged(ProviderBase provider);
 
+		private static int s_IidAllocator = 0;
+		public int Iid { get; }
+		
 		/// <summary>
 		/// 资源路径
 		/// </summary>
@@ -45,32 +54,96 @@ namespace YooAsset
 		/// </summary>
 		public UnityEngine.SceneManagement.Scene SceneObject { protected set; get; }
 
-
+		protected EStatus _status = EStatus.None;
+		
 		/// <summary>
 		/// 当前的加载状态
 		/// </summary>
-		public EStatus Status { protected set; get; } = EStatus.None;
+		public EStatus Status
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			protected set
+			{
+				_status = value;
+				IsDone = _status == EStatus.Success || _status == EStatus.Fail;
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => _status;
+		}
+		
+		private bool _isDone = false;
+		public OnValueChanged OnIsDoneChanged = null;
+		/// <summary>
+		/// 是否完毕（成功或失败）
+		/// </summary>
+		public bool IsDone
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private set
+			{
+				var old = _isDone;
+				_isDone = value;
+				if (old != value)
+				{
+					OnIsDoneChanged?.Invoke(this);
+					RefreshCanDestroy();
+				}
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => _isDone;
+		}
+
+		private int _refCount = 0;
 
 		/// <summary>
 		/// 引用计数
 		/// </summary>
-		public int RefCount { private set; get; } = 0;
+		public int RefCount
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private set
+			{
+				var old = _refCount;
+				_refCount = value;
+				if (old != value)
+				{
+					RefreshCanDestroy();	
+				}
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => _refCount;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		private void RefreshCanDestroy()
+		{
+			CanDestroy = IsDone && RefCount <= 0;
+		}
+		public OnValueChanged OnCanDestroyChanged = null;
+		private bool _canDestroy = false;
+
+		/// <summary>
+		/// 是否可以销毁
+		/// </summary>
+		public bool CanDestroy
+		{
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			private set
+			{
+				var old = _canDestroy;
+				_canDestroy = value;
+				if (old != value)
+					OnCanDestroyChanged?.Invoke(this);
+			}
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => _canDestroy;
+		}
 
 		/// <summary>
 		/// 是否已经销毁
 		/// </summary>
 		public bool IsDestroyed { private set; get; } = false;
 
-		/// <summary>
-		/// 是否完毕（成功或失败）
-		/// </summary>
-		public bool IsDone
-		{
-			get
-			{
-				return Status == EStatus.Success || Status == EStatus.Fail;
-			}
-		}
 
 		/// <summary>
 		/// 加载进度
@@ -90,6 +163,7 @@ namespace YooAsset
 
 		public ProviderBase(string assetPath, System.Type assetType)
 		{
+			Iid = ++s_IidAllocator;
 			AssetPath = assetPath;
 			AssetName = assetPath;
 			AssetType = assetType;
@@ -103,20 +177,11 @@ namespace YooAsset
 		/// <summary>
 		/// 销毁资源对象
 		/// </summary>
-		public virtual void Destory()
+		public virtual void Destroy()
 		{
 			IsDestroyed = true;
-		}
-
-		/// <summary>
-		/// 是否可以销毁
-		/// </summary>
-		public bool CanDestroy()
-		{
-			if (IsDone == false)
-				return false;
-
-			return RefCount <= 0;
+			OnIsDoneChanged = null;
+			OnCanDestroyChanged = null;
 		}
 
 		/// <summary>
@@ -224,7 +289,8 @@ namespace YooAsset
 		}
 		protected void InvokeCompletion()
 		{
-            List<OperationHandleBase> tempers = new List<OperationHandleBase>(_handles);
+            var tempers = ListPool<OperationHandleBase>.Get();
+            tempers.AddRange(_handles);
             foreach (var hande in tempers)
             {
                 if (hande.IsValid)
@@ -233,6 +299,7 @@ namespace YooAsset
                 }
             }
             _waitHandle?.Set();
+            ListPool<OperationHandleBase>.Release(tempers);
 		}
         #endregion
         #region 调试信息相关
@@ -246,11 +313,16 @@ namespace YooAsset
         /// </summary>
         public string SpawnTime = string.Empty;
 
+		public bool PERFORMANCE = true;
+
         [Conditional("DEBUG")]
         public void InitSpawnDebugInfo()
         {
-            SpawnScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name; ;
-            SpawnTime = SpawnTimeToString(UnityEngine.Time.realtimeSinceStartup);
+	        if (PERFORMANCE)
+	        {
+		        SpawnScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name; ;
+		        SpawnTime = SpawnTimeToString(UnityEngine.Time.realtimeSinceStartup);   
+	        }
         }
         private string SpawnTimeToString(float spawnTime)
         {
@@ -260,5 +332,67 @@ namespace YooAsset
             return h.ToString("00") + ":" + m.ToString("00") + ":" + s.ToString("00");
         }
         #endregion
+        
+        
+#if UNITY_EDITOR
+		private static HashSet<string> _s_SmartLibraryAssetPathHashSet = null;
+		public static HashSet<string> s_SmartLibraryAssetPathHashSet
+		{
+			get
+			{
+				if (_s_SmartLibraryAssetPathHashSet == null)
+					InitSmartLibrary();
+				return _s_SmartLibraryAssetPathHashSet;
+			}
+		}
+        private static void InitSmartLibrary()
+        {
+	        _s_SmartLibraryAssetPathHashSet = new();
+	        try
+	        {
+		        var TypeLibraryDatabase = NinjaBeats.EditorUtils.GetTypeByFullName("Bewildered.SmartLibrary.LibraryDatabase");
+		        var PropertyRootCollection = TypeLibraryDatabase.GetProperty("RootCollection", (System.Reflection.BindingFlags)(-1));
+		        var RootCollection = PropertyRootCollection.GetValue(null);
+
+		        var TypeLibraryCollection = NinjaBeats.EditorUtils.GetTypeByFullName("Bewildered.SmartLibrary.RootLibraryCollection");
+		        var Field_subcollections = TypeLibraryCollection.GetField("_subcollections", (System.Reflection.BindingFlags)(-1));
+		        var Field_items = TypeLibraryCollection.GetField("_items", (System.Reflection.BindingFlags)(-1));
+		        
+		        static void _DeepCollect(object rootCollection, System.Reflection.FieldInfo Field_subcollections, System.Reflection.FieldInfo Field_items, HashSet<string> result)
+		        {
+                    if (rootCollection == null)
+				        return;
+
+                    var TypeLibraryCollection2 = NinjaBeats.EditorUtils.GetTypeByFullName("Bewildered.SmartLibrary.LibraryCollection");
+                    var Field_subcollections2 = TypeLibraryCollection2.GetField("_subcollections", (System.Reflection.BindingFlags)(-1));
+                    if (Field_subcollections2.GetValue(rootCollection) is IList subcollections)
+			        {
+                        foreach (var subcollection in subcollections)
+				        {
+                           
+                            var subCollectionType = subcollection.GetType();
+                            var subCollectionItems = subCollectionType.GetField("_items", (System.Reflection.BindingFlags)(-1));
+                            var method = subCollectionType.GetMethod("UpdateItems", (System.Reflection.BindingFlags)(-1));
+                            method.Invoke(subcollection, new object[] { true });
+
+                            if (subCollectionItems.GetValue(subcollection) is ISet<string> items)
+                            {
+                                foreach (var item in items)
+                                {
+                                    result.Add(item);
+                                }
+                            }
+				        }
+			        }
+		        }
+		        _DeepCollect(RootCollection, Field_subcollections, Field_items, _s_SmartLibraryAssetPathHashSet);
+	        }
+	        catch (System.Exception e)
+	        {
+		        Logger.Error("读取 URS SmartLibrary 失败: " + e.Message + "\n" + e.StackTrace);
+		        _s_SmartLibraryAssetPathHashSet = new();
+	        }
+        }
+#endif
     }
 }

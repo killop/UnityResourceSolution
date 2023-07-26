@@ -10,7 +10,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
-public class BuildTaskMaterialCleaner : BuildTask
+public class BuildTaskValidateMaterial : BuildTask
 {
 
     public override void BeginTask()
@@ -18,7 +18,7 @@ public class BuildTaskMaterialCleaner : BuildTask
         base.BeginTask();
         var assetInfos = this.GetData<Dictionary<string, AssetInfo>>(CONTEXT_ASSET_INFO);
 
-        EditorApplication.ExecuteMenuItem("Window/Inspector");
+        EditorApplication.ExecuteMenuItem("Window/General/Inspector");
         foreach (var assetPath in assetInfos.Keys)
         {
             if (Path.GetExtension(assetPath) == ".mat")
@@ -35,7 +35,7 @@ public class BuildTaskMaterialCleaner : BuildTask
         AssetDatabase.SaveAssets();
         this.FinishTask();
     }
-    //»ñÈ¡shaderÖĞËùÓĞµÄºê
+    //è·å–shaderä¸­æ‰€æœ‰çš„å®
     public static bool GetShaderKeywords(Shader target, out string[] global, out string[] local)
     {
         try
@@ -67,13 +67,13 @@ public class BuildTaskMaterialCleaner : BuildTask
             {
                 keywords.Add(l);
             }
-            //ÖØÖÃkeywords
+            //é‡ç½®keywords
             List<string> resetKeywords = new List<string>(m.shaderKeywords);
             foreach (var item in m.shaderKeywords)
             {
                 if (!keywords.Contains(item))
                 {
-                    //Debug.LogError("·Ç·¨¹Ø¼ü×Ö £º"+ item+"  path "+path);                 
+                    //Debug.LogError("éæ³•å…³é”®å­— ï¼š"+ item+"  path "+path);                 
                     resetKeywords.Remove(item);
                 }
                    
@@ -82,6 +82,13 @@ public class BuildTaskMaterialCleaner : BuildTask
         }
         */
         HashSet<string> property = new HashSet<string>();
+        if (!m) {
+            Debug.LogError("æè´¨çƒä¸ºç©º ï¼špath  " + path);
+        }
+        if (!m.shader)
+        {
+            Debug.LogError("æè´¨çƒshaderä¸ºç©º ï¼špath  " + path);
+        }
         int count = m.shader.GetPropertyCount();
         for (int i = 0; i < count; i++)
         {
@@ -94,12 +101,12 @@ public class BuildTaskMaterialCleaner : BuildTask
         SerializedProperty TexEnvs = SavedProperties.FindPropertyRelative("m_TexEnvs");
         SerializedProperty Floats = SavedProperties.FindPropertyRelative("m_Floats");
         SerializedProperty Colors = SavedProperties.FindPropertyRelative("m_Colors");
-        //¶Ô±ÈÊôĞÔÉ¾³ı²ĞÁôµÄÊôĞÔ
+        //å¯¹æ¯”å±æ€§åˆ é™¤æ®‹ç•™çš„å±æ€§
         // for (int i = disabledShaderPasses.arraySize - 1; i >= 0; i--)
         // {
         //     if (!property.Contains(disabledShaderPasses.GetArrayElementAtIndex(i).displayName))
         //     {
-        //         //Debug.LogError("·Ç·¨Í¨µÀ £º" + disabledShaderPasses.GetArrayElementAtIndex(i).displayName + "  path " + path);
+        //         //Debug.LogError("éæ³•é€šé“ ï¼š" + disabledShaderPasses.GetArrayElementAtIndex(i).displayName + "  path " + path);
         //          disabledShaderPasses.DeleteArrayElementAtIndex(i);
         //     }
         // }
@@ -108,7 +115,7 @@ public class BuildTaskMaterialCleaner : BuildTask
         {
             if (!property.Contains(TexEnvs.GetArrayElementAtIndex(i).displayName))
             {
-               // Debug.LogError("·Ç·¨TexEnvs £º" + TexEnvs.GetArrayElementAtIndex(i).displayName + "  path " + path);
+               // Debug.LogError("éæ³•TexEnvs ï¼š" + TexEnvs.GetArrayElementAtIndex(i).displayName + "  path " + path);
                 TexEnvs.DeleteArrayElementAtIndex(i);
                 if (!dirty) {
                     dirty = true;
@@ -119,7 +126,7 @@ public class BuildTaskMaterialCleaner : BuildTask
         {
             if (!property.Contains(Floats.GetArrayElementAtIndex(i).displayName))
             {
-               // Debug.LogError("·Ç·¨Floats £º" + Floats.GetArrayElementAtIndex(i).displayName + "  path " + path);
+               // Debug.LogError("éæ³•Floats ï¼š" + Floats.GetArrayElementAtIndex(i).displayName + "  path " + path);
                 Floats.DeleteArrayElementAtIndex(i);
                 if (!dirty)
                 {
@@ -131,7 +138,7 @@ public class BuildTaskMaterialCleaner : BuildTask
         {
             if (!property.Contains(Colors.GetArrayElementAtIndex(i).displayName))
             {
-                //Debug.LogError("·Ç·¨Colors £º" + Colors.GetArrayElementAtIndex(i).displayName + "  path " + path);
+                //Debug.LogError("éæ³•Colors ï¼š" + Colors.GetArrayElementAtIndex(i).displayName + "  path " + path);
                 Colors.DeleteArrayElementAtIndex(i);
                 if (!dirty)
                 {

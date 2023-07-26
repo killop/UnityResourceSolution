@@ -41,7 +41,10 @@ public class BuildTaskGenerateVersion : BuildTask
         var versionDirectory = (string)this._context[CONTEXT_VERSION_DIRECTORY];
         var additionFileInfos = GetData<Dictionary<string, AdditionFileInfo>>(CONTEXT_FILE_ADDITION_INFO);
         var buildingVersion = GetData<string>(CONTEXT_BUILDING_VERSION);
-        VersionBuilder.BuildVersion(versionDirectory,new FileSystem(), buildingVersion, additionFileInfos,out string newVersionDirctoryName);
+        var versionHistory = GetData<VersionHistory>(CONTEXT_VERSION_HISTORY);
+        var debug= GetData<bool>(CONTEXT_DEBUG);
+        var channel= GetData<string>(CONTEXT_CHANNEL);
+        VersionBuilder.BuildVersion(channel,versionDirectory,new FileSystem(), buildingVersion, additionFileInfos, versionHistory,out string newVersionDirctoryName, debug);
         SetData(CONTEXT_VERSION_DIRECTORY, newVersionDirctoryName);
     }
     /*

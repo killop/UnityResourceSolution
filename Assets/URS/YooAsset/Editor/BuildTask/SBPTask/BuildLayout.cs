@@ -86,14 +86,17 @@ namespace  URS
             /// <summary>
             /// The name of the AssetBundle
             /// </summary>
+           [SerializeField]
             public string Name;
             /// <summary>
             /// The file size of the AssetBundle on disk, in bytes
             /// </summary>
+            [SerializeField]
             public ulong FileSize;
             /// <summary>
             /// The Compression method used for the AssetBundle.
             /// </summary>
+            [SerializeField]
             public string Compression;
 
             /// <summary>
@@ -106,8 +109,11 @@ namespace  URS
             /// List of the Files referenced by the AssetBundle
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public List<File> Files = new List<File>();
 
+            [SerializeField]
+            public string[] files;
             /// <summary>
             /// A list of the direct dependencies of the AssetBundle
             /// </summary>
@@ -118,7 +124,25 @@ namespace  URS
             /// The full dependency list, flattened into a list
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public List<Bundle> ExpandedDependencies;
+
+
+            [SerializeField]
+            public string[] expandedDependencies;
+
+            private bool prepared= false;
+            public void PrepareSerialize()
+            {
+                if(prepared) return;
+                prepared = true;
+
+                Files.ForEach(f => f.PrepareSerialize());
+                ExpandedDependencies.ForEach(f => f.PrepareSerialize());
+
+                files = Files.Select(file => file.Name).ToArray();
+                expandedDependencies= ExpandedDependencies.Select(ed => ed.Name).ToArray();
+            }
         }
 
         /// <summary>
@@ -150,52 +174,96 @@ namespace  URS
             /// <summary>
             /// The name of the File.
             /// </summary>
+            [SerializeField]
             public string Name;
 
             /// <summary>
             /// The AssetBundle data that relates to a built file.
             /// </summary>
+            [NonSerialized] 
             [SerializeReference]
             public Bundle Bundle;
+
+            [SerializeField]
+            public string BundleName;
 
             /// <summary>
             /// List of the resource files created by the build pipeline that a File references
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public List<SubFile> SubFiles = new List<SubFile>();
 
+
+            [SerializeField]
+            public SubFile[] subFiles;
             /// <summary>
             /// A list of the explicit asset defined in the AssetBundle
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public List<ExplicitAsset> Assets = new List<ExplicitAsset>();
+
+            [SerializeField]
+            public string[] assets;
 
             /// <summary>
             /// A list of implicit assets built into the AssetBundle, typically through references by Assets that are explicitly defined.
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public List<DataFromOtherAsset> OtherAssets = new List<DataFromOtherAsset>();
 
+            [SerializeField]
+            public DataFromOtherAsset[] otherAssets;
             /// <summary>
             /// The final filename of the AssetBundle file
             /// </summary>
+            [SerializeField]
             public string WriteResultFilename;
             /// <summary>
             /// Data about the AssetBundleObject
             /// </summary>
+            [SerializeField]
             public AssetBundleObjectInfo BundleObjectInfo;
             /// <summary>
             /// The size of the data that needs to be preloaded for this File.
             /// </summary>
+            [SerializeField]
             public int PreloadInfoSize;
             /// <summary>
             /// The number of Mono scripts referenced by the File
             /// </summary>
+            [SerializeField]
             public int MonoScriptCount;
             /// <summary>
             /// The size of the Mono scripts referenced by the File
             /// </summary>
+            [SerializeField]
             public ulong MonoScriptSize;
+
+
+
+            private bool prepared = false;
+            public void PrepareSerialize()
+            {
+                if (prepared) return;
+                prepared = true;
+
+                if (Bundle != null) 
+                {
+                    Bundle.PrepareSerialize();
+                    BundleName = Bundle.Name;
+                }
+               
+
+                OtherAssets.ForEach(asset => asset.PrepareSerialize());
+                Assets.ForEach((asset) => { asset.PrepareSerialize(); });
+
+               
+                otherAssets = OtherAssets.ToArray();
+                assets= Assets.Select(ea=>ea.AssetPath).ToArray();
+            }
         }
 
         /// <summary>
@@ -207,43 +275,91 @@ namespace  URS
             /// <summary>
             /// The Asset Guid.
             /// </summary>
+            [SerializeField]
             public string Guid;
             /// <summary>
             /// The Asset path on disk
             /// </summary>
+            /// 
+            [SerializeField]
             public string AssetPath;
             /// <summary>
             /// The Addressable address defined in the Addressable Group window for an Asset.
             /// </summary>
+            [SerializeField]
             public string AddressableName;
             /// <summary>
             /// The size of the file on disk.
             /// </summary>
+            [SerializeField]
             public ulong SerializedSize;
             /// <summary>
             /// The size of the streamed Asset.
             /// </summary>
+            [SerializeField]
             public ulong StreamedSize;
             /// <summary>
             /// The file that the Asset was added to
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public File File;
+
+
+            [SerializeField]
+            public string file;
             /// <summary>
             /// List of data from other Assets referenced by an Asset in the File
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public List<DataFromOtherAsset> InternalReferencedOtherAssets = new List<DataFromOtherAsset>();
+
+            [SerializeField]
+            public DataFromOtherAsset[] internalReferencedOtherAssets;
+
             /// <summary>
             /// List of explicit Assets in the File
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public List<ExplicitAsset> InternalReferencedExplicitAssets = new List<ExplicitAsset>();
+
+            [SerializeField]
+            public string[] internalReferencedExplicitAssets;
             /// <summary>
             /// List of Assets referenced by the File, but not included in the File.
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public List<ExplicitAsset> ExternallyReferencedAssets = new List<ExplicitAsset>();
+
+
+            [SerializeField]
+            public string[] externallyReferencedAssets;
+
+            private bool prepared = false;
+            public void PrepareSerialize()
+            {
+                if (prepared) { return; }
+                prepared = true;
+
+                if (File != null) 
+                {
+                    File.PrepareSerialize();
+                    file = File.Name;
+                }
+                
+                InternalReferencedOtherAssets.ForEach((roa)=>roa.PrepareSerialize());
+                internalReferencedOtherAssets= InternalReferencedOtherAssets.ToArray();
+
+                InternalReferencedExplicitAssets.ForEach((roa) => roa.PrepareSerialize());
+                internalReferencedExplicitAssets = InternalReferencedExplicitAssets.Select(ea=>ea.AssetPath).ToArray();
+
+
+                ExternallyReferencedAssets.ForEach((roa) => roa.PrepareSerialize());
+                externallyReferencedAssets = ExternallyReferencedAssets.Select(ea => ea.AssetPath).ToArray();
+            }
         }
 
         /// <summary>
@@ -255,30 +371,49 @@ namespace  URS
             /// <summary>
             /// The Guid of the Asset
             /// </summary>
+            [SerializeField]
             public string AssetGuid;
             /// <summary>
             /// The Asset path on disk
-            /// </summary>
+            /// </summary
+            [SerializeField]
             public string AssetPath;
 
             /// <summary>
             /// A list of Assets that reference this data
             /// </summary>
             [SerializeReference]
+            [NonSerialized]
             public List<ExplicitAsset> ReferencingAssets = new List<ExplicitAsset>();
 
+            [SerializeField]
+            public string[] referencingAssets;
             /// <summary>
             /// The number of Objects in the data
             /// </summary>
+            [SerializeField]
             public int ObjectCount;
             /// <summary>
             /// The size of the data on disk
             /// </summary>
+            [SerializeField]
             public ulong SerializedSize;
             /// <summary>
             /// The size of the streamed data
             /// </summary>
+            [SerializeField]
             public ulong StreamedSize;
+
+            private bool prepared = false;
+            public void PrepareSerialize()
+            {
+                if (prepared) return;
+                prepared = true;
+
+                ReferencingAssets.ForEach((ea)=>ea.PrepareSerialize());
+                var list = ReferencingAssets.Select(ea=>ea.AssetPath);
+                referencingAssets= list.ToArray();
+            }
         }
 
         /// <summary>
@@ -297,24 +432,55 @@ namespace  URS
     /// <summary>
     /// Utility used to quickly reference data built with the build pipeline
     /// </summary>
+    /// 
+    [Serializable]
     public class LayoutLookupTables
     {
         /// <summary>
         /// The AssetBundle name to the Bundle data map.
         /// </summary>
+        [NonSerialized]
         public Dictionary<string, BuildLayout.Bundle> Bundles = new Dictionary<string, BuildLayout.Bundle>();
         /// <summary>
         /// File name to File data map.
         /// </summary>
+        [NonSerialized]
         public Dictionary<string, BuildLayout.File> Files = new Dictionary<string, BuildLayout.File>();
         /// <summary>
         /// Guid to ExplicitAsset data map.
         /// </summary>
+        /// 
+        [NonSerialized]
         public Dictionary<string, BuildLayout.ExplicitAsset> GuidToExplicitAsset = new Dictionary<string, BuildLayout.ExplicitAsset>();
         /// <summary>
         /// Group name to Group data map.
         /// </summary>
        // public Dictionary<string, BuildLayout.Group> GroupLookup = new Dictionary<string, BuildLayout.Group>();
+       
+        [SerializeField]
+        public BuildLayout.Bundle[] bundles;
+
+        [SerializeField]
+        public BuildLayout.File[] files;
+
+        [SerializeField]
+        public BuildLayout.ExplicitAsset[] explicitAssets;
+
+        public void PrepareSerialize() 
+        {
+            var bundleList = Bundles.Values.ToList();
+            bundleList.ForEach(bundle => { bundle.PrepareSerialize(); });
+            bundles = bundleList.ToArray();
+
+            var fileList = Files.Values.ToList();
+            fileList.ForEach(file => { file.PrepareSerialize(); });
+            files = fileList.ToArray();
+
+            var guidToExplicit = GuidToExplicitAsset.Values.ToList();
+            guidToExplicit.ForEach(ea => { ea.PrepareSerialize(); });
+            explicitAssets = guidToExplicit.ToArray();
+        }
+
     }
     /// <summary>
     /// Helper methods for gathering data about a build layout.

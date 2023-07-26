@@ -12,7 +12,7 @@ namespace Daihenka.AssetPipeline.Processors
         [SerializeField] private float animationRotationError;
         [SerializeField] private float animationPositionError;
         [SerializeField] private float animationScaleError;
-
+        [SerializeField] private bool resampleCurve=false;
         public override bool IsConfigOK (AssetImporter importer)
         {
             if (importer == null) return false;
@@ -34,6 +34,10 @@ namespace Daihenka.AssetPipeline.Processors
             {
                 return false;
             }
+            if (mi.resampleCurves != resampleCurve)
+            {
+                return false;
+            }
             return true;
         }
         public override void OnPostprocessModel(string assetPath, ModelImporter importer, GameObject go)
@@ -42,7 +46,7 @@ namespace Daihenka.AssetPipeline.Processors
             importer.animationRotationError = animationRotationError;
             importer.animationPositionError = animationPositionError;
             importer.animationScaleError = animationScaleError;
-            
+            importer.resampleCurves = resampleCurve;
             ImportProfileUserData.AddOrUpdateProcessor(assetPath, this);
             Debug.Log($"[{GetName()}] Preset applied for <b>{assetPath}</b>");
         }

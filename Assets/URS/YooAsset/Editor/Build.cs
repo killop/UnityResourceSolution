@@ -22,12 +22,9 @@ using System.Text;
 using YooAsset;
 using UnityEditor.Build.Content;
 using BuildCompression = UnityEngine.BuildCompression;
-using UnityEditor.Search;
 using Context = System.Collections.Generic.Dictionary<string, object>;
 using Debug = UnityEngine.Debug;
 using URS.Editor;
-using MHLab.Patch.Core.IO;
-using JetBrains.Annotations;
 
 namespace URS
 {
@@ -74,8 +71,7 @@ namespace URS
 
         public static bool BuildResourceAndPlayer_Fast_Config()
         {
-           // if (!HeSdk.Editor.HeSdkUtils.EnableHappyElementsSDK(false))
-           //     return false;
+           
             SetScriptingImplementation(ScriptingImplementation.Mono2x);
             return true;
         }
@@ -99,8 +95,7 @@ namespace URS
         }
         public static bool BuildResourceAndPlayer_Standard_Config()
         {
-           // if (!HeSdk.Editor.HeSdkUtils.EnableHappyElementsSDK(false))
-           //     return false;
+          
             SetScriptingImplementation(ScriptingImplementation.IL2CPP);
             return true;
         }
@@ -122,8 +117,7 @@ namespace URS
         }
         public static bool ExportAndroidProject_Mono_Config()
         {
-            //if (!HeSdk.Editor.HeSdkUtils.EnableHappyElementsSDK(true))
-            //    return false;
+            
             SetScriptingImplementation(ScriptingImplementation.Mono2x);
             return true;
         }
@@ -144,8 +138,7 @@ namespace URS
         }
         public static bool ExportAndroidProject_IL2CPP_Config()
         {
-            //if (!HeSdk.Editor.HeSdkUtils.EnableHappyElementsSDK(true))
-            //    return false;
+           
             SetScriptingImplementation(ScriptingImplementation.IL2CPP);
             return true;
         }
@@ -171,7 +164,8 @@ namespace URS
                 bool buildResourceVersion,
                 bool buildRaw,
                 bool copyBuildInRes,
-                bool buildPlayer)
+                bool buildPlayer,
+                bool debug)
         {
             var versionDirectory = GetVersionDirectory(channel, buildingResourceVersionCode);
             var context = new Context();
@@ -180,15 +174,12 @@ namespace URS
             context[BuildTask.CONTEXT_COPY_STREAM_TARGET_VERSION] = buildInResourceVersionCode;
             context[BuildTask.CONTEXT_BUILDING_VERSION] = buildingResourceVersionCode;
             context[BuildTask.CONTEXT_CHANNEL] = channel;
+            context[BuildTask.CONTEXT_DEBUG] = debug;
             var buildWS = new BuildTaskWorkSpace();
             buildWS.Init(context);
             if (buildResourceVersion) 
             {
                 buildWS.EnqueueTask(new BuildTaskClearTargetVersion());
-                if (buildRaw)
-                {
-                    buildWS.EnqueueTask(new BuildTaskComplierLua());
-                }
                 RegisterBuildBundleTask(buildWS);
                 if (buildRaw)
                 {
@@ -241,7 +232,8 @@ namespace URS
                 true,
                 true,
                 true,
-                true);
+                true,
+                false);
         }
         
        
@@ -280,49 +272,51 @@ namespace URS
             AddBuildTaskWorkSpace(buildWS);
         }
 
-        [MenuItem("URS/CleanMaterialPropertys")]
-        public static void CleanMaterialPropertys()
+        public static void ValidateAsset(bool validateMaterial, bool validateModel,bool validateParticleSystem,bool validateAnimation)
         {
             var context = new Context();
             var buildWS = new BuildTaskWorkSpace();
             buildWS.Init(context);
             buildWS.EnqueueTask(new BuildTaskUpdateCollection());
             buildWS.EnqueueTask(new BuildTaskCollectAsset());
-            buildWS.EnqueueTask(new BuildTaskMaterialCleaner());
+            if (validateMaterial) 
+            {
+                buildWS.EnqueueTask(new BuildTaskValidateMaterial());
+            }
+            if (validateModel) {
+                buildWS.EnqueueTask(new BuildTaskValidateModel());
+            }
+            if (validateParticleSystem)
+            {
+                buildWS.EnqueueTask(new BuildTaskValidateParticleSystem());
+            }
+            if (validateAnimation) 
+            {
+                buildWS.EnqueueTask(new BuildTaskValidateAnimation());
+            }
+           
             AddBuildTaskWorkSpace(buildWS);
         }
-
-        [MenuItem("URS/CheckAnimation")]
-        public static void CheckAnimation()
-        {
-            var context = new Context();
-            var buildWS = new BuildTaskWorkSpace();
-            buildWS.Init(context);
-            buildWS.EnqueueTask(new BuildTaskUpdateCollection());
-            buildWS.EnqueueTask(new BuildTaskCollectAsset());
-            buildWS.EnqueueTask(new BuildTaskCheckAnimation());
-            AddBuildTaskWorkSpace(buildWS);
-        }
+      
         [MenuItem("URS/ClearBundleCache")]
         public static void ClearBundleCache()
         {
             BuildCache.PurgeCache(false);
         }
-
-
-      
        
         public static void BuildAutoChannelVersionsAndUploadCDN(
                string channel,
-               string channelTargetVersion,
+               string channelTargetVersion = "",
                int versionKeepCount=4,
-               bool uploadCDN=false)
+               bool uploadCDN=false,
+               bool debug = false)
         {
             var context = new Context();
             context[BuildTask.CONTEXT_VERSION_ROOT_DIRECTORY] = GetVersionRoot(channel); ;
             context[BuildTask.CONTEXT_CHANNEL] = channel;
             context[BuildTask.CONTEXT_CHANNEL_TARGET_VERSION] = channelTargetVersion;
             context[BuildTask.CONTEXT_VERSION_KEEP_COUNT] = versionKeepCount;
+            context[BuildTask.CONTEXT_DEBUG] = debug;
             var buildWS = new BuildTaskWorkSpace();
             buildWS.Init(context);
             buildWS.EnqueueTask(new BuildChannelVersions());
@@ -367,6 +361,7 @@ namespace URS
             {
                 workSpace.EnqueueTask(new BuildTaskRegenerateAssetBundleName());
                 workSpace.EnqueueTask(new BuildTaskGenerateBundleLayout());
+                workSpace.EnqueueTask(new BuildTaskOptimizeShareAssetBundleName());
                 workSpace.EnqueueTask(new BuildTaskReBuildAssetBundle());
             }
             workSpace.EnqueueTask(new BuildTaskCopyAsssetBundle());
@@ -397,7 +392,29 @@ namespace URS
         {
             return $"URS/temp_bundle_out/{URS.PlatformMappingService.GetPlatformPathSubFolder()}";
         }
+
+        public static string GetVersionHistoryFolder(string channel) 
+        {
+            return $"URS/version_history/{channel}/{URS.PlatformMappingService.GetPlatformPathSubFolder()}";
+        }
+
+        public static string GetShareAssetBundleNameConfigFilePath() 
+        {
+            return $"URS/ShareAssetBundleName.json";
+        }
         
+        public static void ExportDefaultURSRuntimeSetting(string SaveDiretoryPath)
+        {
+            var defaultSetting = new URSRuntimeSetting();
+            var content= UnityEngine.JsonUtility.ToJson(defaultSetting,true);
+            var savePath = $"{SaveDiretoryPath}/{URSRuntimeSetting.SAVE_RESOUCE_PATH}";
+            if (File.Exists(savePath)) { 
+                File.Delete(savePath);
+            }
+            File.WriteAllText(savePath, content );
+            UnityEditor.AssetDatabase.Refresh();
+            UnityEditor.AssetDatabase.SaveAssets();
+        }
     }
 }
    

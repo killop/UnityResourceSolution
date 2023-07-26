@@ -41,7 +41,7 @@ namespace YooAsset
 			return operation;
 		}
         public void InitChannel(string channel) 
-        { 
+        {
             this.channel= channel;
             RemoteVersionsRootUrl = $"{URSRuntimeSetting.instance.RemoteChannelRootUrl}/{this.channel}/{URS.PlatformMappingService.GetPlatformPathSubFolder()}";
             RemoteVersionPatchUrl = $"{RemoteVersionsRootUrl}/{URSRuntimeSetting.instance.PatchDirectory}";
@@ -191,16 +191,16 @@ namespace YooAsset
         }
 
         // 下载相关
-        public HardiskFileSearchResult ConvertToDownloadInfo(FileMeta webFileMeta,FileMeta patchFileMetaCandidate)
+        public HardiskFileSearchResult ConvertToDownloadInfo(FileMeta webFileMeta,FileMeta patchFileMetaCandidate, EnumHardiskDirectoryType patchFileMetaCandidateDirectoryType)
 		{
 			// 注意：资源版本号只用于确定下载路径
 			//string sandboxPath = SandboxFileSystem.MakeSandboxFilePath(fileMeta.RelativePath);
 			//string remoteMainURL = GetPatchDownloadMainURL(fileMeta.RelativePath);
 		///	string remoteFallbackURL = GetPatchDownloadFallbackURL(fileMeta.RelativePath);
-			var result = new HardiskFileSearchResult(webFileMeta, GetUpdateEntry(webFileMeta, patchFileMetaCandidate));
+			var result = new HardiskFileSearchResult(webFileMeta, GetUpdateEntry(webFileMeta, patchFileMetaCandidate, patchFileMetaCandidateDirectoryType));
 			return result;
 		}
-		private UpdateEntry GetUpdateEntry(FileMeta webFileMeta, FileMeta patchFileMetaCandidate)
+		private UpdateEntry GetUpdateEntry(FileMeta webFileMeta, FileMeta patchFileMetaCandidate, EnumHardiskDirectoryType patchFileMetaCandidateDirectoryType)
 		{
             UpdateEntry result = null;
             if (patchFileMetaCandidate == null)
@@ -213,7 +213,7 @@ namespace YooAsset
                 var patch = GetPatch(patchFileMetaCandidate, webFileMeta);
                 if (patch != null)
                 {
-                    result = new UpdateEntry(webFileMeta, RemoteVersionRootUrl,patch,RemoteVersionPatchUrl);
+                    result = new UpdateEntry(webFileMeta, RemoteVersionRootUrl,patch,RemoteVersionPatchUrl, patchFileMetaCandidate, patchFileMetaCandidateDirectoryType);
                 }
                 else 
                 {

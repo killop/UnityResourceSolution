@@ -14,7 +14,7 @@ namespace URS
         Invalid = 0,
         PersistentDownload = 1,
         PersistentReadonly = 2,
-        StreamAsset = 3,
+        BuildIn = 3,
     }
     public class URSFileSystem
     {
@@ -36,7 +36,7 @@ namespace URS
             PersistentReadOnlyFolder = new PersistentReadOnlyFolder(AssetPathHelper.GetPersistentReadonlyFolder());
             BuildInFolder = new BuildInFolder(AssetPathHelper.GetURSBuildInResourceFolder());
             
-            /// ÔÚÀëÏßÄ£Ê½ÏÂµÄ¹Ì¶¨×ÊÔ´ÓÅÏÈ¼¶
+            /// åœ¨ç¦»çº¿æ¨¡å¼ä¸‹çš„å›ºå®šèµ„æºä¼˜å…ˆçº§
             _localFolders.Add(PersistentDownloadFolder);
             _localFolders.Add(PersistentReadOnlyFolder);
             _localFolders.Add(BuildInFolder);
@@ -91,7 +91,7 @@ namespace URS
                         }
                         else if (BuildInFolder.ContainsFile(fm))
                         {
-                          //  Logger.Error("´æÔÚÓÚbuildÖĞ,Ìø¹ı¼ì²é");
+                          //  Logger.Error("å­˜åœ¨äºbuildä¸­,è·³è¿‡æ£€æŸ¥");
                         }
                     }
                     if (anyChange) 
@@ -118,7 +118,7 @@ namespace URS
                     return folder.BundleManifest;
                 }
             }
-            Logger.Error("Ã»ÓĞÕÒµ½ÖµµÃĞÅÀµµÄbundleManifest");
+            Logger.Error("æ²¡æœ‰æ‰¾åˆ°å€¼å¾—ä¿¡èµ–çš„bundleManifest");
             return null;
         }
         public static string GetDownloadTempPath(string relativePath) 
@@ -221,7 +221,7 @@ namespace URS
             {
                 if (RemoteFolder != null)
                 {
-                    var find= RemoteFolder.SearchFile(PersistentDownloadFolder, fileMeta,out var hardiskFileSearchResult);
+                    var find= RemoteFolder.SearchFile(PersistentDownloadFolder,BuildInFolder, fileMeta,out var hardiskFileSearchResult);
                     if (find) 
                     {
                         result = hardiskFileSearchResult;
@@ -346,7 +346,7 @@ namespace URS
                     return;
                 }
             }
-            Logger.Error("Ã»ÓĞÕÒµ½"+ relativePath);
+            Logger.Error("æ²¡æœ‰æ‰¾åˆ°"+ relativePath);
             mainResult = new HardiskFileSearchResult(relativePath);
             dependency = new List<HardiskFileSearchResult>();
         }
@@ -359,24 +359,38 @@ namespace URS
             _hostPlayModeImpl= hostPlayModeImpl;
         }
 
-        public bool SearchFile(PersistentDownloadFolder downloadFolder, FileMeta fileMeta, out HardiskFileSearchResult hardiskFileSearchResult)
+        public bool SearchFile(PersistentDownloadFolder downloadFolder,BuildInFolder buildInFolder, FileMeta fileMeta, out HardiskFileSearchResult hardiskFileSearchResult)
         {
             hardiskFileSearchResult = null;
             if (ContainsFile(fileMeta)) 
             {
                 FileMeta patchFileMetaCandidate = null;
+                EnumHardiskDirectoryType directoryType = EnumHardiskDirectoryType.Invalid;
                 if (downloadFolder.ContainsFile(fileMeta.RelativePath, out var downloadFileMeta))
                 {
                     if (downloadFileMeta.Hash != fileMeta.Hash) 
                     {
                         patchFileMetaCandidate = downloadFileMeta;
+                        directoryType = EnumHardiskDirectoryType.PersistentDownload;
                     }
                 }
-                hardiskFileSearchResult = this._hostPlayModeImpl.ConvertToDownloadInfo(fileMeta, patchFileMetaCandidate);
+                if (patchFileMetaCandidate == null)
+                {
+                    if (buildInFolder.ContainsFile(fileMeta.RelativePath, out var buildInFileMeta))
+                    {
+                        if (buildInFileMeta.Hash != fileMeta.Hash)
+                        {
+                            patchFileMetaCandidate = buildInFileMeta;
+                            directoryType = EnumHardiskDirectoryType.BuildIn;
+                        }
+                    }
+                }
+                hardiskFileSearchResult = this._hostPlayModeImpl.ConvertToDownloadInfo(fileMeta, patchFileMetaCandidate, directoryType);
                 return true;
             }
             return false;
         }
+
        
         public override bool IsWriteable()
         {
@@ -430,8 +444,6 @@ namespace URS
                     var pure = relativePath.Replace('\\', '/').Replace("//", "/");
                     _relativePaths.Add((pure, fullPath));
                     relativePathSet.Add(pure);
-                    
-                    
                 }
             }
             RemoveFileMetaMissed( relativePathSet);
@@ -440,27 +452,30 @@ namespace URS
 
         private void RemoveFileMetaMissed(HashSet<string> rPaths)
         {
-            var fileMap = _fileManifest.GetFileMetaMap();
-            List<string> removes = null;
-            foreach (var rPath in fileMap.Keys)
+            if (_fileManifest != null) 
             {
-                
-                if (!rPaths.Contains(rPath))
+                var fileMap = _fileManifest.GetFileMetaMap();
+                List<string> removes = null;
+                foreach (var rPath in fileMap.Keys)
                 {
-                    if (removes == null)
+
+                    if (!rPaths.Contains(rPath))
                     {
-                        removes= new List<string>();
+                        if (removes == null)
+                        {
+                            removes = new List<string>();
+                        }
+
+                        removes.Add(rPath);
                     }
-                   
-                    removes.Add(rPath);
                 }
-            }
-            if (removes != null) 
-            {
-                for (int i = 0; i < removes.Count; i++)
+                if (removes != null)
                 {
-                    var rPath = removes[i];
-                    DeleteFile(rPath);
+                    for (int i = 0; i < removes.Count; i++)
+                    {
+                        var rPath = removes[i];
+                        DeleteFile(rPath);
+                    }
                 }
             }
         }
@@ -470,11 +485,11 @@ namespace URS
             if (fileManifest == null) return true;
             for (int i = 0; i < MAX_STEP; i++)
             {
-                _currentCheckIndex++;
-                if (_currentCheckIndex < _relativePaths.Count)
+                var currentIndex= _currentCheckIndex++;
+                if (currentIndex < _relativePaths.Count)
                 {
-                    var relativePath = _relativePaths[_currentCheckIndex].Item1;
-                    var fullPath = _relativePaths[_currentCheckIndex].Item2;
+                    var relativePath = _relativePaths[currentIndex].Item1;
+                    var fullPath = _relativePaths[currentIndex].Item2;
                     if (relativePath == URSRuntimeSetting.instance.FileManifestFileName)
                     {
                         continue;
@@ -484,7 +499,8 @@ namespace URS
                     if (fileMap.ContainsKey(relativePath))
                     {
                         var fileMeta = fileMap[relativePath];
-                        if (CheckContentIntegrity(fullPath, fileMeta.SizeBytes, fileMeta.Hash))
+                      
+                        if (CheckContentSize(fullPath, fileMeta.SizeBytes)) // ä¸æ£€æµ‹hashå•¦ï¼Œä»»ä½•èµ„æºè¿›å»è¿™ä¸ªæ–‡ä»¶å¤¹çš„æ—¶å€™ï¼Œæ£€æµ‹hashå°±å¯ä»¥äº†ï¼Œ
                         {
                             RegisterVerifyFile(fileMeta);
                         }
@@ -509,7 +525,7 @@ namespace URS
             _currentCheckIndex = 0;
         }
         /// <summary>
-        /// »º´æÑéÖ¤¹ıµÄÎÄ¼ş
+        /// ç¼“å­˜éªŒè¯è¿‡çš„æ–‡ä»¶
         /// </summary>
         public void RegisterVerifyFile(FileMeta fileMeta)
         {
@@ -527,7 +543,7 @@ namespace URS
                 File.Delete(filePath);
             _fileManifest.RemoveFile(fileRelativePath);
         }
-        // ÑéÖ¤ÎÄ¼şÍêÕûĞÔ
+        // éªŒè¯æ–‡ä»¶å®Œæ•´æ€§
         public bool CheckContentIntegrity(FileMeta fileMeta, string hardiskFilePath)
         {
             return CheckContentIntegrity(hardiskFilePath, fileMeta.SizeBytes, fileMeta.Hash);
@@ -541,29 +557,48 @@ namespace URS
         {
             if (File.Exists(filePath) == false)
             {
-                //Logger.Error($"ÑéÖ¤Ê§°Ü£¬ÎÄ¼ş²»´æÔÚ{filePath}");
+                //Logger.Error($"éªŒè¯å¤±è´¥ï¼Œæ–‡ä»¶ä¸å­˜åœ¨{filePath}");
                 return false;
             }
 
 
-            // ÏÈÑéÖ¤ÎÄ¼ş´óĞ¡
+            // å…ˆéªŒè¯æ–‡ä»¶å¤§å°
             long fileSize = FileUtility.GetFileSize(filePath);
             if (fileSize != size)
             {
-                //Logger.Error($"ÑéÖ¤Ê§°Ü£¬ÎÄ¼ş´óĞ¡²»Í¨¹ı Ä¿±ê´óĞ¡ {size} £¬µ±Ç°ÎÄ¼ş´óĞ¡{fileSize}");
+                //Logger.Error($"éªŒè¯å¤±è´¥ï¼Œæ–‡ä»¶å¤§å°ä¸é€šè¿‡ ç›®æ ‡å¤§å° {size} ï¼Œå½“å‰æ–‡ä»¶å¤§å°{fileSize}");
                 return false;
             }
 
 
-            // ÔÙÑéÖ¤ÎÄ¼şCRC
+            // å†éªŒè¯æ–‡ä»¶CRC
             var currentFileHash = Hashing.GetFileXXhash(filePath);
             var success = fileHash == currentFileHash;
             if (!success)
             {
-                //Logger.Error($"ÑéÖ¤Ê§°Ü£¬ÎÄ¼ş´óĞ¡²»Í¨¹ı Ä¿±êhash  {fileHash} £¬µ±Ç°ÎÄ¼ş´óĞ¡{currentFileHash}");
+                //Logger.Error($"éªŒè¯å¤±è´¥ï¼Œæ–‡ä»¶å¤§å°ä¸é€šè¿‡ ç›®æ ‡hash  {fileHash} ï¼Œå½“å‰æ–‡ä»¶å¤§å°{currentFileHash}");
                 return false;
             }
             return success;
+        }
+        public virtual bool CheckContentSize(string filePath, long size)
+        {
+            if (File.Exists(filePath) == false)
+            {
+                //Logger.Error($"éªŒè¯å¤±è´¥ï¼Œæ–‡ä»¶ä¸å­˜åœ¨{filePath}");
+                return false;
+            }
+
+
+            // å…ˆéªŒè¯æ–‡ä»¶å¤§å°
+            long fileSize = FileUtility.GetFileSize(filePath);
+            if (fileSize != size)
+            {
+                //Logger.Error($"éªŒè¯å¤±è´¥ï¼Œæ–‡ä»¶å¤§å°ä¸é€šè¿‡ ç›®æ ‡å¤§å° {size} ï¼Œå½“å‰æ–‡ä»¶å¤§å°{fileSize}");
+                return false;
+            }
+           
+            return true;
         }
 
         public override bool SafeContainsFile(FileMeta fileMeta)
@@ -718,8 +753,8 @@ namespace URS
             return $"{_basePath}/{fileMeta.RelativePath}";
         }
         /// <summary>
-        /// ²éÑ¯ÊÇ·ñÎªÑéÖ¤ÎÄ¼ş
-        /// ×¢Òâ£º±»ÊÕÂ¼µÄÎÄ¼şÍêÕûĞÔÊÇ¾ø¶ÔÓĞĞ§µÄ
+        /// æŸ¥è¯¢æ˜¯å¦ä¸ºéªŒè¯æ–‡ä»¶
+        /// æ³¨æ„ï¼šè¢«æ”¶å½•çš„æ–‡ä»¶å®Œæ•´æ€§æ˜¯ç»å¯¹æœ‰æ•ˆçš„
         /// </summary>
         public bool ContainsFile(string relativePath)
         {

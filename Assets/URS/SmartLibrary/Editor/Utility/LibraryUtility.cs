@@ -178,7 +178,8 @@ namespace Bewildered.SmartLibrary
         {
             Directory.CreateDirectory(LibraryConstants.CollectionsPath);
 
-            string path = GetCollectionPath(collection);
+            bool isRoot = collection is RootLibraryCollection;
+            string path = GetCollectionPath(collection, isRoot);
             
             InternalEditorUtility.SaveToSerializedFileAndForget(new Object[] {collection}, path, true);
         }
@@ -208,9 +209,17 @@ namespace Bewildered.SmartLibrary
             File.Move(path, newPath);
         }
 
-        internal static string GetCollectionPath(LibraryCollection collection)
+        internal static string GetCollectionPath(LibraryCollection collection, bool isRoot = false)
         {
-            string filename = $"{collection.CollectionName}_{collection.ID}";
+            string filename = null;
+            if (isRoot)
+            {
+                filename = $"{collection.CollectionName}";
+            }
+            else 
+            {
+                filename = $"{collection.CollectionName}_{collection.ID}";
+            }
             filename = GetSafeFilename(filename);
             return $"{LibraryConstants.CollectionsPath}/{filename}{LibraryConstants.CollectionFileExtension}";
         }
@@ -232,7 +241,7 @@ namespace Bewildered.SmartLibrary
             foreach (string collectionPath in Directory.EnumerateFiles(LibraryConstants.CollectionsPath))
             {
                 var collection = LoadCollection(collectionPath);
-
+                collection.savePath = collectionPath;
                 // This is required since in 2.0.0 the HideAndDontSave flag was used. So this is used to update it.
                 if (collection.hideFlags != HideFlags.DontSave)
                     collection.hideFlags = HideFlags.DontSave;   
@@ -276,7 +285,9 @@ namespace Bewildered.SmartLibrary
                 if (collection.Parent == null)
                 {
                     collection.Parent = rootCollection;
-                    Debug.LogWarning($"Could not find parent with id {parentId}. Collection '{collection}' was added as a base collection.");
+                    rootCollection.AddSubcollection(collection,true);
+                    SaveCollection(collection);
+                    Debug.LogWarning($"Could not find parent with id {parentId}. Collection name '{collection.CollectionName}' was added as a base collection. savePath {collection.savePath} ");
                 }
 
                 int index = collection.Parent.SubcollectionIDs.IndexOf(collection.ID);

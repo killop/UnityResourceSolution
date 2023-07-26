@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Pool;
 
@@ -11,6 +13,40 @@ namespace NinjaBeats
 {
     public static partial class Utils
     {
+        class ListDummy<T>
+        {
+            public T[] _items;
+            public int _size;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void EnsureCapacity<T>(this List<T> self, int size)
+        {
+            if (self.Capacity < size)
+                self.Capacity = size > 1024 ? (size + 256) : Mathf.NextPowerOfTwo(size + 1);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Span<T> AddBlock<T>(this List<T> self, int blockSize)
+        {
+            if (self == null)
+                return Span<T>.Empty;
+            self.EnsureCapacity(self.Count + blockSize);
+            var dummy = Unsafe.As<ListDummy<T>>(self);
+            var old = dummy._size;
+            dummy._size += blockSize;
+            return dummy._items.AsSpan(old, blockSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Span<T> AsSpan<T>(this List<T> self)
+        {
+            if (self == null)
+                return Span<T>.Empty;
+            var dummy = Unsafe.As<ListDummy<T>>(self);
+            return dummy._items.AsSpan(0, dummy._size);
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int FindIndex<T>(this IList<T> self, Predicate<T> func)
         {
@@ -43,8 +79,17 @@ namespace NinjaBeats
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AddTimes<T>(this IList<T> self, T item, int count)
         {
+            if (count <= 0)
+                return;
             for (int i = 0; i < count; ++i)
                 self.Add(item);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddTimes<T>(this List<T> self, T item, int count)
+        {
+            if (count <= 0)
+                return;
+            self.AddBlock(count).Fill(item);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -56,14 +101,42 @@ namespace NinjaBeats
                 self.Add(v);
         }
         
+        // foreach 接口会 GC Alloc
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void TryAdd<T>(this IList<T> self, T item) where T : class
+        public static void AddRange<T>(this ISet<T> self, IList<T> items)
         {
-            if (item == null)
+            if (self == null || items == null)
                 return;
-            self.Add(item);
+            for (int i = 0; i < items.Count; ++ i)
+                self.Add(items[i]);
         }
-
+        // foreach 接口会 GC Alloc
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddRange<T>(this ISet<T> self, HashSet<T> items)
+        {
+            if (self == null || items == null)
+                return;
+            foreach (var item in items)
+                self.Add(item);
+        }
+        // foreach 接口会 GC Alloc
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddRangeNonAlloc<T>(this IList<T> self, HashSet<T> items)
+        {
+            if (self == null || items == null)
+                return;
+            foreach (var item in items)
+                self.Add(item);
+        }
+        // foreach 接口会 GC Alloc
+        public static void AddValues<K, V>(this IList<V> self, Dictionary<K, V> dict)
+        {
+            if (self == null || dict == null)
+                return;
+            foreach (var pair in dict)
+                self.Add(pair.Value);
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AddUnique<T>(this IList<T> self, T item, Func<T, T, bool> equalFunc)
         {
@@ -307,11 +380,11 @@ namespace NinjaBeats
         public static void InsertDescending<T>(this IList<T> self, T item, IComparer<T> comparer = null) => self.InsertDescending(item, item, (comparer ?? Comparer<T>.Default).Compare);
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe bool IsEquals(byte[] a, byte* b)
+        public static unsafe bool IsEquals(byte[] buffer1, byte* buffer2)
         {
-            for (int i = 0; i < a.Length; ++i)
+            for (int i = 0; i < buffer1.Length; ++i)
             {
-                if (a[i] != b[i])
+                if (buffer1[i] != buffer2[i])
                     return false;
             }
 
@@ -319,18 +392,39 @@ namespace NinjaBeats
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe bool IsEquals(byte* a, byte* b, int length)
+        public static unsafe bool IsEquals(byte* buffer1, byte* buffer2, int length)
         {
             for (int i = 0; i < length; ++i)
             {
-                if (a[i] != b[i])
+                if (buffer1[i] != buffer2[i])
                     return false;
             }
 
             return true;
         }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe bool IsEquals(byte[] buffer1, int offset1, byte* buffer2, int length)
+        {
+            fixed (byte* ptr1 = buffer1)
+                return IsEquals(ptr1 + offset1, buffer2, length);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe bool IsEquals(byte* buffer1, byte[] buffer2, int offset2, int length)
+        {
+            fixed (byte* ptr2 = buffer2)
+                return IsEquals(buffer1, ptr2 + offset2, length);
+        }
 
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe bool IsEquals(byte[] buffer1, int offset1, byte[] buffer2, int offset2, int length)
+        {
+            fixed (byte* ptr1 = buffer1)
+            fixed (byte* ptr2 = buffer2)
+                return IsEquals(ptr1 + offset1, ptr2 + offset2, length);
+        }
+        
         public struct _ConvertScopeImpl<T, R> : IDisposable where T : class
         {
             public IList<T> self;
@@ -464,14 +558,22 @@ namespace NinjaBeats
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void AddIfValid<T>(this List<T> self, T value) where T : class
+        public static void AddIfValid<T>(this IList<T> self, T value) where T : class
         {
             if (value != null)
                 self.Add(value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool PopFirst<T>(this List<T> self, out T first)
+        public static bool AddIfValid<T>(this IProducerConsumerCollection<T> self, T value) where T : class
+        {
+            if (value != null)
+                return self.TryAdd(value);
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool PopFirst<T>(this IList<T> self, out T first)
         {
             if (self.Count == 0)
             {
@@ -485,7 +587,7 @@ namespace NinjaBeats
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool PopLast<T>(this List<T> self, out T last)
+        public static bool PopLast<T>(this IList<T> self, out T last)
         {
             if (self.Count == 0)
             {
@@ -518,7 +620,7 @@ namespace NinjaBeats
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static V GetOrAdd<K, V>(this Dictionary<K, V> self, K key) where V : new()
+        public static V GetOrAdd<K, V>(this IDictionary<K, V> self, K key) where V : new()
         {
             if (self.TryGetValue(key, out var value))
                 return value;
@@ -528,16 +630,17 @@ namespace NinjaBeats
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T FindOrAdd<T>(this List<T> self, Predicate<T> match, Func<T> func)
+        public static T GetOrAdd<T>(this IList<T> self, Predicate<T> match, Func<T> func)
         {
-            var value = self.Find(match);
-            if (value == null)
+            var index = self.FindIndex(match);
+            if (index == -1)
             {
-                value = func();
+                var value = func();
                 self.Add(value);
+                return value;
             }
 
-            return value;
+            return self[index];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -586,12 +689,14 @@ namespace NinjaBeats
             if (a.Count != b.Count)
                 return false;
 
-            foreach (var va in a)
+            for (int ia = 0; ia < a.Count; ++ ia)
             {
+                var va = a[ia];
                 bool exist = false;
 
-                foreach (var vb in b)
+                for (int ib = 0; ib < b.Count; ++ ib)
                 {
+                    var vb = b[ib];
                     if (func(va, vb))
                     {
                         exist = true;
@@ -613,6 +718,43 @@ namespace NinjaBeats
             for (int i = 0; i < size; ++i)
                 arr[i] = new();
             return arr;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WaitTask(this IList<Task> self)
+        {
+            for (int i = 0; i < self.Count; ++i)
+                self[i].Wait();
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WaitTask<T>(this IList<Task<T>> self)
+        {
+            for (int i = 0; i < self.Count; ++i)
+                self[i].Wait();
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WaitTask(this IEnumerable<Task> self)
+        {
+            foreach (var item in self)
+                item.Wait();
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void WaitTask<T>(this IEnumerable<Task<T>> self)
+        {
+            foreach (var item in self)
+                item.Wait();
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Update<K, V>(this IDictionary<K, V> self, K k, V v, bool enable)
+        {
+            if (enable)
+                self.TryAdd(k, v);
+            else
+                self.Remove(k);
         }
     }
 }

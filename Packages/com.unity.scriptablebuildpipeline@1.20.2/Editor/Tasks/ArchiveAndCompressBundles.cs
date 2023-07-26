@@ -85,7 +85,7 @@ namespace UnityEditor.Build.Pipeline.Tasks
             }
         }
 
-        static CacheEntry GetCacheEntry(IBuildCache cache, string bundleName, IEnumerable<ResourceFile> resources, BuildCompression compression, List<SerializedFileMetaData> hashes)
+        static CacheEntry GetCacheEntry(IBuildCache cache, string bundleName, IEnumerable<ResourceFile> resources, BuildCompression compression, List<SerializedFileMetaData> hashes,ArchiveWorkItem item)
         {
             var entry = new CacheEntry();
             entry.Type = CacheEntry.EntryType.Data;
@@ -99,6 +99,13 @@ namespace UnityEditor.Build.Pipeline.Tasks
             toHash.AddRange(hashes.Select(x => (object)x.RawFileHash));
             entry.Hash = HashingMethods.Calculate(toHash).ToHash128();
             entry.Version = kVersion;
+
+            item.ResourceFilesRawHash = entry.Hash.ToString();
+            List<object> contentHashs = new List<object> { kVersion };
+            contentHashs.AddRange(hashes.Select(x => (object)x.ContentHash));
+            item.ResourceFilesContentHash= HashingMethods.Calculate(contentHashs).ToHash128().ToString();
+
+
             return entry;
         }
 
@@ -119,7 +126,14 @@ namespace UnityEditor.Build.Pipeline.Tasks
 
             return HashingMethods.Calculate(hashes, dependencies).ToHash128();
         }
+        internal static Hash128 CalculateContentHashVersion(ArchiveWorkItem item)
+        {
+            List<Hash128> hashes = new List<Hash128>();
 
+            hashes.AddRange(item.SeriliazedFileMetaDatas.Select(x => x.ContentHash));
+
+            return HashingMethods.Calculate(hashes).ToHash128();
+        }
         internal class ArchiveWorkItem
         {
             public int Index;
@@ -130,6 +144,9 @@ namespace UnityEditor.Build.Pipeline.Tasks
             public BuildCompression Compression;
             public BundleDetails ResultDetails;
             public List<SerializedFileMetaData> SeriliazedFileMetaDatas = new List<SerializedFileMetaData>();
+
+            public string ResourceFilesRawHash;
+            public string ResourceFilesContentHash;
         }
 
         internal struct TaskInput
@@ -255,6 +272,7 @@ namespace UnityEditor.Build.Pipeline.Tasks
                     // apply bundle dependencies
                     item.ResultDetails.Dependencies = bundleDependencies.ContainsKey(item.BundleName) ? bundleDependencies[item.BundleName] : new string[0];
                     item.ResultDetails.Hash = CalculateHashVersion(item, item.ResultDetails.Dependencies);
+                    item.ResultDetails.ContentHash = CalculateContentHashVersion(item);
                 }
             }
         }
@@ -326,7 +344,7 @@ namespace UnityEditor.Build.Pipeline.Tasks
             if (input.BuildCache != null)
             {
                 using (input.Log.ScopedStep(LogLevel.Info, "Creating Cache Entries"))
-                    cacheEntries = allItems.Select(x => GetCacheEntry(input.BuildCache, x.BundleName, x.ResourceFiles, x.Compression, x.SeriliazedFileMetaDatas)).ToList();
+                    cacheEntries = allItems.Select(x => GetCacheEntry(input.BuildCache, x.BundleName, x.ResourceFiles, x.Compression, x.SeriliazedFileMetaDatas, x)).ToList();
 
                 using (input.Log.ScopedStep(LogLevel.Info, "Load Cached Data"))
                     input.BuildCache.LoadCachedData(cacheEntries, out cachedInfo);

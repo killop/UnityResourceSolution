@@ -82,7 +82,7 @@ namespace YooAsset
 		}
 		internal override void Start()
 		{
-			Logger.Log($"Begine to download : {TotalDownloadCount} files and {TotalDownloadBytes} bytes");
+			//Logger.Log($"Begine to download : {TotalDownloadCount} files and {TotalDownloadBytes} bytes");
 			_steps = ESteps.Loading;
 		}
 		internal override void Update()

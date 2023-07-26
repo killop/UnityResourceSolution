@@ -1,5 +1,6 @@
 ﻿
 using System.IO;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -147,14 +148,25 @@ namespace NinjaBeats
             EditorUtils.RunCommandLineAsync(async () =>
             {
                 if (!PrepareBuildEnvironment(out var channel, out var buildingResourceVersion, out var buildInResourceVersion))
+                {
                     return false;
-                
-                URS.Build.BuildAutoChannelVersionsAndUploadCDN(
-                    buildingResourceVersion,
-                    channel);
-            
+                }
+
+                Debug.Log("BuildResource  HybridBuild 开始: channel " + channel+" " + UnityMacro.Instance.MAINTENANCE_VERSION_COUNT);
+
+                URS.Build.HybridBuild(buildingResourceVersion, buildInResourceVersion, channel,true,true,false,false,false);
+
                 await URS.Build.WaitBuildTask();
 
+                Debug.Log("BuildResource BuildAutoChannelVersionsAndUploadCDN 开始: channel " + channel + " " + UnityMacro.Instance.MAINTENANCE_VERSION_COUNT);
+
+                URS.Build.BuildAutoChannelVersionsAndUploadCDN(
+                    channel,
+                    null,
+                    UnityMacro.Instance.MAINTENANCE_VERSION_COUNT,
+                    true);
+            
+                await URS.Build.WaitBuildTask();
                 return true;
             });
         }
@@ -211,8 +223,32 @@ namespace NinjaBeats
                 
                 bool IL2CPP = EditorUtils.CommandLineHasArg(nameof(Enum_Build_CommandLine_Arg.IL2CPP));
                 bool ONLY_EXPORT_PROJECT = EditorUtils.CommandLineHasArg(nameof(Enum_Build_CommandLine_Arg.ENABLE_HE_SDK)) || EditorUtils.CommandLineHasArg(nameof(Enum_Build_CommandLine_Arg.ONLY_EXPORT_PROJECT));
-            
+
                 PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevel30;
+
+                if (UnityMacro.Instance.ENABLE_DEVELOPMENT_BUILD)
+                {
+                    IL2CPP = false;
+                }
+
+                if (!UnityMacro.Instance.ENABLE_HESDK)
+                {
+                    ONLY_EXPORT_PROJECT = false;
+                }
+
+                if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS)
+                {
+                    IL2CPP = true;
+                    ONLY_EXPORT_PROJECT = true;
+                }
+
+                PlayerSettings.SetAdditionalIl2CppArgs("");
+                EditorUserBuildSettings.development = UnityMacro.Instance.ENABLE_DEVELOPMENT_BUILD;
+                EditorUserBuildSettings.buildWithDeepProfilingSupport = UnityMacro.Instance.ENABLE_DEVELOPMENT_BUILD;
+                EditorUserBuildSettings.allowDebugging = UnityMacro.Instance.ENABLE_DEVELOPMENT_BUILD;
+                EditorUserBuildSettings.connectProfiler = UnityMacro.Instance.ENABLE_DEVELOPMENT_BUILD;
+                EditorUserBuildSettings.waitForManagedDebugger = UnityMacro.Instance.ENABLE_DEVELOPMENT_BUILD;
+                EditorUserBuildSettings.waitForPlayerConnection = UnityMacro.Instance.ENABLE_DEVELOPMENT_BUILD;
 
                 bool configSuccess = false;
                 if (!ONLY_EXPORT_PROJECT)
@@ -238,19 +274,29 @@ namespace NinjaBeats
                         true,
                         true,
                         false,
+                        false,
                         false);
                     await URS.Build.WaitBuildTask();
-                    URS.Build.BuildAutoChannelVersionsAndUploadCDN(
-                        channel,
-                        buildingResourceVersion);
+                    if (UnityMacro.Instance.ENABLE_HOTUPDATE)
+                    {
+                        URS.Build.BuildAutoChannelVersionsAndUploadCDN(
+                            channel,
+                            buildingResourceVersion,
+                            UnityMacro.Instance.MAINTENANCE_VERSION_COUNT);    
+                    }
                     await URS.Build.WaitBuildTask();
 
-                    var task= URS.Build.GenUploadCdnTask(channel);
+                    Task uploadCdnTask = null;
+                    if (UnityMacro.Instance.ENABLE_HOTUPDATE)
+                    {
+                        uploadCdnTask = URS.Build.GenUploadCdnTask(channel);
+                    }
                     URS.Build.BuildPlayerWithBuildInResource(
                         buildInResourceVersion,
                         channel);
                     await URS.Build.WaitBuildTask();
-                    await task;
+                    if (uploadCdnTask != null)
+                        await uploadCdnTask;
                 }
                 return true;
             });

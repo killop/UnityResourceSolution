@@ -53,6 +53,8 @@ namespace Daihenka.AssetPipeline.Processors
                 if (setting != null)
                     m_SettingList.Add(setting);
             }
+            
+            EditorUtility.SetDirty(this);
         }
 
         public override bool IsConfigOK(AssetImporter importer)
@@ -107,8 +109,8 @@ namespace Daihenka.AssetPipeline.Processors
             }
             return true;
         }
-
-        public override void OnPostprocessTexture(string assetPath, TextureImporter importer, Texture2D tex)
+        
+        void OnPostprocessTexture(string assetPath, TextureImporter importer)
         {
             if (m_SettingList != null)
             {
@@ -124,6 +126,16 @@ namespace Daihenka.AssetPipeline.Processors
             
             ImportProfileUserData.AddOrUpdateProcessor(assetPath, this);
             Debug.Log($"[{GetName()}] Preset applied for <b>{assetPath}</b>");
+        }
+
+        public override void OnPostprocessTexture(string assetPath, TextureImporter importer, Texture2D tex)
+        {
+            OnPostprocessTexture(assetPath, importer);
+        }
+        
+        public override void OnPostprocessCubemap(string assetPath, TextureImporter importer, Cubemap texture)
+        {
+            OnPostprocessTexture(assetPath, importer);
         }
         
     }

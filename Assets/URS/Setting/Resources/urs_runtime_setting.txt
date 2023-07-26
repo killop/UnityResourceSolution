@@ -1,0 +1,17 @@
+{
+    "FilesVersionIndexFileName": "files_version_index.txt",
+    "PatchDirectory": "patch",
+    "PatchTempDirectory": "patch_temp",
+    "AssetBundleFileVariant": ".bundle",
+    "RawFileVariant": "rawfile",
+    "FileManifestFileName": "file_manifest.txt",
+    "BundleManifestFileRelativePath": "bundles/bundle_manifest.txt",
+    "BundleManifestFileName": "bundle_manifest.txt",
+    "ChannelFileName": "channel.txt",
+    "ForceDownloadDirectory": "",
+    "PlayMode": 0,
+    "RemoteChannelRootUrl": "https://staticninja.happyelements.com",
+    "RemoteAppVersionRouterFileName": "app_version_router.txt",
+    "DefaultTag": "default",
+    "BuildinTag": "buildin"
+}

@@ -42,7 +42,7 @@ namespace YooAsset
 
 				if (DependBundles.IsDone() == false)
 					return;
-				if (OwnerBundle.IsDone() == false)
+				if (OwnerBundle.IsDone == false)
 					return;
 
 				if (OwnerBundle.CacheBundle == null)

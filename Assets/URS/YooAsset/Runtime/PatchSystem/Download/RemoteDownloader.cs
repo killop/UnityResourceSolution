@@ -29,6 +29,11 @@ namespace YooAsset
 
         // private readonly HardiskFileSearchResult _hardiskFileSearchResult;
         private readonly UpdateEntry _updateEntry;
+        private UnzipEntry _unzipEntry;
+        private bool _isUnzipFinish = false;
+        private bool _isUnizipError = false;
+
+
         //  private UnityWebRequest _webRequest;
         //  private UnityWebRequestAsyncOperation _operationHandle;
         private HTTPRequest _request;
@@ -72,7 +77,7 @@ namespace YooAsset
         internal void SendRequest(int failedTryAgain, int timeout)
         {
           
-            if (string.IsNullOrEmpty(_updateEntry.GetLocalSaveFilePath()))
+            if (string.IsNullOrEmpty(_updateEntry.GetDownloadTempSaveFilePath()))
                 throw new ArgumentNullException();
 
             if (_steps == ESteps.None)
@@ -80,6 +85,16 @@ namespace YooAsset
                 _failedTryAgain = failedTryAgain;
                 _timeout = timeout;
                 _steps = ESteps.CreateDownload;
+            }
+        }
+        private void OnUnzipFinish(Unziper unziper) 
+        {
+            _isUnzipFinish = true;
+            _isUnizipError = unziper.HasError();
+            if (!_isUnizipError) 
+            {
+               // Debug.LogError("下载完了..."+ _updateEntry.GetPatchFileMetaCandidate().RelativePath);
+                URSFileSystem.DownloadFolderRegisterVerifyFile(_updateEntry.GetPatchFileMetaCandidate());
             }
         }
         internal void Update()
@@ -118,6 +133,14 @@ namespace YooAsset
                 }
                 _response = null;
                 _request.Send();
+
+                if (_updateEntry.IsPatch()&& _updateEntry.NeedUnzip()) 
+                {
+                    this._unzipEntry = new UnzipEntry(_updateEntry.GetPatchFileMetaCandidate());
+                    _unzipEntry.OnFinish = this.OnUnzipFinish;
+                    UnzipSystem.EnqueueUnzip(_unzipEntry);
+                }
+
                 //_request.OnRequestFinishedDelegate
                 _steps = ESteps.CheckDownload;
             }
@@ -129,6 +152,18 @@ namespace YooAsset
                 // DownloadedBytes = _webRequest.downloadedBytes;
 
                 // DownloadProgress= _request.progr
+                if (this._unzipEntry != null) {
+                    if (!_isUnzipFinish) {
+                        return;
+                    }
+                    if (_isUnizipError)
+                    {
+                        DisposeRequest();
+                        ClearLocalSaveFile();
+                        _lastError = $"fail to unzip file {_unzipEntry.GetRelativePath()}";
+                        _steps = ESteps.Failed;
+                    }
+                }
                 if (_response == null)
                 {
                     CheckTimeout();
@@ -171,21 +206,22 @@ namespace YooAsset
                         EnsureDirectory();
                         try
                         {
-                            File.WriteAllBytes(_updateEntry.GetLocalSaveFilePath(), _response.Data);
+                            File.WriteAllBytes(_updateEntry.GetDownloadTempSaveFilePath(), _response.Data);
                           
                         }
                         catch (Exception e) 
                         {
+                            _lastError = $" File.WriteAllBytes failed {_updateEntry.GetDownloadTempSaveFilePath()} message : {e.Message}";
                             isError = true;
                         }
                     }
                     try
                     {
-                        isError = !CheckDownLoadedFileIntegrity(_updateEntry.GetLocalSaveFilePath(), _updateEntry.GetRemoteDownloadFileHash(), _updateEntry.GetRemoteDownloadFileSize());
-                       // Debug.Log("全文件下载成功 " + _updateEntry.GetLocalSaveFilePath());
+                        isError = !CheckDownLoadedFileIntegrity(_updateEntry.GetDownloadTempSaveFilePath(), _updateEntry.GetRemoteDownloadFileHash(), _updateEntry.GetRemoteDownloadFileSize());
                     }
                     catch (Exception e)
                     {
+                        _lastError = $"CheckDownLoadedFileIntegrity failed {_updateEntry.GetDownloadTempSaveFilePath()} message : {e.Message}";
                         isError = true;
                     }
                    
@@ -198,11 +234,12 @@ namespace YooAsset
                             {
                                 File.Delete(patchTargetTemp);
                             }
-                            File.Move(_updateEntry.GetPatchTargetPath(), patchTargetTemp);
+                            var targetPath = _updateEntry.GetFinalPersistentDownloadSavePath();
+                            File.Move(targetPath, patchTargetTemp);
                             try
                             {
-                                DeltaFileApplier.Apply(patchTargetTemp, _updateEntry.GetLocalSaveFilePath(), _updateEntry.GetPatchTargetPath());
-                                if (URSFileSystem.DownloadFolderCheckContentIntegrity(_updateEntry.RemoteFileMeta, _updateEntry.GetPatchTargetPath()))
+                                DeltaFileApplier.Apply(patchTargetTemp, _updateEntry.GetDownloadTempSaveFilePath(), targetPath);
+                                if (URSFileSystem.DownloadFolderCheckContentIntegrity(_updateEntry.RemoteFileMeta, targetPath))
                                 {
                                    // Debug.Log("补丁成功 " + _updateEntry.RemoteFileMeta.RelativePath);
                                     URSFileSystem.DownloadFolderRegisterVerifyFile(_updateEntry.RemoteFileMeta);
@@ -231,6 +268,10 @@ namespace YooAsset
                         }
                         else
                         {
+                            var tempDownLoadPath = _updateEntry.GetDownloadTempSaveFilePath();
+                            var targetPath = _updateEntry.GetFinalPersistentDownloadSavePath();
+                            Directory.CreateDirectory(Path.GetDirectoryName(targetPath));
+                            File.Move(tempDownLoadPath, targetPath);
                             URSFileSystem.DownloadFolderRegisterVerifyFile(_updateEntry.RemoteFileMeta);
                             //if (URSFileSystem.DownloadFolderCheckContentIntegrity(_updateEntry.RemoteFileMeta, _updateEntry.GetLocalSaveFilePath()))
                             //{
@@ -255,7 +296,7 @@ namespace YooAsset
                 else
                 {
                     _steps = ESteps.Succeed;
-                    Logger.Log($"下载完毕{_requestURL} ");
+                    //Logger.Log($"下载完毕{_requestURL} ");
                 }
 
                 // 释放下载器
@@ -298,15 +339,15 @@ namespace YooAsset
         }
         public void ClearLocalSaveFile() 
         {
-            if (File.Exists(_updateEntry.GetLocalSaveFilePath()))
+            if (File.Exists(_updateEntry.GetDownloadTempSaveFilePath()))
             {
-                File.Delete(_updateEntry.GetLocalSaveFilePath());
+                File.Delete(_updateEntry.GetDownloadTempSaveFilePath());
             }
         
         }
         private void OnRequestFinish(HTTPRequest originalRequest, HTTPResponse response)
         {
-           // Debug.LogError("on OnRequestFinish" + _requestURL + " " + response.IsSuccess);
+            //Debug.LogError("on OnRequestFinish" + _requestURL + " " + response.IsSuccess);
 
             _response = response;
             var fs = _request.Tag as System.IO.FileStream;
@@ -328,7 +369,7 @@ namespace YooAsset
         private void CheckTimeout()
         {
             // 注意：在连续时间段内无新增下载数据及判定为超时
-            if (_response == null)
+            if (_response == null&& _request!=null)
             {
                 if (_latestDownloadBytes != DownloadedBytes)
                 {
@@ -407,7 +448,7 @@ namespace YooAsset
                 if (fs == null)
                 {
                     EnsureDirectory();
-                    req.Tag = fs = new System.IO.FileStream(_updateEntry.GetLocalSaveFilePath(), System.IO.FileMode.Create);
+                    req.Tag = fs = new System.IO.FileStream(_updateEntry.GetDownloadTempSaveFilePath(), System.IO.FileMode.Create);
                 }
                 fs.Write(dataFragment, 0, dataFragmentLength);
             }
@@ -418,7 +459,7 @@ namespace YooAsset
 
         private void EnsureDirectory()
         {
-            var directoryName = Path.GetDirectoryName(_updateEntry.GetLocalSaveFilePath());
+            var directoryName = Path.GetDirectoryName(_updateEntry.GetDownloadTempSaveFilePath());
             if (!Directory.Exists(directoryName)) 
             {
                 Directory.CreateDirectory(directoryName);

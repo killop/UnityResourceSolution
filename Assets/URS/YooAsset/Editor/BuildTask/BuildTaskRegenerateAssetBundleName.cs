@@ -27,9 +27,15 @@ public class BuildTaskRegenerateAssetBundleName : BuildTask
 {
     public const long MAX_COMBINE_SHARE_AB_ITEM_SIZE = 500*1024 * 8; // 500K 文件体积小于这个数量才能合并
     public const long MAX_COMBINE_SHARE_AB_SIZE = 1024 * 1024 * 8; // 1M 最终合并的目标大小
-    public const long MAX_COMBINE_SHARE_NO_NAME = 10 * 1024 * 8; // 10K 没有包名的最大体积 
-    public const int MAX_COMBINE_SHARE_NO_NAME_REFERENCE_COUNT = 5; // 没有包名的最多的引用计数
-    public const int MIN_COMBINE_SHARE_MIN_REFERENCE_COUNT = 7;//最小的引用计数
+
+    public const long MIN_NO_NAME_COMBINE_SIZE= 32 * 1024 * 8; // 32K 最终合并的目标大小
+
+
+   // public const long MAX_COMBINE_SHARE_NO_NAME = 60 * 1024 * 8; // 60K 没有包名的最大体积 
+   // public const int MAX_COMBINE_SHARE_NO_NAME_REFERENCE_COUNT = 7; // 没有包名的最多的引用计数
+
+  //  public const int MIN_COMBINE_AB_SIZE_2 = 100 * 1024 * 8;//  100K 没有包名的最大体积 
+    public const int MAX_COMBINE_SHARE_MIN_REFERENCE_COUNT = 3;//最大的引用计数
     public override void BeginTask()
     {
         base.BeginTask();
@@ -107,7 +113,7 @@ public class BuildTaskRegenerateAssetBundleName : BuildTask
         foreach (var abInfo in abInfos)
         {
             var bundleName = abInfo.name;
-            if (abInfo.size < MAX_COMBINE_SHARE_NO_NAME && abInfo.refrenceCount < MAX_COMBINE_SHARE_NO_NAME_REFERENCE_COUNT)
+            if (abInfo.size * abInfo.refrenceCount < MIN_NO_NAME_COMBINE_SIZE)
             {
                 allShareRemoveByNoName++;
                 var bundleInfo = bundleInfos[bundleName];
@@ -120,12 +126,15 @@ public class BuildTaskRegenerateAssetBundleName : BuildTask
                 allCombines.Remove(bundleName);
                 continue;
             }
-
-            if (abInfo.refrenceCount < MIN_COMBINE_SHARE_MIN_REFERENCE_COUNT) 
+            else 
             {
-                allShareRmoveByRefrenceCountTooFew++;
-                allCombines.Remove(bundleName);
-                continue;
+                if ( abInfo.refrenceCount < MAX_COMBINE_SHARE_MIN_REFERENCE_COUNT)
+                {
+                    allShareRmoveByRefrenceCountTooFew++;
+                    allCombines.Remove(bundleName);
+                    continue;
+                }
+
             }
         }
 

@@ -15,7 +15,9 @@ public class BuildChannelVersions : BuildTask
         var versionRootDirectory = (string)_context[CONTEXT_VERSION_ROOT_DIRECTORY];
         var channelTargetVersion= (string)_context[CONTEXT_CHANNEL_TARGET_VERSION];
         var versionKeepCount = (int)_context[CONTEXT_VERSION_KEEP_COUNT];
-        VersionBuilder.BuildChannelVersions(versionRootDirectory, versionKeepCount, channelTargetVersion);
+        var channel= (string)_context[CONTEXT_CHANNEL];
+        var debug= (bool)_context[CONTEXT_DEBUG];
+        VersionBuilder.BuildChannelVersions(channel,versionRootDirectory, versionKeepCount, channelTargetVersion, debug);
 
         this.FinishTask();
     }

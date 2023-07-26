@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,13 +14,20 @@ namespace URS
         public string _remoteDownloadURL;
 
         public PatchItemVersion PatchItemVersion { get; private set; }
+        private EnumHardiskDirectoryType _patchDirectoryType = EnumHardiskDirectoryType.Invalid;
+        private FileMeta _patchFileMetaCandidate = null;
 
         private string _targetSaveFilePath;
-        private string _patchSavePath;
+        private string _downloadTempSavePath;
 
         public bool IsPatch()
         {
             return PatchItemVersion != null;
+        }
+
+        public bool NeedUnzip() 
+        {
+            return _patchDirectoryType == EnumHardiskDirectoryType.BuildIn;
         }
 
         public string GetRemoteDownloadURL()
@@ -27,7 +35,7 @@ namespace URS
             return _remoteDownloadURL;
         }
 
-        public string GetPatchTargetPath() 
+        public string GetFinalPersistentDownloadSavePath() 
         {
             return _targetSaveFilePath;
         }
@@ -65,31 +73,33 @@ namespace URS
         {
             return RemoteFileMeta.RelativePath;
         }
-        public string GetLocalSaveFilePath() 
+        public string GetDownloadTempSaveFilePath() 
         {
-            if (PatchItemVersion != null)
-            {
-                return _patchSavePath;
-            }
-            else
-            {
-                return _targetSaveFilePath;
-            }
+           return _downloadTempSavePath;
         }
 
-        public UpdateEntry(FileMeta remoteFileMeta, string remoteVersionRoot, PatchItemVersion patchItem =null,string remotePatchRoot=null) 
+        public FileMeta GetPatchFileMetaCandidate()
+        {
+            return _patchFileMetaCandidate;
+        }
+
+        public UpdateEntry(FileMeta remoteFileMeta, string remoteVersionRoot, PatchItemVersion patchItem =null,string remotePatchRoot=null,FileMeta patchFileMetaCandidate=null, EnumHardiskDirectoryType patchDirectoryType= EnumHardiskDirectoryType.Invalid
+            ) 
         {
             RemoteFileMeta = remoteFileMeta;
             PatchItemVersion = patchItem;
+            _patchDirectoryType = patchDirectoryType;
             _targetSaveFilePath = URSFileSystem.GetDownloadFolderPath(GetRelativePath());
+            _patchFileMetaCandidate = patchFileMetaCandidate;
             if (PatchItemVersion != null)
             {
                 var pathRelativePath = $"{GetRelativePath()}---{PatchItemVersion.FromHashCode}---{PatchItemVersion.ToHashCode}.patch";
-                _patchSavePath = URSFileSystem.GetDownloadTempPath(pathRelativePath);
+                _downloadTempSavePath = URSFileSystem.GetDownloadTempPath(pathRelativePath);
                 _remoteDownloadURL = $"{remotePatchRoot}/{pathRelativePath}";
             }
             else 
             {
+                _downloadTempSavePath = URSFileSystem.GetDownloadTempPath(GetRelativePath());
                 _remoteDownloadURL = $"{remoteVersionRoot}/{GetRelativePath()}"; 
             }
         }
@@ -134,6 +144,8 @@ namespace URS
             HardiskSourcePath = URSFileSystem.BuildInFolder.GetFileHardiskPath(StreamFileMeta.RelativePath);
             HardiskSourcePath = AssetPathHelper.ConvertToWWWPath(HardiskSourcePath);
         }
+
+        public Action<Unziper> OnFinish = null;
     
     }
 

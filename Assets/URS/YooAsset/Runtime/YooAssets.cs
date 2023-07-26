@@ -83,7 +83,10 @@ namespace YooAsset
 #if !UNITY_EDITOR
             if (_playMode == EPlayMode.EditorPlayMode)
             {
-                _playMode = EPlayMode.HostPlayMode; // 防止犯错
+				if (UnityMacro.Instance.ENABLE_HOTUPDATE)
+					_playMode = EPlayMode.HostPlayMode; // 防止犯错
+				else
+					_playMode = EPlayMode.OfflinePlayMode;
             }
 #endif
             if (parameters == null)
@@ -475,19 +478,28 @@ namespace YooAsset
 		/// </summary>
 		internal static void InternalUpdate()
 		{
-			// 更新异步请求操作
-			OperationSystem.Update();
+            //UnityEngine.Profiling.Profiler.BeginSample("OperationSystem.Update()");
+            // 更新异步请求操作
+            OperationSystem.Update();
 
-			// 解压管理系统
-			UnzipSystem.Update();
+            //UnityEngine.Profiling.Profiler.EndSample();
 
-			// 下载模块
-			RemoteDownloadSystem.Update();
+            //UnityEngine.Profiling.Profiler.BeginSample(" UnzipSystem.Update()");
+            // 解压管理系统
+            UnzipSystem.Update();
 
-            UnityEngine.Profiling.Profiler.BeginSample("AssetSystem.Update");
+           // UnityEngine.Profiling.Profiler.EndSample();
+
+           // UnityEngine.Profiling.Profiler.BeginSample(" RemoteDownloadSystem.Update()");
+            // 下载模块
+            RemoteDownloadSystem.Update();
+
+           // UnityEngine.Profiling.Profiler.EndSample();
+
+            //UnityEngine.Profiling.Profiler.BeginSample("AssetSystem.Update");
             // 轮询更新资源系统
             AssetSystem.Update();
-            UnityEngine.Profiling.Profiler.EndSample();
+            //UnityEngine.Profiling.Profiler.EndSample();
             // 自动释放零引用资源
             if (_releaseCD > 0)
 			{
@@ -495,9 +507,9 @@ namespace YooAsset
 				if (_releaseTimer >= _releaseCD)
 				{
 					_releaseTimer = 0f;
-					UnityEngine.Profiling.Profiler.BeginSample("UnloadUnusedAssets");
+				//	UnityEngine.Profiling.Profiler.BeginSample("UnloadUnusedAssets");
 					AssetSystem.UnloadUnusedAssets();
-                    UnityEngine.Profiling.Profiler.EndSample();
+                  //  UnityEngine.Profiling.Profiler.EndSample();
                 }
 			}
 		}

@@ -27,7 +27,7 @@ namespace Bewildered.SmartLibrary
         [SerializeField] private Texture2D _icon;
         [SerializeField] private RuleSet _rules = new RuleSet();
 
-        [SerializeField] private AssetGUIDHashSet _items = new AssetGUIDHashSet();
+       // [SerializeField] private AssetGUIDHashSet _items = new AssetGUIDHashSet();
         
         [SerializeField] private float _itemDisplaySize = 100;
         [SerializeField] private ItemsViewStyle _viewStyle;
@@ -35,15 +35,16 @@ namespace Bewildered.SmartLibrary
         
         [NonSerialized] private Transform _defaultParentRef;
 
+        [NonSerialized] public  string savePath;
         internal RootLibraryCollection Root
         {
             get { return _root; }
             set { _root = value; }
         }
 
-        public AssetGUIDHashSet GetGUIDHashSet()
+        public virtual AssetGUIDHashSet GetGUIDHashSet()
         {
-            return _items;
+            return null;
         }
 
         /// <summary>
@@ -117,8 +118,15 @@ namespace Bewildered.SmartLibrary
             get
             {
                 if (_id == UniqueID.Empty)
-                    _id = UniqueID.NewUniqueId();
-                
+                {
+                    if (this.GetType() == typeof(RootLibraryCollection))
+                    {
+                        _id = UniqueID.ROOT_UNIQUE_ID;
+                    }
+                    else {
+                        _id = UniqueID.NewUniqueId();
+                    }
+                }
                 return _id;
             }
         }
@@ -157,7 +165,7 @@ namespace Bewildered.SmartLibrary
         /// </summary>
         public int Count
         {
-            get { return _items.Count; }
+            get { return GetGUIDHashSet().Count; }
         }
 
         public float ItemDisplaySize
@@ -218,8 +226,15 @@ namespace Bewildered.SmartLibrary
                 return null;
 
             var collection = (LibraryCollection)CreateInstance(collectionType);
-
-            collection._id = UniqueID.NewUniqueId();
+            if (collectionType == typeof(RootLibraryCollection))
+            {
+                collection._id = UniqueID.ROOT_UNIQUE_ID;
+            }
+            else 
+            {
+                collection._id = UniqueID.NewUniqueId();
+            }
+           
             collection.CollectionName = ObjectNames.NicifyVariableName(collectionType.Name);
             collection.hideFlags = HideFlags.DontSave;
 
@@ -264,7 +279,7 @@ namespace Bewildered.SmartLibrary
         /// <returns><c>true</c> if the <see cref="LibraryCollection"/> contains <paramref name="item"/>; otherwise, <c>false</c>.</returns>
         public bool Contains(LibraryItem item)
         {
-            return _items.Contains(item.GUID);
+            return GetGUIDHashSet().Contains(item.GUID);
         }
 
         public abstract void UpdateItems(bool syn= false);
@@ -278,7 +293,7 @@ namespace Bewildered.SmartLibrary
         /// <returns><c>true</c> if <paramref name="item"/> is added to the <see cref="LibraryCollection"/>; otherwise, <c>false</c> if <paramref name="item"/> is aldreay present.</returns>
         protected bool AddItem(LibraryItem item, bool notifyChange = true)
         {
-            bool added = _items.Add(item.GUID);
+            bool added = GetGUIDHashSet().Add(item.GUID);
             if (added)
             {
                 LibraryDatabase.RootCollection.RegisterWithCollection(item, ID);
@@ -297,7 +312,7 @@ namespace Bewildered.SmartLibrary
         /// <returns><c>true</c> if <paramref name="item"/> is successfully found and removed; otherwise, <c>false</c>. Also returns <c>false</c> if <paramref name="item"/> is not found.</returns>
         protected internal bool RemoveItem(LibraryItem item, bool notifyChange = true)
         {
-            bool removed = _items.Remove(item.GUID);
+            bool removed = GetGUIDHashSet().Remove(item.GUID);
             if (removed)
             {
                 LibraryDatabase.RootCollection.UnregisterWithCollection(item, ID);
@@ -318,11 +333,11 @@ namespace Bewildered.SmartLibrary
             if (notifyChange)
                 itemsCopy = new List<LibraryItem>(this);
 
-            foreach (var item in _items)
+            foreach (var item in GetGUIDHashSet())
             {
                 LibraryDatabase.RootCollection.UnregisterWithCollection(LibraryItem.GetItemInstance(item), ID);
             }
-            _items.Clear();
+            GetGUIDHashSet().Clear();
 
             if (notifyChange)
                 NotifyItemsChanged(itemsCopy, LibraryItemsChangeType.Removed);
@@ -332,12 +347,12 @@ namespace Bewildered.SmartLibrary
         /// Adds the specified <see cref="LibraryCollection"/> as a subcollection to the <see cref="LibraryCollection"/>. Removes it from it's previus parent <see cref="LibraryCollection"/> if it has one.
         /// </summary>
         /// <param name="collection">The <see cref="LibraryCollection"/> to add as a subcollection.</param>
-        public void AddSubcollection(LibraryCollection collection)
+        public void AddSubcollection(LibraryCollection collection,bool silence=false)
         {
-            InsertSubcollection(_subcollections.Count, collection);
+            InsertSubcollection(_subcollections.Count, collection, silence);
         }
 
-        public void InsertSubcollection(int index, LibraryCollection collection)
+        public void InsertSubcollection(int index, LibraryCollection collection, bool silence = false)
         {
             if (collection == null || !collection.IsValidReparenting(this))
                 return;
@@ -370,11 +385,15 @@ namespace Bewildered.SmartLibrary
             //TODO: Replace
             //LibraryData.DequeCollectionDestruction(collection);
 
+           
             FinishChange(undoGroup);
 
-            if (collection.Count > 0)
-                LibraryDatabase.HandleLibraryItemsChanged(new LibraryItemsChangedEventArgs(collection, collection, LibraryItemsChangeType.Added));
-            
+            if (!silence) 
+            {
+                if (collection.Count > 0)
+                    LibraryDatabase.HandleLibraryItemsChanged(new LibraryItemsChangedEventArgs(collection, collection, LibraryItemsChangeType.Added));
+            }
+                
             NotifySubcollectionsChanged(collection, index, HierarchyChangeType.Added);
         }
 
@@ -562,7 +581,7 @@ namespace Bewildered.SmartLibrary
 
         public IEnumerator<LibraryItem> GetEnumerator()
         {
-            var enumerator = _items.GetEnumerator();
+            var enumerator = GetGUIDHashSet().GetEnumerator();
             while (enumerator.MoveNext())
             {
                 yield return LibraryItem.GetItemInstance(enumerator.Current);

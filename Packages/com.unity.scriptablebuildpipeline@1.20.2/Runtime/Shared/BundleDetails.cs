@@ -18,6 +18,9 @@ namespace UnityEngine.Build.Pipeline
         string m_Hash;
 
         [SerializeField]
+        string m_ContentHash;
+
+        [SerializeField]
         string[] m_Dependencies;
 
         /// <summary>
@@ -44,6 +47,13 @@ namespace UnityEngine.Build.Pipeline
         /// This value will not change between identical asset bundles with different compression options.
         /// </summary>
         public Hash128 Hash
+        {
+            get { return Hash128.Parse(m_Hash); }
+            set { m_Hash = value.ToString(); }
+        }
+
+
+        public Hash128 ContentHash
         {
             get { return Hash128.Parse(m_Hash); }
             set { m_Hash = value.ToString(); }

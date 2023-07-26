@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
@@ -23,13 +24,6 @@ namespace YooAsset
 			: base(assetPath, assetType)
 		{
 		}
-
-#if UNITY_EDITOR
-		private static int _sThisFrameCount = 0;
-		private static long _sThisFrameTotalDuration = 0;
-		private static Stopwatch _sLoadingStopwatch = new Stopwatch();
-		private const long FRAME_LIMIT_DURATION = 12;
-#endif
 		
 		public override void Update()
 		{
@@ -49,10 +43,14 @@ namespace YooAsset
 					InvokeCompletion();
 					return;
 				}
-				else
+				
+				// 检测资源文件是否在Library中
+				if (!s_SmartLibraryAssetPathHashSet.Contains(guid))
 				{
-					Status = EStatus.Loading;
+					Logger.Error($"URS SmartLibrary 中找不到资源 \'{this.AssetPath}\' Window/SmartLibrary 中添加该资源后重试，如果你是资源的制作者，那么这条信息非常重要！！！！！如果不是可以当作没看见" );
 				}
+				
+				Status = EStatus.Loading;
 			
 				// 注意：模拟异步加载效果提前返回
 				if (IsWaitForAsyncComplete == false)
@@ -63,19 +61,8 @@ namespace YooAsset
 			if (Status == EStatus.Loading)
 			{
 				_SimulateProgress = Mathf.Lerp(_SimulateProgress, 100.0f, Time.deltaTime * 20.0f);
-				if (_sThisFrameCount != Time.frameCount)
-				{
-					_sThisFrameCount = Time.frameCount;
-					_sThisFrameTotalDuration = 0;
-				}
-				if (_sThisFrameTotalDuration <= FRAME_LIMIT_DURATION)
-				{
-					_sLoadingStopwatch.Restart();
-					AssetObject = UnityEditor.AssetDatabase.LoadAssetAtPath(AssetPath, AssetType);
-					_sLoadingStopwatch.Stop();
-					_sThisFrameTotalDuration += _sLoadingStopwatch.ElapsedMilliseconds;
-					Status = EStatus.Checking;
-				}
+				AssetObject = UnityEditor.AssetDatabase.LoadAssetAtPath(AssetPath, AssetType);
+				Status = EStatus.Checking;
 			}
 
 			// 2. 检测加载结果

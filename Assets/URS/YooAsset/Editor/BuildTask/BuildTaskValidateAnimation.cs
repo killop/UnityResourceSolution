@@ -7,11 +7,15 @@ using UnityEditor;
 using UnityEngine.Rendering;
 using System.Reflection;
 using System.IO;
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using System.Linq;
 using System;
+using System.ComponentModel;
 
-public class BuildTaskCheckAnimation : BuildTask
+public class BuildTaskValidateAnimation : BuildTask
 {
 
     public override void BeginTask()

@@ -13,6 +13,7 @@ public class BuildTask
     public const string CONTEXT_ASSET_INFO = "asset_info";
     public const string CONTEXT_BUNDLE_INFO = "bundle_info";
     public const string CONTEXT_BUNDLE_RESULT = "bundle_result";
+    public const string CONTEXT_BUNDLE_LAYOUT = "bundle_layout";
     public const string CONTEXT_GLOBAL_BUNDLE_EXTRA_ASSET = "global_bundle_extra_asset";
 
     public const string CONTEXT_SPRITE_CHECHER = "sprite_in_atlas_checker";
@@ -23,6 +24,10 @@ public class BuildTask
     public const string CONTEXT_CHANNEL = "channel";
     public const string CONTEXT_CHANNEL_TARGET_VERSION = "channel_target_version";
     public const string CONTEXT_VERSION_KEEP_COUNT  = "version_keep_count";
+    public const string CONTEXT_VERSION_HISTORY = "version_history";
+    public const string CONTEXT_VERSION_BUNDLE_HASH = "version_hash";
+    public const string CONTEXT_DEBUG = "debug";
+
     //public const string TEMP_VERSION_DIRECTORY = "temp_version_directory";
 
 
@@ -36,15 +41,15 @@ public class BuildTask
     {
         _context = context;
     }
-    public T GetData<T>(string key) where T : class {
+    public T GetData<T>(string key)  {
         if (_context.ContainsKey(key))
         {
             var ob = (_context[key]);
-            return ob as T;
+            return (T)ob ;
         }
         return default(T);
     }
-
+ 
     public T GetOrAddData<T>(string key) where T : class, new()
     {
         if (_context.ContainsKey(key))

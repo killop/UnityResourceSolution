@@ -13,9 +13,71 @@ using Context = System.Collections.Generic.Dictionary<string, object>;
 
 namespace URS.Editor 
 {
+    [Serializable]
+    public class VersionHistory 
+    {
+        [SerializeField]
+        public AssetVersionHistory AssetVersion;
+
+        [SerializeField]
+        public AssetBundleVersionHistory AssetBundleVersion;
+
+        [SerializeField]
+        public LayoutLookupTables BundleLayout;
+
+        [SerializeField]
+        public BundleHash BundleHash;
+
+        [SerializeField]
+        public string BundleBuildLog;
+    }
+    [Serializable]
+    public class AssetVersionHistory
+    {
+        [SerializeField]
+        public AssetVersionItem[] Assets;
+    }
+    [Serializable]
+    public class AssetBundleVersionHistory
+    {
+        [SerializeField]
+        public AssetBundleVersionItem[] AssetBundles;
+    }
+
+    [Serializable]
+    public class AssetVersionItem
+    {
+        [SerializeField]
+        public string AssetPath;
+
+        [SerializeField]
+        public uint AssetFileHash;
+
+        [SerializeField]
+        public bool HasAssetBundleName;
+
+        [SerializeField]
+        public string AssetBundleName;
+    }
+
+    [Serializable]
+    public class AssetBundleVersionItem
+    {
+        [SerializeField]
+        public string BundleName;
+
+        [SerializeField]
+        public string [] AssetPaths;
+
+        public string SelfHash;
+
+        public string CRC;
+
+        public string HashCode;
+    }
     public class VersionBuilder
     {
-        public static void BuildVersion(string directoryPath, IFileSystem fileSystem,string version,Dictionary<string,AdditionFileInfo> additionFileInfo,out string newDirectoryName)
+        public static void BuildVersion(string channel,string directoryPath, IFileSystem fileSystem,string version,Dictionary<string,AdditionFileInfo> additionFileInfo, VersionHistory versionHistrory,out string newDirectoryName,bool debug)
         {
             var orignDirectoryName = Path.GetDirectoryName(directoryPath);
             newDirectoryName = orignDirectoryName;
@@ -78,7 +140,10 @@ namespace URS.Editor
                     newDirectoryName = tmpNewDirectoryName;
                     fileSystem.DirectoryRename(directoryPath, newDirectoryName);
                 }
-                
+                if (debug) 
+                {
+                    BuildHistory(channel,tmpNewDirectoryName, versionHistrory);
+                }
             }
             else 
             {
@@ -86,6 +151,53 @@ namespace URS.Editor
             }
           
         }
+
+        public static void BuildHistory(string channel,string versionName, VersionHistory versionHistrory) 
+        {
+            if (versionHistrory == null) return;
+            var versionDirectory = $"{URS.Build.GetVersionHistoryFolder(channel)}/{versionName}";
+            Directory.CreateDirectory(versionDirectory);
+
+            var assetVersionHistoryFilePath = $"{versionDirectory}/AssetVersionHistory.json";
+            if (File.Exists(assetVersionHistoryFilePath))
+            {
+                File.Delete(assetVersionHistoryFilePath);
+            }
+
+            var assetVersionHistoryJson = JsonUtility.ToJson(versionHistrory.AssetVersion, true);
+            File.WriteAllText(assetVersionHistoryFilePath, assetVersionHistoryJson);
+
+
+            var assetBundleVersionHistoryFilePath = $"{versionDirectory}/AssetBundleVersionHistory.json";
+            if (File.Exists(assetBundleVersionHistoryFilePath))
+            {
+                File.Delete(assetBundleVersionHistoryFilePath);
+            }
+
+            var assetBundleVersionHistoryJson = JsonUtility.ToJson(versionHistrory.AssetBundleVersion, true);
+            File.WriteAllText(assetBundleVersionHistoryFilePath, assetBundleVersionHistoryJson);
+
+            var assetBundleHashHistoryFilePath = $"{versionDirectory}/{ASSET_BUNDLE_HASH_HISTORY_FILE_NAME}";
+            if (File.Exists(assetBundleHashHistoryFilePath))
+            {
+                File.Delete(assetBundleHashHistoryFilePath);
+            }
+
+            var assetBundleHashHistoryJson = JsonUtility.ToJson(versionHistrory.BundleHash, true);
+            File.WriteAllText(assetBundleHashHistoryFilePath, assetBundleHashHistoryJson);
+
+            var bundleBuildLog = $"{versionDirectory}/{ASSET_BUNDLE_BUNDLE_BUILD_LOG_HISTORY_FILE_NAME}";
+            if (File.Exists(bundleBuildLog))
+            {
+                File.Delete(bundleBuildLog);
+            }
+            File.WriteAllText(bundleBuildLog, versionHistrory.BundleBuildLog);
+
+        }
+
+        public const string ASSET_BUNDLE_HASH_HISTORY_FILE_NAME = "AssetBundleHashHistory.json";
+
+        public const string ASSET_BUNDLE_BUNDLE_BUILD_LOG_HISTORY_FILE_NAME = "buildlogtep.json";
 
         public static void BuildVersions(string versionRootDirectory,IFileSystem fileSystem)
         {
@@ -171,7 +283,7 @@ namespace URS.Editor
         }
         
 
-        public static void BuildPatch(string versionRootDirectory,IFileSystem fileSystem, string targetVersionCode = null)
+        public static void BuildPatch(string channel,string versionRootDirectory,IFileSystem fileSystem, string targetVersionCode = null,bool debug = false)
         {
 
             var setting = URSRuntimeSetting.instance;
@@ -231,10 +343,15 @@ namespace URS.Editor
                         {
                             var versionCode = versionIndex.Versions[i].VersionCode;
                             var currentDirectoryName = $"{versionCode}---{versionIndex.Versions[i].FilesVersionHash}";
-                            var differenceCount = 0;
-                            var missCount = 0;
-                            BinaryDiffVersionDirectroy(versionRootDirectory, patchDirecrtory, tempDirectory, currentDirectoryName, targetVersionDiretoryName, fileSystem, ref patchItemInfos,ref differenceCount,ref missCount);
-                            Debug.Log($"From Version{versionCode},To Version{targetVersion.VersionCode},PatchCount {differenceCount} missCount{missCount}");
+                            HashSet<string> patchs = null ;
+                            HashSet<string> missPaths= null ;
+                            BinaryDiffVersionDirectroy(versionRootDirectory, patchDirecrtory, tempDirectory, currentDirectoryName, targetVersionDiretoryName, fileSystem, ref patchItemInfos,ref patchs, ref missPaths);
+                            Debug.Log($"From Version{versionCode},To Version{targetVersion.VersionCode},PatchCount {patchs.Count} missCount{missPaths.Count}");
+
+                            if (debug)
+                            {
+                                CheckBundleHash(channel, patchs, currentDirectoryName, targetVersionDiretoryName);
+                            }
                         }
                     }
                    
@@ -252,15 +369,50 @@ namespace URS.Editor
                         return a.RelativePath.CompareTo(b.RelativePath);
                     });
                     versionIndex.Patches = pathItemArray;
-                    fileSystem.DeleteDirectory((FilePath)tempDirectory);
-
+                    if (Directory.Exists(tempDirectory)) 
+                    {
+                        fileSystem.DeleteDirectory((FilePath)tempDirectory);
+                    }
                     var IndexJson = JsonUtility.ToJson(versionIndex, true);
                     File.Delete(IndexJsonPath.FullPath);
                     fileSystem.WriteAllTextToFile(IndexJsonPath, IndexJson);
                 }
             }
         }
-        
+
+        private static void CheckBundleHash(string channel,HashSet<string> DifferentPaths, string versionDirectoryName1, string versionDirectoryName2)
+        {
+            if (DifferentPaths == null || DifferentPaths.Count==0) return;
+            var historyDirectoryRoot =  Build.GetVersionHistoryFolder(channel);
+            var bundleHashHistory1 = $"{historyDirectoryRoot}/{versionDirectoryName1}/{ASSET_BUNDLE_HASH_HISTORY_FILE_NAME}";
+            var bundleHashHistory2 = $"{historyDirectoryRoot}/{versionDirectoryName2}/{ASSET_BUNDLE_HASH_HISTORY_FILE_NAME}";
+            if (!File.Exists(bundleHashHistory1))
+            {
+                Debug.LogWarning($"do exist bundle hash history file,path:{bundleHashHistory1}");
+                return;
+            }
+            if (!File.Exists(bundleHashHistory2))
+            {
+                Debug.LogWarning($"do exist bundle hash history file,path:{bundleHashHistory2}");
+                return;
+            }
+            var bundleHash1= JsonUtility.FromJson<BundleHash>(File.ReadAllText(bundleHashHistory1));
+            bundleHash1.Init();
+            var bundleHash2 = JsonUtility.FromJson<BundleHash>(File.ReadAllText(bundleHashHistory2));
+            bundleHash2.Init();
+
+            HashSet<string> differentBundle= new HashSet<string>();
+            foreach (var relativePath in DifferentPaths)
+            {
+                var extension = Path.GetExtension(relativePath);
+                if (extension == ".bundle")
+                {
+                    var bundleName = Path.GetFileName(relativePath);
+                    differentBundle.Add(bundleName);
+                }
+            }
+            bundleHash1.Compare(bundleHash2, differentBundle);
+        }
         
         private static void BinaryDiffVersionDirectroy(
             string versionRootDirectory,
@@ -270,11 +422,11 @@ namespace URS.Editor
             string toDirectoryName, 
             IFileSystem fileSystem,
             ref Dictionary<string,List<PatchItemVersion>> collector,
-            ref int differenceCount,
-            ref int missCount)
+            ref HashSet<string> differencePaths,
+            ref HashSet<string> missPaths)
         {
-            differenceCount = 0;
-            missCount = 0;
+            differencePaths = new HashSet<string>();
+            missPaths = new HashSet<string>() ;
             var setting = URSRuntimeSetting.instance;
             fromDirectoryName = fileSystem.CombinePaths(versionRootDirectory, fromDirectoryName).FullPath;
             toDirectoryName = fileSystem.CombinePaths(versionRootDirectory, toDirectoryName).FullPath;
@@ -326,7 +478,8 @@ namespace URS.Editor
                         if (!collector.ContainsKey(relativePath))
                         {
                             var list = new List<PatchItemVersion>();
-                            differenceCount++;
+                            differencePaths.Add(relativePath);
+                            //Debug.Log($"from {fromDirectoryName} to {toDirectoryName} patched  asset path: {relativePath}");
                             list.Add(new PatchItemVersion()
                             {
                                 FromHashCode = fromHashCode,
@@ -351,7 +504,8 @@ namespace URS.Editor
                             }
                             if (!find)
                             {
-                                differenceCount++;
+                                differencePaths.Add(relativePath);
+                                //Debug.Log($"from {fromDirectoryName} to {toDirectoryName} patched  asset path: {relativePath}");
                                 list.Add(new PatchItemVersion()
                                 {
                                     FromHashCode = fromHashCode,
@@ -366,11 +520,13 @@ namespace URS.Editor
                 }
                 else 
                 {
-                    missCount++;
+                    missPaths.Add(relativePath);
+                    //Debug.Log($"from {fromDirectoryName} to {toDirectoryName} miss  asset path: {relativePath}");
+                   // missCount++;
                 }
             }
         }
-        public static void BuildChannelVersions(string versionRootDirectory , int purgeVersionCount = 4, string targetVersion = null)
+        public static void BuildChannelVersions(string channel,string versionRootDirectory , int purgeVersionCount = 4, string targetVersion = null,bool debug=false)
         {
             var fileSystem = new FileSystem();
             BuildVersions(versionRootDirectory, fileSystem);
@@ -378,7 +534,7 @@ namespace URS.Editor
             {
                 PurgeVersion(versionRootDirectory, fileSystem, targetVersion, purgeVersionCount);
             }
-            BuildPatch(versionRootDirectory, fileSystem, targetVersion);
+            BuildPatch(channel,versionRootDirectory, fileSystem, targetVersion,debug);
         }
 
         /// <summary>

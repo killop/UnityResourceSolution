@@ -111,12 +111,26 @@ public class AssetInfo
                                       //  public string resourceGroup;
     public bool isMain = false;
     public int refrenceCount = 0;
+
+    public List<string> shareReferencedMainAssets = null; 
     public List<string> mainAssetDependencys = null;
     public HashSet<string> assetBundleNames = null;
 
     public string shareCombineAssetBundleName = null;
+
+    public string optimizedShareAssetBundleName = null;
+
     private  bool forceNoBundleName = false;
 
+
+    public void AddShareReferencedMainAssets(string path) 
+    {
+
+        if (shareReferencedMainAssets == null) {
+            shareReferencedMainAssets= new List<string>();
+        }
+        shareReferencedMainAssets.Add(path);
+    }
     public bool HasAssetBundleName()
     {
         if (forceNoBundleName)
@@ -159,6 +173,10 @@ public class AssetInfo
         }
         else
         {
+            if (!string.IsNullOrEmpty(optimizedShareAssetBundleName))
+            {
+                return optimizedShareAssetBundleName;
+            }
             if (!string.IsNullOrEmpty(shareCombineAssetBundleName))
             {
                return shareCombineAssetBundleName;
@@ -264,6 +282,8 @@ public class AssetInfo
         buildTasks.Add(extractData);
         var generation = new BuildLayoutGenerationTask();
         buildTasks.Add(generation);
+        var checkHash = new BuidTaskCheckBundleHash();
+        buildTasks.Add(checkHash);
         var targetGroup = BuildPipeline.GetBuildTargetGroup(UnityEditor.EditorUserBuildSettings.activeBuildTarget);
         var target = UnityEditor.EditorUserBuildSettings.activeBuildTarget;
         var outFolder = Build.GetTempBundleOutDirectoryPath();
@@ -298,7 +318,8 @@ public class AssetInfo
         }
         File.WriteAllText(manifestFileName, manifest.ToString());
         SetData(CONTEXT_BUNDLE_RESULT, results);
-       
+        SetData(CONTEXT_BUNDLE_LAYOUT, generation.LayoutLookupTables);
+        SetData(CONTEXT_VERSION_BUNDLE_HASH, checkHash.BundleHash);
         return ReturnCode.Success;
     }
   

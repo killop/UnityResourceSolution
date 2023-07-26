@@ -275,7 +275,7 @@ namespace UnityEditor.Build.Pipeline.Tasks
                             assetResult.objectTypes = objectTypes;
                             output.AssetResults[i] = assetResult;
                             output.CachedAssetCount++;
-                            input.Logger.AddEntrySafe(LogLevel.Info, $"{assetResult.asset} (cached)");
+                            input.Logger.AddEntrySafe(LogLevel.Info, $"Path:{AssetDatabase.GUIDToAssetPath(assetInfos.asset)}  Guid :{assetResult.asset} (cached)");
                             continue;
                         }
                     }
@@ -286,7 +286,7 @@ namespace UnityEditor.Build.Pipeline.Tasks
                     if (!input.ProgressTracker.UpdateInfoUnchecked(assetPath))
                         return ReturnCode.Canceled;
 
-                    input.Logger.AddEntrySafe(LogLevel.Info, $"{assetResult.asset}");
+                    input.Logger.AddEntrySafe(LogLevel.Info, $"Path:{assetPath}  Guid :{assetResult.asset} (not cached)");
 
                     assetResult.assetInfo = new AssetLoadInfo();
                     assetResult.usageTags = new BuildUsageTagSet();

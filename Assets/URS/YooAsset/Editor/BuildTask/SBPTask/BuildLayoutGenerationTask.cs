@@ -17,7 +17,7 @@ namespace URS
     {
         const int k_Version = 1;
 
-        internal static Action<LayoutLookupTables> s_LayoutCompleteCallback;
+        public LayoutLookupTables LayoutLookupTables { get; private set; }
 
         /// <summary>
         /// The GenerateLocationListsTask version.
@@ -262,16 +262,21 @@ namespace URS
         /// <returns>The success or failure ReturnCode</returns>
         public ReturnCode Run()
         {
-            LayoutLookupTables LayoutLookupTables = CreateBuildLayout();
-
+            LayoutLookupTables lookTable = CreateBuildLayout();
+            lookTable.PrepareSerialize();
             var path = (m_Parameters as BuildParameters).OutputFolder + "/buildlayout.txt";
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            using (FileStream s = File.Open(path, FileMode.Create))
-                BuildLayoutPrinter.WriteBundleLayout(s, LayoutLookupTables);
+            //  using (FileStream s = File.Open(path, FileMode.Create))
+            //    BuildLayoutPrinter.WriteBundleLayout(s, LayoutLookupTables);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            File.WriteAllText(path,UnityEngine.JsonUtility.ToJson(lookTable,true));
 
             UnityEngine.Debug.Log($"Build layout written to {path}");
 
-            s_LayoutCompleteCallback?.Invoke(LayoutLookupTables);
+            this.LayoutLookupTables = lookTable;
 
             return ReturnCode.Success;
         }

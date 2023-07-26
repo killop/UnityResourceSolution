@@ -19,7 +19,7 @@ public class BuildTaskUpdateCollection : BuildTask
         base.BeginTask();
       //  SearchService.Refresh();
         LibraryDatabase.RootCollection.RemoveInvailidItem();
-        EditorUtility.DisplayProgressBar("UpdateCollections", "¿ªÊ¼ÊÕ¼¯´ò°ü×ÊÔ´", 0);
+        EditorUtility.DisplayProgressBar("UpdateCollections", "å¼€å§‹æ”¶é›†æ‰“åŒ…èµ„æº", 0);
         _tasks = new List<CollectionSearchTask>();
         var root = SessionData.instance;
         if (root != null)

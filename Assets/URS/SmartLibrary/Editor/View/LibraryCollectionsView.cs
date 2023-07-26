@@ -115,8 +115,19 @@ namespace Bewildered.SmartLibrary.UI
         /// <param name="add">The action to take to add an item. For baseCollections should add item to rootItems; otherwise add as a child to the current item.</param>
         private void CreateTreeItems(IEnumerable<LibraryCollection> collections, System.Action<BTreeViewItem> add)
         {
+            bool isFirst = true;
             foreach (LibraryCollection collection in collections)
             {
+                if (collection == null)
+				{
+                    var s = "你的SmartLibrary错了，如果你不知道SmartLibrary是什么，那就\n1. 把Unity关闭\n2. 然后把Git里面多出来的SmartLibrarySetting***********.collect删除\n3. 修改过的SmartLibrarySetting***********.collect恢复\n4. 再重新启动unity";
+                    Debug.LogError(s);
+                    if (isFirst)
+					{
+                        isFirst = false;
+                        EditorUtility.DisplayDialog("123", s, "ok");
+                    }
+				}
                 var item = new CollectionTreeViewItem(collection, NextId());
                 add(item);
                 _collectionItemMap.Add(collection, item);

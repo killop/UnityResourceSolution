@@ -1,21 +1,26 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using Daihenka.AssetPipeline.Import;
+using NinjaBeats;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEngine;
 
-class CustomAssetImportPostprocessor  
+public class CustomAssetImportPostprocessor
 {
     public const string VFXDirectoryPath = "Assets/GameResources/VFX/Texture";
+    public const string VFXDirectoryPath2 = "Assets/GameResources/VFX/Scene/Texture";
 
-    private static string[] Platforms = new string[] {"Android","iOS" };
-   public static void OnPostprocessTexture(string assetPath,AssetImporter assetImporter)
-   {
+
+    private static string[] Platforms = new string[] { "Android", "iOS" };
+
+    public static void OnPostprocessTexture(string assetPath, AssetImporter assetImporter)
+    {
         if (assetPath == null) return;
-        if (!assetPath.Contains(VFXDirectoryPath)) return;
-   
+        if ((!assetPath.Contains(VFXDirectoryPath)) && (!assetPath.Contains(VFXDirectoryPath2))) return;
+
         var ti = assetImporter as TextureImporter;
         if (ti == null) return;
 
@@ -23,114 +28,166 @@ class CustomAssetImportPostprocessor
         string message = "";
         foreach (var platform in Platforms)
         {
-            
             var currentSetting = ti.GetPlatformTextureSettings(platform);
             // Debug.LogError("platform.name " + platform + " tPath ? " + (tPath));
             if (currentSetting == null)
             {
-                message += $"  Ã»ÓĞ°²×°{platform}µÄÀ©Õ¹  ";
+                message += $"  æ²¡æœ‰å®‰è£…{platform}çš„æ‰©å±•  ";
                 showWarning = true;
             }
+
             if (!currentSetting.overridden)
             {
-                message += $"   {platform}Ã»ÓĞµã»÷overrider  ";
+                message += $"   {platform}æ²¡æœ‰ç‚¹å‡»overrider  ";
                 showWarning = true;
             }
-            if (currentSetting.overridden&&currentSetting.maxTextureSize > 1024)
-            {
 
-                message += $"  {platform}maxTextureSize ²»ÄÜ¸ßÓÚ1024  ";
-                showWarning = true;
-            }
-            if (currentSetting.overridden&&currentSetting.format != TextureImporterFormat.ASTC_4x4
-                && currentSetting.format != TextureImporterFormat.ASTC_5x5
-                && currentSetting.format != TextureImporterFormat.ASTC_6x6
-                && currentSetting.format != TextureImporterFormat.ASTC_8x8
-                && currentSetting.format != TextureImporterFormat.ASTC_10x10
-                && currentSetting.format != TextureImporterFormat.ASTC_12x12
-                     )
+            if (currentSetting.overridden && currentSetting.maxTextureSize > 1024)
             {
-
-                message += $"{platform}format ²»ÊÇastc,µ±Ç°µÄ¸ñÊ½ÊÇ {currentSetting.format}";
+                message += $"  {platform}maxTextureSize ä¸èƒ½é«˜äº1024  ";
                 showWarning = true;
             }
-           
+
+            if (currentSetting.overridden && currentSetting.format != TextureImporterFormat.ASTC_4x4
+                                          && currentSetting.format != TextureImporterFormat.ASTC_5x5
+                                          && currentSetting.format != TextureImporterFormat.ASTC_6x6
+                                          && currentSetting.format != TextureImporterFormat.ASTC_8x8
+                                          && currentSetting.format != TextureImporterFormat.ASTC_10x10
+                                          && currentSetting.format != TextureImporterFormat.ASTC_12x12
+               )
+            {
+                message += $"{platform}format ä¸æ˜¯astc,å½“å‰çš„æ ¼å¼æ˜¯ {currentSetting.format}";
+                showWarning = true;
+            }
         }
+
         if (showWarning)
         {
-            if (EditorApplication.isUpdating && EditorUtility.DisplayDialog("¾¯¸æ", $"ÌØĞ§ÌùÍ¼Ã»ÓĞÉèÖÃ,Â·¾¶{assetPath}£¬Ô­Òò {message}", "È·¶¨"))
+            if (EditorApplication.isUpdating && EditorUtility.DisplayDialog("è­¦å‘Š", $"ç‰¹æ•ˆè´´å›¾æ²¡æœ‰è®¾ç½®,è·¯å¾„{assetPath}ï¼ŒåŸå›  {message}", "ç¡®å®š"))
             {
-
             }
         }
         else
         {
-            Debug.Log($"ÌØĞ§ÌùÍ¼ÉèÖÃOK,Â·¾¶{assetPath}");
+            Debug.Log($"ç‰¹æ•ˆè´´å›¾è®¾ç½®OK,è·¯å¾„{assetPath}");
         }
     }
 
-    [MenuItem("Tools/¼ì²éÌØĞ§ÌùÍ¼ÉèÖÃ")]
-    public static void CheckVFXTexture()
+    public delegate void CheckVFXTextureDelegate(string assetPath, string message);
+
+    public static void CheckVFXTexture(string assetPath, CheckVFXTextureDelegate func, int preferMaxTextureSize = 1024)
     {
-        var textures= AssetDatabase.FindAssets("t:Texture", new string[] { VFXDirectoryPath });
+        var assetImporter = AssetImporter.GetAtPath(assetPath);
+
+        var ti = assetImporter as TextureImporter;
+
+        //Debug.LogError("platform.name " + tPath + " is null? " + (ti==null));
+        if (ti == null)
+            return;
+
+        string message = "";
+
+        var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
+        if (texture != null)
+        {
+            if ((texture.width & texture.width - 1) != 0 || (texture.height & texture.height - 1) != 0)
+            {
+                message += "  ä¸æ˜¯2çš„å¹‚æ¬¡æ–¹";    
+            }
+        }
+
+        if (ti.isReadable)
+        {
+            message += "  ä¸èƒ½å¼€å¯Read/Write Enabled";
+        }
+        
+        if (ti.mipmapEnabled)
+        {
+            message += $"  ä¸èƒ½å¼€å¯mipmap";
+        }
+
+        if (ti.streamingMipmaps)
+        {
+            message += "  ä¸èƒ½å¼€å¯mipmapä¸²æµ";
+        }
+
+        int maxTextureSize = 0;
+        TextureImporterFormat format = TextureImporterFormat.Automatic;
+        bool isFirst = true;
+        foreach (var platform in Platforms)
+        {
+            var currentSetting = ti.GetPlatformTextureSettings(platform);
+            // Debug.LogError("platform.name " + platform + " tPath ? " + (tPath));
+            if (currentSetting == null)
+            {
+                message += $"  æ²¡æœ‰å®‰è£…\'{platform}\'çš„æ‰©å±•";
+            }
+
+            if (!currentSetting.overridden)
+            {
+                message += $"  \'{platform}\'æ²¡æœ‰ç‚¹å‡»override";
+            }
+
+            if (currentSetting.overridden && currentSetting.maxTextureSize > preferMaxTextureSize)
+            {
+                message += $"  \'{platform}\'maxTextureSize ä¸èƒ½é«˜äº{preferMaxTextureSize}";
+            }
+
+            if (currentSetting.overridden && currentSetting.format != TextureImporterFormat.ASTC_4x4
+                                          && currentSetting.format != TextureImporterFormat.ASTC_5x5
+                                          && currentSetting.format != TextureImporterFormat.ASTC_6x6
+                                          && currentSetting.format != TextureImporterFormat.ASTC_8x8
+                                          && currentSetting.format != TextureImporterFormat.ASTC_10x10
+                                          && currentSetting.format != TextureImporterFormat.ASTC_12x12
+               )
+            {
+                message += $"  \'{platform}\'format ä¸æ˜¯astc ,å½“å‰çš„æ ¼å¼æ˜¯ {currentSetting.format}";
+            }
+
+            if (isFirst)
+            {
+                isFirst = false;
+                maxTextureSize = currentSetting.maxTextureSize;
+                format = currentSetting.format;
+            }
+            else
+            {
+                if (maxTextureSize != currentSetting.maxTextureSize)
+                {
+                    message += $"  \'Android\'ä¸\'iOS\'maxTextureSize ä¸ä¸€è‡´";
+                }
+
+                if (format != currentSetting.format)
+                {
+                    message += $"  \'Android\'ä¸\'iOS\'format ä¸ä¸€è‡´";
+                }
+            }
+        }
+
+        func(assetPath, message);
+    }
+
+    public static void CheckVFXTexture(CheckVFXTextureDelegate func)
+    {
+        var textures = AssetDatabase.FindAssets("t:Texture", new string[] { VFXDirectoryPath });
         if (textures == null) return;
         //Debug.LogError("platform.name " + textures.Length);
         foreach (var guid in textures)
         {
             var tPath = AssetDatabase.GUIDToAssetPath(guid);
-            var assetImporter= AssetImporter.GetAtPath(tPath);
-         
-            var ti = assetImporter as TextureImporter;
-
-            //Debug.LogError("platform.name " + tPath + " is null? " + (ti==null));
-            if (ti == null) continue;
-
-            bool showWarning = false;
-            string message = "";
-            foreach (var platform in Platforms)
-            {
-               
-                var currentSetting = ti.GetPlatformTextureSettings(platform);
-               // Debug.LogError("platform.name " + platform + " tPath ? " + (tPath));
-                if (currentSetting == null)
-                {
-                    message += $"  Ã»ÓĞ°²×°{platform}µÄÀ©Õ¹  ";
-                    showWarning = true;
-                }
-                if (!currentSetting.overridden)
-                {
-                    message += $"   {platform}Ã»ÓĞµã»÷overrider  ";
-                    showWarning = true;
-                }
-                if (currentSetting.overridden&&currentSetting.maxTextureSize > 1024)
-                {
-
-                    message += $"  {platform}maxTextureSize ²»ÄÜ¸ßÓÚ1024 ";
-                    showWarning = true;
-                }
-                if (currentSetting.overridden&&currentSetting.format != TextureImporterFormat.ASTC_4x4
-                    && currentSetting.format != TextureImporterFormat.ASTC_5x5
-                    && currentSetting.format != TextureImporterFormat.ASTC_6x6
-                    && currentSetting.format != TextureImporterFormat.ASTC_8x8
-                    && currentSetting.format != TextureImporterFormat.ASTC_10x10
-                    && currentSetting.format != TextureImporterFormat.ASTC_12x12
-                         )
-                {
-
-                    message += $"{platform}format ²»ÊÇastc ,µ±Ç°µÄ¸ñÊ½ÊÇ {currentSetting.format}";
-                    showWarning = true;
-                }
-                
-            }
-            if (showWarning)
-            {
-                Debug.LogError($"ÌØĞ§ÌùÍ¼Ã»ÓĞÉèÖÃ,Â·¾¶{tPath},Ô­Òò:{message}");
-            }
-            else
-            {
-                Debug.Log($"ÌØĞ§ÌùÍ¼ÉèÖÃOK,Â·¾¶{tPath}");
-            }
-
+            CheckVFXTexture(tPath, func);
         }
+    }
+
+    [MenuItem("Tools/æ£€æŸ¥ç‰¹æ•ˆè´´å›¾è®¾ç½®")]
+    public static void CheckVFXTexture()
+    {
+        CheckVFXTexture((assetPath, message) =>
+        {
+            if (!string.IsNullOrWhiteSpace(message))
+                Debug.LogError($"ç‰¹æ•ˆè´´å›¾æ²¡æœ‰è®¾ç½®,è·¯å¾„{assetPath},åŸå› :{message}");
+            else
+                Debug.Log($"ç‰¹æ•ˆè´´å›¾è®¾ç½®OK,è·¯å¾„{assetPath}");
+        });
     }
 }

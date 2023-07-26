@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Daihenka.AssetPipeline.Import;
@@ -28,7 +29,7 @@ namespace Daihenka.AssetPipeline
             {ImportAssetType.Other, (Texture2D) UnityEditorDynamic.EditorGUIUtility.FindTextureByType(typeof(TextAsset))},
         };
 
-        internal static string GetAssetType(string assetPath)
+        public static string GetAssetType(string assetPath)
         {
             var extension = Path.GetExtension(assetPath).ToLowerInvariant();
             switch (extension)
@@ -346,7 +347,7 @@ namespace Daihenka.AssetPipeline
             }
         }
 
-        [MenuItem("Assets/Asset Pipeline/Force Apply Processors")]
+        [MenuItem("Assets/资产管理工具（Asset Pipeline）/Force Apply Processors")]
         static void ForceApplyProcessors()
         {
             foreach (var obj in Selection.objects)
@@ -357,7 +358,7 @@ namespace Daihenka.AssetPipeline
             }
         }
 
-        [MenuItem("Assets/Asset Pipeline/Force Apply Processors", true)]
+        [MenuItem("Assets/资产管理工具（Asset Pipeline）/Force Apply Processors", true)]
         static bool ValidateForceApplyProcessors()
         {
             return Selection.objects.Length > 0;
@@ -387,6 +388,82 @@ namespace Daihenka.AssetPipeline
             }
 
             return processors;
+        }
+
+        static bool ApplyAssets(string assetPath)
+        {
+            bool result = false;
+            foreach (var profile in AssetImportProfile.AllProfiles)
+            {
+                if (!profile || !profile.enabled)
+                    continue;
+                if (!profile.IsMatch(assetPath))
+                    continue;
+
+                foreach (var filter in profile.assetFilters)
+                {
+                    if (!filter || !filter.enabled)
+                        continue;
+                    if (!filter.IsMatch(assetPath))
+                        continue;
+
+                    var userData = new ImportProfileUserData(assetPath);
+                    foreach (var processor in filter.assetProcessors)
+                    {
+                        if (!processor || !processor.enabled)
+                            continue;
+                        if (!processor.IsConfigOK(userData.GetAssetImporter()) || !userData.HasProcessor(processor))
+                        {
+                            AssetProcessor.SetForceApply(assetPath, true);
+                            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+                            AssetProcessor.SetForceApply(assetPath, false);
+                            result = true;
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+        
+        [MenuItem("Tools/资产管理工具（Asset Pipeline）/一键处理资产")]
+        static void ApplyAssets()
+        {
+            try
+            {
+                List<string> guidList = new();
+                guidList.AddRange(AssetDatabase.FindAssets("t:Texture", new string[]
+                {
+                    "Assets/Scenes",
+                    "Assets/GameResources",
+                }));
+                guidList.AddRange(AssetDatabase.FindAssets("t:Model", new string[]
+                {
+                    "Assets/Scenes",
+                    "Assets/GameResources",
+                }));
+                for (int i = 0; i < guidList.Count; ++i)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guidList[i]);
+                    if (string.IsNullOrWhiteSpace(path))
+                        continue;
+                    if (path.Contains("NotInBundle", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (path.Contains("/Editor/"))
+                        continue;
+
+                    EditorUtility.DisplayProgressBar("一键处理资产", path, (float)i / (float)guidList.Count);
+                    ApplyAssets(path);
+                }
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
+            
         }
     }
 }

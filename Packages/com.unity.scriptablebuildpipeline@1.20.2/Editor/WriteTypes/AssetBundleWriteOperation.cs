@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Policy;
 using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEditor.Build.Pipeline.Utilities;
 using UnityEngine;
+using System.Reflection;
 
 namespace UnityEditor.Build.Pipeline.WriteTypes
 {
@@ -14,6 +16,13 @@ namespace UnityEditor.Build.Pipeline.WriteTypes
     [Serializable]
     public class AssetBundleWriteOperation : IWriteOperation
     {
+        static MethodInfo BuildReferenceMapSerializeToJson = null;
+         static AssetBundleWriteOperation() {
+
+            BuildReferenceMap BM= new BuildReferenceMap();
+            var type= BM.GetType();
+           BuildReferenceMapSerializeToJson = type.GetMethod("SerializeToJson",BindingFlags.Instance| BindingFlags.NonPublic | BindingFlags.Public);
+        }
         /// <inheritdoc />
         public WriteCommand Command { get; set; }
         /// <inheritdoc />
@@ -51,24 +60,56 @@ namespace UnityEditor.Build.Pipeline.WriteTypes
         public Hash128 GetHash128(IBuildLogger log)
         {
             HashSet<CacheEntry> hashObjects = new HashSet<CacheEntry>();
-            using (log.ScopedStep(LogLevel.Verbose, $"Gather Objects {GetType().Name}", Command.fileName))
+            var bundleNameAndFileName = $"{Info.bundleName} ,fileName {Command.fileName}";
+            using (log.ScopedStep(LogLevel.Verbose, $"Gather Objects {GetType().Name}", bundleNameAndFileName)) {
                 Command.GatherSerializedObjectCacheEntries(hashObjects);
-
+            }
             List<Hash128> hashes = new List<Hash128>();
-            using (log.ScopedStep(LogLevel.Verbose, $"Hashing Command", Command.fileName))
-                hashes.Add(Command.GetHash128());
-            using (log.ScopedStep(LogLevel.Verbose, $"Hashing UsageSet", Command.fileName))
-                hashes.Add(UsageSet.GetHash128());
-            using (log.ScopedStep(LogLevel.Verbose, $"Hashing ReferenceMap", Command.fileName))
-                hashes.Add(ReferenceMap.GetHash128());
-            using (log.ScopedStep(LogLevel.Verbose, $"Hashing Info", Command.fileName))
-                hashes.Add(Info.GetHash128());
-            using (log.ScopedStep(LogLevel.Verbose, $"Hashing Objects", Command.fileName))
-                hashes.Add(HashingMethods.Calculate(hashObjects).ToHash128());
+            using (log.ScopedStep(LogLevel.Verbose, $"Hashing Command", bundleNameAndFileName)) 
+            {
+                var hash = Command.GetHash128();
+                log.AddEntry(LogLevel.Verbose, $"Hashing Command hash {hash}");
+                hashes.Add(hash);
+            }
+
+            using (log.ScopedStep(LogLevel.Verbose, $"Hashing UsageSet", bundleNameAndFileName)) 
+            {
+                var hash = UsageSet.GetHash128();
+                log.AddEntry(LogLevel.Verbose, $" Hashing UsageSet {hash}");
+                hashes.Add(hash);
+            }
+
+           using (log.ScopedStep(LogLevel.Verbose, $"Hashing ReferenceMap", bundleNameAndFileName)) {
+           
+               var hash = ReferenceMap.GetHash128();
+               var json = (string)(BuildReferenceMapSerializeToJson.Invoke(ReferenceMap,new object[] { }));
+               log.AddEntry(LogLevel.Verbose, $" Hashing ReferenceMap {hash} json: {json}");
+               hashes.Add(hash);
+           }
+
+            using (log.ScopedStep(LogLevel.Verbose, $"Hashing Info", bundleNameAndFileName))
+            {
+                var hash = Info.GetHash128();
+                log.AddEntry(LogLevel.Verbose, $" Hashing Info {hash}");
+                hashes.Add(hash);
+            }
+
+            using (log.ScopedStep(LogLevel.Verbose, $"Hashing Objects", bundleNameAndFileName)) 
+            {
+                var hash = HashingMethods.Calculate(hashObjects).ToHash128();
+                log.AddEntry(LogLevel.Verbose, $" Hashing Objects {hash}");
+                hashes.Add(hash);
+            }
+               
             hashes.Add(DependencyHash);
             hashes.Add(BuildInterfacesWrapper.ShaderCallbackVersionHash);
 
-            return HashingMethods.Calculate(hashes).ToHash128();
+            var finalHash = HashingMethods.Calculate(hashes).ToHash128();
+            using (log.ScopedStep(LogLevel.Verbose, $" Hashing {GetType().Name} bundleName {bundleNameAndFileName},finalHash {finalHash}"))
+            {
+                return finalHash;
+            }
+        
         }
 
         /// <inheritdoc />

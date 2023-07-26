@@ -14,7 +14,7 @@ namespace URS
         [SerializeField, Tooltip("是不是要buildRaw")] public bool BuildRaw= true;
         [SerializeField, Tooltip("是不是要copy BuildInRes")] public bool CopyBuildInRes = true;
         [SerializeField, Tooltip("是不是要build player")] public bool BuildPlayer = false;
-
+        [SerializeField, Tooltip("是不是要build player")] public bool Debug = false;
         [MenuItem("URS/CustomBuild(自定义构建）",false,104)]
         private static void Open()
         {
@@ -23,7 +23,7 @@ namespace URS
 
         private void OnWizardCreate()
         {
-            Build.HybridBuild(BuildingResVersion, BuildInResVersion, Channel, BuildResource, BuildRaw, CopyBuildInRes, BuildPlayer);
+            Build.HybridBuild(BuildingResVersion, BuildInResVersion, Channel, BuildResource, BuildRaw, CopyBuildInRes, BuildPlayer,Debug);
         }
     }
 }

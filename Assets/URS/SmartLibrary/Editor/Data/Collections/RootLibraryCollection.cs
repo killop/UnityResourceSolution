@@ -19,7 +19,11 @@ namespace Bewildered.SmartLibrary
         //[SerializeField] private List<SerializedData> _allCollections = new List<SerializedData>();
         [SerializeField] private List<LibraryCollection> _allCollections = new List<LibraryCollection>();
         [SerializeField] private List<CollectionsContainingItemPair> _itemCollectionIdPairs = new List<CollectionsContainingItemPair>();
-
+        [SerializeField] public AssetGUIDHashSet _items = new AssetGUIDHashSet();
+        public override AssetGUIDHashSet GetGUIDHashSet()
+        {
+            return _items;
+        }
         public Dictionary<LibraryItem, List<UniqueID>> CollectionsContainingItems
         {
             get;
@@ -189,6 +193,8 @@ namespace Bewildered.SmartLibrary
             {
                 _itemCollectionIdPairs.Add(new CollectionsContainingItemPair() { item = pair.Key, collectionIds =  pair.Value});
             }
+
+            _itemCollectionIdPairs.Sort((x, y) => string.CompareOrdinal(x.item.GUID, y.item.GUID));
         }
 
         void ISerializationCallbackReceiver.OnAfterDeserialize()

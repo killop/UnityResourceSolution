@@ -11,6 +11,12 @@ namespace Bewildered.SmartLibrary
     [System.Serializable]
     public class StandardCollection : LibraryCollection, ILibrarySet
     {
+        [SerializeField] public AssetGUIDHashSet _items = new AssetGUIDHashSet();
+
+        public override AssetGUIDHashSet GetGUIDHashSet()
+        {
+            return _items;
+        }
         /// <inheritdoc/>
         public override void UpdateItems(bool syn= false)
         {

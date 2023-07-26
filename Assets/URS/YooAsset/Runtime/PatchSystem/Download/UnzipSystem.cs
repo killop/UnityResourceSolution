@@ -1,11 +1,9 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using YooAsset.Utility;
 using URS;
-using MHLab.Patch.Core.Utilities;
-
+using YooAsset;
 namespace YooAsset
 {
 	/// <summary>
@@ -18,6 +16,15 @@ namespace YooAsset
 		private static readonly Dictionary<string, Unziper> _downloaderDic = new Dictionary<string, Unziper>();
 		private static readonly List<string> _removeList = new List<string>(100);
 
+        private static Queue<UnzipEntry> _waitQueue = new Queue<UnzipEntry>();
+
+		public static int BatchCount = 20;
+
+
+		public static void EnqueueUnzip(UnzipEntry unzipEntry) 
+		{
+			_waitQueue.Enqueue(unzipEntry);
+        }
 
 		/// <summary>
 		/// 更新所有下载器
@@ -39,6 +46,23 @@ namespace YooAsset
 			{
 				_downloaderDic.Remove(key);
 			}
+			
+			int waitingCount = _waitQueue.Count; 
+			int currentDownloadingCount = _downloaderDic.Count;
+            if (waitingCount > 0&& currentDownloadingCount < BatchCount) 
+			{
+				int maxDownloadCount = BatchCount - currentDownloadingCount;
+
+                List<UnzipEntry> batch = new List<UnzipEntry>();
+				int count = waitingCount < maxDownloadCount ? waitingCount : maxDownloadCount;
+				while (count > 0) 
+				{
+					batch.Add(_waitQueue.Dequeue());
+					count--;
+                }
+                var operation = new UnzipOperation(batch, count, 1);
+				YooAsset.OperationSystem.ProcessOperaiton(operation);
+            }
 		}
 
 		/// <summary>
@@ -63,7 +87,7 @@ namespace YooAsset
 
 			// 创建新的下载器	
 			{
-				Logger.Log($"Beginning to download file : {hardiskFileSearchResult.GetRelativePath()} URL : {hardiskFileSearchResult.HardiskSourcePath} SavePath: {hardiskFileSearchResult.HardiskSavePath}");
+				//Logger.Log($"Beginning to download file : {hardiskFileSearchResult.GetRelativePath()} URL : {hardiskFileSearchResult.HardiskSourcePath} SavePath: {hardiskFileSearchResult.HardiskSavePath}");
 				FileUtility.CreateFileDirectory(hardiskFileSearchResult.HardiskSavePath);
 				var newDownloader = new Unziper(hardiskFileSearchResult);
 				newDownloader.SendRequest(failedTryAgain, timeout);

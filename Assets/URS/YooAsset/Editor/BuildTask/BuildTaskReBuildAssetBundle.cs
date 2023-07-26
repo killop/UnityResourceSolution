@@ -82,6 +82,8 @@ public class BuildTaskReBuildAssetBundle : BuildTask
         buildTasks.Add(extractData);
         var generation = new BuildLayoutGenerationTask();
         buildTasks.Add(generation);
+        var checkHash = new BuidTaskCheckBundleHash();
+        buildTasks.Add(checkHash);
         var targetGroup = BuildPipeline.GetBuildTargetGroup(UnityEditor.EditorUserBuildSettings.activeBuildTarget);
         var target = UnityEditor.EditorUserBuildSettings.activeBuildTarget;
         var outFolder = Build.GetTempBundleOutDirectoryPath();
@@ -116,6 +118,8 @@ public class BuildTaskReBuildAssetBundle : BuildTask
         }
         File.WriteAllText(manifestFileName, manifest.ToString());
         SetData(CONTEXT_BUNDLE_RESULT, results);
+        SetData(CONTEXT_BUNDLE_LAYOUT, generation.LayoutLookupTables);
+        SetData(CONTEXT_VERSION_BUNDLE_HASH, checkHash.BundleHash);
         return ReturnCode.Success;
     }
 }

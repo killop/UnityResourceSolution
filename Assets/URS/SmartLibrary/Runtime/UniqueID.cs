@@ -9,6 +9,9 @@ namespace Bewildered.SmartLibrary
     [Serializable]
     public struct UniqueID : ISerializationCallbackReceiver
     {
+
+        public static UniqueID ROOT_UNIQUE_ID = new UniqueID("de0dede7-af86-40d4-a625-dd41b111e7e7");
+
         private Guid _guid;
 
         // Use bytes because strings allocate memory and is twice as slow.

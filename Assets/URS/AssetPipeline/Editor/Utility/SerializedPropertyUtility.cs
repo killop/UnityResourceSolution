@@ -150,7 +150,7 @@ namespace Daihenka.AssetPipeline
                 case SerializedPropertyType.Rect:
                     return prop.rectValue;
                 case SerializedPropertyType.ArraySize:
-                    return prop.arraySize;
+                    return prop.intValue;
                 case SerializedPropertyType.Character:
                     return (char) prop.intValue;
                 case SerializedPropertyType.AnimationCurve:

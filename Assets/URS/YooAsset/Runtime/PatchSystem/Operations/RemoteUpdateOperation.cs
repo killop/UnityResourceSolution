@@ -13,7 +13,7 @@ namespace YooAsset
 			Done,
 		}
 
-		private const int MAX_LOADER_COUNT = 7;
+		private const int MAX_LOADER_COUNT = 30;
 
 		public delegate void OnDownloadOver(bool isSucceed);
 		public delegate void OnDownloadProgress(int totalDownloadCount, int currentDownloadCount, long totalDownloadBytes, long currentDownloadBytes);

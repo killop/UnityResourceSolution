@@ -256,8 +256,17 @@ public class BuildTaskBuildPlayer : BuildTask
 
     private static void GetBuildTargetName(BuildTarget target, out string middleTargetName, out string finalTargetName)
     {
-        var productName = PlayerSettings.productName + "-v" + PlayerSettings.bundleVersion ;
-        finalTargetName = string.Format("/{0}-{1}", productName, GetTimeForNow());
+        var ENABLE_HESDK = false; // ~~!
+        if (!ENABLE_HESDK)
+        {
+            finalTargetName = "/dev-release";
+        }
+        else
+        {
+            var productName = PlayerSettings.productName + "-v" + PlayerSettings.bundleVersion ;
+            finalTargetName = string.Format("/{0}-{1}", productName, GetTimeForNow());    
+        }
+        
         switch (target)
         {
             case BuildTarget.Android:
