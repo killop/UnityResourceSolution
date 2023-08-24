@@ -7,11 +7,11 @@ namespace URS
 {
     public class BuildResourceAndIL2CPPPlayer : ScriptableWizard
     {
-        [SerializeField, Tooltip("ÕıÒª¹¹½¨µÄ×ÊÔ´°æ±¾")] public string BuildingResVersion;
-        [SerializeField, Tooltip("ÒªÄÚÖÃ×ÊÔ´°æ±¾")] public string BuildInResVersion;
-        [SerializeField, Tooltip("ÇşµÀÃû×Ö")] public string Channel = "default_channel";
+        [SerializeField, Tooltip("æ­£è¦æ„å»ºçš„èµ„æºç‰ˆæœ¬")] public string BuildingResVersion;
+        [SerializeField, Tooltip("è¦å†…ç½®èµ„æºç‰ˆæœ¬")] public string BuildInResVersion;
+        [SerializeField, Tooltip("æ¸ é“åå­—")] public string Channel = "default_channel";
 
-        [MenuItem("URS/Build(Resource And Player)-£¨IL2CPP£©",false,100)]
+        [MenuItem("URS/Build(Resource And Player)-ï¼ˆIL2CPPï¼‰",false,100)]
         private static void Open()
         {
             DisplayWizard<BuildResourceAndIL2CPPPlayer>(ObjectNames.NicifyVariableName(nameof(BuildResourceAndIL2CPPPlayer)), "Build");

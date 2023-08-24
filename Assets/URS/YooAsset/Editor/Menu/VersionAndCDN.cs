@@ -8,10 +8,10 @@ namespace URS
     public class VersionAndCDN : ScriptableWizard
     {
       
-        [SerializeField, Tooltip("ÇşµÀÃû×Ö")]       public string Channel = "default_channel";
-        [SerializeField, Tooltip("ÇşµÀµÄÄ¿±ê°æ±¾,Èç¹ûÎª¿Õ,×Ô¶¯Îª×îĞÂµÄ°æ±¾")] public string ChannelTargetVersion="";
-        [SerializeField, Tooltip("×ÊÔ´°æ±¾±£ÁôµÄÊıÁ¿")] public int VersionKeepCount = 4;
-        [SerializeField, Tooltip("ÊÇ·ñÉÏ´«CDN")]    public bool UploadCDN = false;
+        [SerializeField, Tooltip("æ¸ é“åå­—")]       public string Channel = "default_channel";
+        [SerializeField, Tooltip("æ¸ é“çš„ç›®æ ‡ç‰ˆæœ¬,å¦‚æœä¸ºç©º,è‡ªåŠ¨ä¸ºæœ€æ–°çš„ç‰ˆæœ¬")] public string ChannelTargetVersion="";
+        [SerializeField, Tooltip("èµ„æºç‰ˆæœ¬ä¿ç•™çš„æ•°é‡")] public int VersionKeepCount = 4;
+        [SerializeField, Tooltip("æ˜¯å¦ä¸Šä¼ CDN")]    public bool UploadCDN = false;
         [SerializeField, Tooltip("Debug")] public bool Debug = false;
 
         [MenuItem("URS/BuildAutoChannelVersionsAndUploadCDN",false,105)]

@@ -7,15 +7,15 @@ namespace URS
 {
     public class HybridBuild : ScriptableWizard
     {
-        [SerializeField, Tooltip("ÕıÒª¹¹½¨µÄ×ÊÔ´°æ±¾")] public string BuildingResVersion;
-        [SerializeField, Tooltip("ÒªÄÚÖÃ×ÊÔ´°æ±¾")] public string BuildInResVersion;
-        [SerializeField, Tooltip("ÇşµÀÃû×Ö")] public string Channel = "default_channel";
-        [SerializeField, Tooltip("ÊÇ²»ÊÇÒªbuildResource")] public bool BuildResource = true;
-        [SerializeField, Tooltip("ÊÇ²»ÊÇÒªbuildRaw")] public bool BuildRaw= true;
-        [SerializeField, Tooltip("ÊÇ²»ÊÇÒªcopy BuildInRes")] public bool CopyBuildInRes = true;
-        [SerializeField, Tooltip("ÊÇ²»ÊÇÒªbuild player")] public bool BuildPlayer = false;
-        [SerializeField, Tooltip("ÊÇ²»ÊÇÒªbuild player")] public bool Debug = false;
-        [MenuItem("URS/CustomBuild(×Ô¶¨Òå¹¹½¨£©",false,104)]
+        [SerializeField, Tooltip("æ­£è¦æ„å»ºçš„èµ„æºç‰ˆæœ¬")] public string BuildingResVersion;
+        [SerializeField, Tooltip("è¦å†…ç½®èµ„æºç‰ˆæœ¬")] public string BuildInResVersion;
+        [SerializeField, Tooltip("æ¸ é“åå­—")] public string Channel = "default_channel";
+        [SerializeField, Tooltip("æ˜¯ä¸æ˜¯è¦buildResource")] public bool BuildResource = true;
+        [SerializeField, Tooltip("æ˜¯ä¸æ˜¯è¦buildRaw")] public bool BuildRaw= true;
+        [SerializeField, Tooltip("æ˜¯ä¸æ˜¯è¦copy BuildInRes")] public bool CopyBuildInRes = true;
+        [SerializeField, Tooltip("æ˜¯ä¸æ˜¯è¦build player")] public bool BuildPlayer = false;
+        [SerializeField, Tooltip("æ˜¯ä¸æ˜¯è¦build player")] public bool Debug = false;
+        [MenuItem("URS/CustomBuild(è‡ªå®šä¹‰æ„å»ºï¼‰",false,104)]
         private static void Open()
         {
            var sw=  DisplayWizard<HybridBuild>(ObjectNames.NicifyVariableName(nameof(HybridBuild)), "Build");

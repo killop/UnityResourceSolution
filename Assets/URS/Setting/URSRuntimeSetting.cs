@@ -21,43 +21,43 @@ public class URSRuntimeSetting
     [SerializeField]
     public string PatchTempDirectory = "patch_temp";
     /// <summary>
-    /// AssetBundleÎÄ¼şµÄºó×ºÃû
+    /// AssetBundleæ–‡ä»¶çš„åç¼€å
     /// </summary>
     [SerializeField]
     public string AssetBundleFileVariant = ".bundle";
 
     /// <summary>
-    /// Ô­ÉúÎÄ¼şµÄºó×ºÃû
+    /// åŸç”Ÿæ–‡ä»¶çš„åç¼€å
     /// </summary>
     [SerializeField]
     public string RawFileVariant = "rawfile";
 
     /// <summary>
-    /// ¹¹½¨Êä³öµÄÎÄ¼şÇåµ¥ÎÄ¼şÃû³Æ
+    /// æ„å»ºè¾“å‡ºçš„æ–‡ä»¶æ¸…å•æ–‡ä»¶åç§°
     /// </summary>
     [SerializeField]
     public string FileManifestFileName = "file_manifest.txt";
 
     /// <summary>
-    /// ¹¹½¨Êä³öµÄÎÄ¼şÇåµ¥ÎÄ¼şÃû³Æ
+    /// æ„å»ºè¾“å‡ºçš„æ–‡ä»¶æ¸…å•æ–‡ä»¶åç§°
     /// </summary>
     [SerializeField]
     public string BundleManifestFileRelativePath = "bundles/bundle_manifest.txt";
 
     /// <summary>
-    /// ¹¹½¨Êä³öµÄÎÄ¼şÇåµ¥ÎÄ¼şÃû³Æ
+    /// æ„å»ºè¾“å‡ºçš„æ–‡ä»¶æ¸…å•æ–‡ä»¶åç§°
     /// </summary>
     [SerializeField]
     public string BundleManifestFileName = "bundle_manifest.txt";
 
     /// <summary>
-    /// ±íÊ¾appµÄidÎÄ¼şÃû³Æ£¬·ÅÔÚstream assetµÄ urs_buildin_resource ÀïÃæ
+    /// è¡¨ç¤ºappçš„idæ–‡ä»¶åç§°ï¼Œæ”¾åœ¨stream assetçš„ urs_buildin_resource é‡Œé¢
     /// </summary>
     [SerializeField]
     public string ChannelFileName = "channel.txt";
 
     /// <summary>
-    /// Ä¬ÈÏµÄÉ³ºĞÄ¿Â¼ÊÇ persistent Ä¿Â¼£¬Äã¿ÉÒÔÇ¿ÖÆÖ¸¶¨Õâ¸öÄ¿Â¼£¬µ½±¾µØÄ³¸ö°æ±¾µÄÊ±ºò
+    /// é»˜è®¤çš„æ²™ç›’ç›®å½•æ˜¯ persistent ç›®å½•ï¼Œä½ å¯ä»¥å¼ºåˆ¶æŒ‡å®šè¿™ä¸ªç›®å½•ï¼Œåˆ°æœ¬åœ°æŸä¸ªç‰ˆæœ¬çš„æ—¶å€™
     /// </summary>
     [SerializeField]
     public string ForceDownloadDirectory = string.Empty;
