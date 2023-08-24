@@ -8,7 +8,7 @@ namespace URS
     public class ExportRuntimeSetting : ScriptableWizard
     {
 
-        [SerializeField, Tooltip("��ŵ�resourceĿ¼")] public string SaveDiretoryPath = @"Assets/Packages/URS/Setting/Resources";
+        [SerializeField, Tooltip("存放的resource目录")] public string SaveDiretoryPath = @"Assets/Packages/URS/Setting/Resources";
       
         [MenuItem("URS/ExportDefaultURSRuntimeSetting")]
         private static void Open()

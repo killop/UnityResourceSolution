@@ -7,11 +7,11 @@ namespace URS
 {
     public class BuildResourceAndMonoPlayer : ScriptableWizard
     {
-        [SerializeField, Tooltip("ÕıÒª¹¹½¨µÄ×ÊÔ´°æ±¾")] public string BuildingResVersion;
-        [SerializeField, Tooltip("ÒªÄÚÖÃ×ÊÔ´°æ±¾")] public string BuildInResVersion;
-        [SerializeField, Tooltip("ÇşµÀÃû×Ö")] public string Channel = "default_channel";
+        [SerializeField, Tooltip("æ­£è¦æ„å»ºçš„èµ„æºç‰ˆæœ¬")] public string BuildingResVersion;
+        [SerializeField, Tooltip("è¦å†…ç½®èµ„æºç‰ˆæœ¬")] public string BuildInResVersion;
+        [SerializeField, Tooltip("æ¸ é“åå­—")] public string Channel = "default_channel";
 
-        [MenuItem("URS/Build(Resource And Player)-£¨Mono£©",false,101)]
+        [MenuItem("URS/Build(Resource And Player)-ï¼ˆMonoï¼‰",false,101)]
         private static void Open()
         {
            var sw=  DisplayWizard<BuildResourceAndMonoPlayer>(ObjectNames.NicifyVariableName(nameof(BuildResourceAndMonoPlayer)), "Build");
