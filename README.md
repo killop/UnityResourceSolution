@@ -32,8 +32,8 @@
 
 ## 变更历史
 #### 2023-11-13
-- 优化 在不同图片的后处理的时候，代码会跳过 原来图片size小于预设size的
-- 优化 shader 预热 shader variant collection的导出（全网唯一支持 mutil_compiler 关键字预热的方案）
+- 优化：在不同图片的后处理的时候，代码会跳过 原来图片size小于预设size的
+- 优化：shader 预热 shader variant collection的导出（全网唯一支持 mutil_compiler 关键字预热的方案）
 
 #### 2023-7-26
 - 功能：所有的远程下载操作，都会放到临时目录，只要通过验证的，才可以进最终目录
