@@ -531,7 +531,7 @@ namespace URS
         {
             if (_fileManifest == null)
             {
-                _fileManifest = new FileManifest(null);
+                _fileManifest = new FileManifest(null,null);
             }
             _fileManifest.ReplaceFile(fileMeta);
         }

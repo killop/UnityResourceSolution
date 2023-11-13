@@ -7,6 +7,7 @@ using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
+using URSPlatform = URS.URSPlatform;
 
 namespace URS
 {

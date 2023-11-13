@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using URS;
 using UnityEngine.SceneManagement;
+using UnityEngine;
 namespace YooAsset
 {
 	public static class YooAssets
@@ -71,6 +72,23 @@ namespace YooAsset
 		public static EPlayMode GetPlayMode() { 
 			return _playMode; 
 		}
+
+		public static string GetResourceVersion() 
+		{
+            if (_playMode == EPlayMode.EditorPlayMode)
+            {
+                return Application.version;
+            }
+            else if (_playMode == EPlayMode.OfflinePlayMode)
+            {
+                return _offlinePlayModeImpl.GetResourceVersion();
+            }
+            else if (_playMode == EPlayMode.HostPlayMode)
+            {
+                return _hostPlayModeImpl.GetResourceVersion();
+            }
+			return null;
+        }
 
 		/// <summary>
 		/// 异步初始化
@@ -406,6 +424,15 @@ namespace YooAsset
 				throw new NotImplementedException();
 			}
 		}
+
+		public static BundleManifest GetBundleManifest()
+		{
+            if (_playMode == EPlayMode.EditorPlayMode)
+            {
+                return null;
+            }
+			return URSFileSystem.GetTrustBundleManifest();
+        }
 		#endregion
 
 		#region 资源解压接口

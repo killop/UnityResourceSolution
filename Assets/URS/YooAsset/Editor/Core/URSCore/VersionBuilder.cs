@@ -127,7 +127,7 @@ namespace URS.Editor
                 {
                     return a.RelativePath.CompareTo(b.RelativePath);
                 });
-                var fileManifest = new FileManifest(finalAarry);
+                var fileManifest = new FileManifest(finalAarry, version);
                 var json = JsonUtility.ToJson(fileManifest, true);
                 var setting = URSRuntimeSetting.instance;
                 var jsonPath = fileSystem.CombinePaths(directoryPath, setting.FileManifestFileName);

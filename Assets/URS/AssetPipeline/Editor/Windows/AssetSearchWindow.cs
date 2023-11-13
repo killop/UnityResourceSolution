@@ -7,7 +7,7 @@ namespace Daihenka.AssetPipeline
 {
     internal class AssetSearchWindow : EditorWindow
     {
-        [MenuItem("Tools/Asset Pipeline/Asset Search")]
+        [MenuItem("Tools/资产管理工具（Asset Pipeline）/Asset Search")]
         static void ShowWindow()
         {
             GetWindow<AssetSearchWindow>("Asset Search", typeof(ImportProfilesWindow)).Show();

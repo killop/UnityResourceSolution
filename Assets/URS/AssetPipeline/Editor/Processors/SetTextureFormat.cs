@@ -68,13 +68,15 @@ namespace Daihenka.AssetPipeline.Processors
             {
                 var myConfig= m_SettingList[i];
                 var currentSetting = ti.GetPlatformTextureSettings(myConfig.name);
-                if (currentSetting == null) { 
+                if (currentSetting == null)
+                {
+
                     return false;
                 }
                 if (myConfig.overridden != currentSetting.overridden) {
                     return false;
                 }
-                if (myConfig.maxTextureSize != currentSetting.maxTextureSize)
+                if (myConfig.maxTextureSize < currentSetting.maxTextureSize)
                 {
                     return false;
                 }
@@ -119,8 +121,18 @@ namespace Daihenka.AssetPipeline.Processors
                     var platform = new UnityEditor_Build_BuildPlatform(_platform);
                     var platformName = platform.name;
                     var setting = m_SettingList.Find(x => x.name == platformName);
-                    if (setting != null)
+                    if (setting != null) 
+                    {
+                        var orignSetting = importer.GetPlatformTextureSettings(platformName);
                         importer.SetPlatformTextureSettings(setting);
+                        if (orignSetting.overridden&& orignSetting.maxTextureSize< setting.maxTextureSize) 
+                        {
+                            var currentSetting=  importer.GetPlatformTextureSettings(platformName);
+                            currentSetting.maxTextureSize = orignSetting.maxTextureSize;
+                            importer.SetPlatformTextureSettings(currentSetting);
+                        }
+                    }
+                       
                 }
             }
             

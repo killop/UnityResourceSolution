@@ -32,7 +32,7 @@ namespace Daihenka.AssetPipeline
         ImportProfileTableView m_TreeView;
         readonly HashSet<string> m_WaitForAssetDeletion = new HashSet<string>();
 
-        [MenuItem("Tools/Asset Pipeline/Import Profiles")]
+        [MenuItem("Tools/资产管理工具（Asset Pipeline）/Import Profiles")]
         public static void ShowWindow()
         {
             if (!s_Window)

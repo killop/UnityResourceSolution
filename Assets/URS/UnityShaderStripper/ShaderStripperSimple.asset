@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bce01c7e38d77374f90e48cc0061b138, type: 3}
   m_Name: ShaderStripperSimple
   m_EditorClassIdentifier: 
-  _expanded: 1
-  _order: 0
+  _expanded: 0
+  _order: 1
   _active: 1
   _notes: 
   _logOutput: 1
@@ -21,5 +21,5 @@ MonoBehaviour:
   - matchType: 0
     namePattern: Standard
     caseInsensitive: 0
-  _blacklistedPassTypes: 
+  _blacklistedPassTypes: 0b000000
   _blacklistedKeywords: []

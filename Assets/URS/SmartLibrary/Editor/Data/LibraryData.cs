@@ -92,6 +92,7 @@ namespace Bewildered.SmartLibrary
             }
         }
 
+        /*
         internal static void ConvertToNewSave()
         {
             // If the folder already exists that means that we must have already converted.
@@ -141,7 +142,7 @@ namespace Bewildered.SmartLibrary
 
             AssetDatabase.DeleteAsset(AssetDatabase.GetAssetPath(Instance));
         }
-
+        */
         void ISerializationCallbackReceiver.OnBeforeSerialize()
         {
             _serializedEntries.Clear();

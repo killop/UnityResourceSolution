@@ -46,7 +46,28 @@ namespace Daihenka.AssetPipeline.Processors
         public override bool IsConfigOK(AssetImporter importer)
         {
             if (importer == null || preset == null) return false;
-            return DataEquals(preset, importer);
+            bool isEqual=  DataEquals(preset, importer);
+            if (isEqual) 
+            {
+                return true;
+            } 
+            else
+            {
+                if (importer is TextureImporter textureImporter)
+                {
+                    string androidPlatform = "Android";
+                    string iPhonePlatform = "iPhone";
+                    bool isAndroidPresetOverrider = IsPresetPlatformTextureMaxSizeIsBiggerThanOrign(androidPlatform, preset, textureImporter, out var orignAndroidSetting, out var orignAndroidMaxSize,out var presetAndroidMaxSize);
+                    bool isIPhonePresetOverrider = IsPresetPlatformTextureMaxSizeIsBiggerThanOrign(iPhonePlatform, preset, textureImporter, out var orignIPhoneSetting, out var orignIPhoneMaxSize, out var presetIPhoneMaxSize);
+                    bool androidOk = (!isAndroidPresetOverrider) || (orignAndroidMaxSize <= presetAndroidMaxSize);
+                    bool isIPhoneOk = (!isIPhonePresetOverrider) || (orignIPhoneMaxSize <= presetIPhoneMaxSize);
+                    return androidOk & isIPhoneOk;
+                }
+                else
+                {
+                    return true;
+                }
+            }
         }
 
         public override void OnPreprocessAsset(string assetPath, AssetImporter importer)
@@ -76,8 +97,24 @@ namespace Daihenka.AssetPipeline.Processors
                 var prevW = widthProp.intValue;
                 var prevH = heightProp.intValue;
 
+               
+                string androidPlatform = "Android";
+                string iPhonePlatform = "iPhone";
+                bool isAndroidPresetOverrider = IsPresetPlatformTextureMaxSizeIsBiggerThanOrign(androidPlatform, preset, textureImporter, out var orignAndroidSetting, out var orignAndroidMaxSize, out var presetAndroidMaxSize);
+                bool isIPhonePresetOverrider = IsPresetPlatformTextureMaxSizeIsBiggerThanOrign(iPhonePlatform, preset, textureImporter, out var orignIPhoneSetting, out var orignIPhoneMaxSize, out var presetIPhoneMaxSize);
                 preset.ApplyTo(importer);
-
+                if (isAndroidPresetOverrider && (orignAndroidMaxSize < presetAndroidMaxSize))
+                {
+                    var currentSetting = textureImporter.GetPlatformTextureSettings(androidPlatform);
+                    currentSetting.maxTextureSize = orignAndroidMaxSize;
+                    textureImporter.SetPlatformTextureSettings(currentSetting);
+                }
+                if (isIPhonePresetOverrider && (orignIPhoneMaxSize < presetIPhoneMaxSize))
+                {
+                    var currentSetting = textureImporter.GetPlatformTextureSettings(iPhonePlatform);
+                    currentSetting.maxTextureSize = orignIPhoneMaxSize;
+                    textureImporter.SetPlatformTextureSettings(currentSetting);
+                }
                 importerSo.Update();
                 widthProp.intValue = prevW;
                 heightProp.intValue = prevH;
@@ -130,11 +167,11 @@ namespace Daihenka.AssetPipeline.Processors
                 return;
             }
 
-            var atlas = (SpriteAtlas) asset;
+            var atlas = (SpriteAtlas)asset;
             var isVariant = atlas.isVariant;
             var so = new SerializedObject(atlas);
             var includeInBuild = so.FindProperty("m_EditorData.bindAsDefault").boolValue;
-            var masterAtlas = (SpriteAtlas) so.FindProperty("m_MasterAtlas").objectReferenceValue;
+            var masterAtlas = (SpriteAtlas)so.FindProperty("m_MasterAtlas").objectReferenceValue;
             var variantScale = so.FindProperty("m_EditorData.variantMultiplier").floatValue;
             var packables = atlas.GetPackables();
             preset.ApplyTo(atlas);
@@ -170,13 +207,96 @@ namespace Daihenka.AssetPipeline.Processors
 
             return true;
         }
+        public bool IsPresetPlatformTextureMaxSizeIsBiggerThanOrign(
+            string platform,
+            Preset preset, 
+            TextureImporter importer, 
+            out TextureImporterPlatformSettings orignSetting,
+            out int orginTextureSize,
+            out int presetTetureSize)
+        {
+            var so = new SerializedObject(importer);
+            SerializedProperty property = so.FindProperty("m_PlatformSettings");
+            string targetPresetPropertyPath = null;
+            bool orignHasOverride = false;
+            int orignMaxTextureSize = 0;
+            for (int i = 0; i < property.arraySize; i++)
+            {
+                SerializedProperty element = property.GetArrayElementAtIndex(i);
+                var buildTarget = element.FindPropertyRelative("m_BuildTarget").stringValue;
+              
+                if (buildTarget == platform)
+                {
+                    targetPresetPropertyPath = element.propertyPath;
+                    orignHasOverride = element.FindPropertyRelative("m_Overridden").boolValue;
+                    orignMaxTextureSize = element.FindPropertyRelative("m_MaxTextureSize").intValue;
+                    break;
+                }
+               
+            }
+            bool presetOverrider = false;
+            int presetMaxTextureSize = 0;
+            if (!string.IsNullOrEmpty(targetPresetPropertyPath))
+            {
+                var modify = preset.PropertyModifications;
+                var presetOverriderPath = $"{targetPresetPropertyPath}.m_Overridden";
+                var presetMaxSizePath = $"{targetPresetPropertyPath}.m_MaxTextureSize";
+                foreach (var proper in modify)
+                {
+                    if (proper.propertyPath == presetOverriderPath)
+                    {
+                        presetOverrider = (proper.value == "1");
+                    }
+                    else if (proper.propertyPath == presetMaxSizePath)
+                    {
+                        presetMaxTextureSize = int.Parse(proper.value);
+                    }
+                }
+            }
+            //Debug.LogError($"targetPresetPropertyPath {targetPresetPropertyPath} orignHasOverride {orignHasOverride} orignMaxTextureSize {orignMaxTextureSize}  presetOverrider {presetOverrider} presetMaxTextureSize {presetMaxTextureSize}");
+            
+           orginTextureSize = orignMaxTextureSize;
+           presetTetureSize = presetMaxTextureSize;
+           orignSetting = importer.GetPlatformTextureSettings(platform);
+
+           return presetOverrider;
+        }
         
         void OnPostprocessTexture(string assetPath, TextureImporter importer)
         {
             if (DataEquals(preset, importer))
                 return;
+            string androidPlatform = "Android";
+            string iPhonePlatform = "iPhone";
+            bool isAndroidPresetOverrider = IsPresetPlatformTextureMaxSizeIsBiggerThanOrign(
+                androidPlatform,
+                preset, 
+                importer ,
+                out var orignAndroidSetting,
+                out var orignAndroidMaxSize,
+                out var presetAndroidMaxSize);
+            bool isIPhonePresetOverrider = IsPresetPlatformTextureMaxSizeIsBiggerThanOrign(
+                iPhonePlatform, 
+                preset, 
+                importer, 
+                out var orignIPhoneSetting, 
+                out var orignIPhoneMaxSize, 
+                out var presetIPhoneMaxSize);
+
             if (!preset.ApplyTo(importer))
                 return;
+            if (isAndroidPresetOverrider&& (orignAndroidMaxSize<presetAndroidMaxSize)) 
+            {
+                var currentSetting=  importer.GetPlatformTextureSettings(androidPlatform);
+                currentSetting.maxTextureSize = orignAndroidMaxSize;
+                importer.SetPlatformTextureSettings(currentSetting);
+            }
+            if (isIPhonePresetOverrider && (orignIPhoneMaxSize < presetIPhoneMaxSize))
+            {
+                var currentSetting = importer.GetPlatformTextureSettings(iPhonePlatform);
+                currentSetting.maxTextureSize = orignIPhoneMaxSize;
+                importer.SetPlatformTextureSettings(currentSetting);
+            }
             EditorUtility.SetDirty(importer);
             AssetDatabase.SaveAssets();
             Debug.Log($"[{GetName()}] Preset applied for <b>{assetPath}</b>");

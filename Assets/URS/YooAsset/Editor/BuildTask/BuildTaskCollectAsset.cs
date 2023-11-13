@@ -29,7 +29,7 @@ public class BuildTaskCollectAsset : BuildTask
     public override void BeginTask()
     {
         base.BeginTask();
-        var shadervaraintCollectionPath = "Assets/GameResources/ShaderVarians/ShaderVariantCollection.shadervariants";
+        var shadervaraintCollectionPath = URS.URSShaderVariantConstant.SHADER_VARIANT_SAVE_PATH;
         CollectAssets(true, shadervaraintCollectionPath);
         this.FinishTask();
     }
@@ -128,6 +128,7 @@ public class BuildTaskCollectAsset : BuildTask
                                 if (shareShaderAssets.ContainsKey(referenceAsset))
                                 {
                                     var shaderAsset = shareShaderAssets[referenceAsset];
+                                    shaderAsset.refrenceCount++;
                                     shaderAsset.customTag.UnionWith(mainAssetTag);
                                 }
                                 else
@@ -163,6 +164,39 @@ public class BuildTaskCollectAsset : BuildTask
                 };
                 shareShaderAssets[shadervaraintCollectionPath]= shaderVaraintCollectionAssetInfo;
 
+                var warmShadeerJsonFilePath = URSShaderVariantConstant.WARM_SHADER_JSON_FILE;
+                if (File.Exists(warmShadeerJsonFilePath))
+                {
+                    var warmShaderVariantJsonInfo = new AssetInfo()
+                    {
+                        assetPath = warmShadeerJsonFilePath,
+                        assetBundleNames = new HashSet<string>(new string[] { "share_shader.bundle" }),
+                        customTag = shaderVaraintCollectionTag,
+                        isMain = true,
+                        refrenceCount = 1,
+                        mainAssetDependencys = getDependencys(warmShadeerJsonFilePath)
+                    };
+                    shareShaderAssets[warmShadeerJsonFilePath] = warmShaderVariantJsonInfo;
+
+                    var warmShaderVariants = UnityEngine.JsonUtility.FromJson<WarmShaderVariants>(File.ReadAllText(URSShaderVariantConstant.WARM_SHADER_JSON_FILE));
+                    var warmShaderVariantPaths = warmShaderVariants.paths;
+                    if (warmShaderVariantPaths != null)
+                    {
+                        foreach (var warmShaderVariantPath in warmShaderVariantPaths)
+                        {
+                            var warmShaderVariantInfo = new AssetInfo()
+                            {
+                                assetPath = warmShaderVariantPath,
+                                assetBundleNames = new HashSet<string>(new string[] { "share_shader.bundle" }),
+                                customTag = shaderVaraintCollectionTag,
+                                isMain = true,
+                                refrenceCount = 1,
+                                mainAssetDependencys = getDependencys(warmShaderVariantPath)
+                            };
+                            shareShaderAssets[warmShaderVariantPath] = warmShaderVariantInfo;
+                        }
+                    }
+                }
                 foreach (var item in shareShaderAssets)
                 {
                     assets[item.Key] = item.Value;

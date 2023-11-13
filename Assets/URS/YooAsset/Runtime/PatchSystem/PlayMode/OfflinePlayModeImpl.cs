@@ -21,6 +21,11 @@ namespace YooAsset
 			return operation;
 		}
 
+        public string GetResourceVersion()
+        {
+           return URSFileSystem.BuildInFolder?.FileManifest?.BuildVersion;
+        }
+
 		
 
 		#region IBundleServices接口

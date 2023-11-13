@@ -35,7 +35,7 @@ namespace Daihenka.AssetPipeline
             var result = new List<AssetProcessor>(s_CachedProcessors[assetPath].Count);
             foreach (var processor in s_CachedProcessors[assetPath])
             {
-                if (AssetProcessor.IsForceApply(assetPath) || ((isOnDeletedAsset || !ImportProfileUserData.HasProcessor(assetPath, processor)) && processor.HasOverriddenMethods(methodNames)))
+                if (processor.FireOnEveryImport()|| AssetProcessor.IsForceApply(assetPath) || ((isOnDeletedAsset || !ImportProfileUserData.HasProcessor(assetPath, processor)) && processor.HasOverriddenMethods(methodNames)))
                 {
                     result.Add(processor);
                 }
@@ -260,9 +260,14 @@ namespace Daihenka.AssetPipeline
                 AssetProcessor.SetForceApply(assetPath, false);
             }
 
-            foreach (var assetPath in deletedAssets) {
-                foreach (var processor in GetProcessors(assetPath, "OnDeletedAsset")) {
-                    processor.OnDeletedAsset(assetPath);
+            foreach (var assetPath in deletedAssets) 
+            {
+                if (!string.IsNullOrEmpty(assetPath))
+                {
+                    foreach (var processor in GetProcessors(assetPath, "OnDeletedAsset"))
+                    {
+                        processor.OnDeletedAsset(assetPath);
+                    }
                 }
             }
 

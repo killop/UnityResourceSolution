@@ -10,7 +10,7 @@
     "ChannelFileName": "channel.txt",
     "ForceDownloadDirectory": "",
     "PlayMode": 0,
-    "RemoteChannelRootUrl": "https://staticninja.happyelements.com",
+    "RemoteChannelRootUrl": "https://staticninja.happyelements.cn",
     "RemoteAppVersionRouterFileName": "app_version_router.txt",
     "DefaultTag": "default",
     "BuildinTag": "buildin"

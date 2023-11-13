@@ -240,6 +240,11 @@ namespace Bewildered.SmartLibrary
             Directory.CreateDirectory(LibraryConstants.CollectionsPath);
             foreach (string collectionPath in Directory.EnumerateFiles(LibraryConstants.CollectionsPath))
             {
+                var fileName= Path.GetFileName(collectionPath);
+                if (fileName == ".DS_Store")
+                {
+                    continue;
+                }
                 var collection = LoadCollection(collectionPath);
                 collection.savePath = collectionPath;
                 // This is required since in 2.0.0 the HideAndDontSave flag was used. So this is used to update it.
@@ -285,17 +290,29 @@ namespace Bewildered.SmartLibrary
                 if (collection.Parent == null)
                 {
                     collection.Parent = rootCollection;
-                    rootCollection.AddSubcollection(collection,true);
+                    rootCollection.AddSubcollection(collection, true);
                     SaveCollection(collection);
                     Debug.LogWarning($"Could not find parent with id {parentId}. Collection name '{collection.CollectionName}' was added as a base collection. savePath {collection.savePath} ");
                 }
-
-                int index = collection.Parent.SubcollectionIDs.IndexOf(collection.ID);
-                collection.Parent.SubcollectionsInternal[index] = collection;
-
+                else 
+                {
+                    int index = collection.Parent.SubcollectionIDs.IndexOf(collection.ID);
+                    if (index >= 0)
+                    {
+                        collection.Parent.SubcollectionsInternal[index] = collection;
+                    }
+                    else 
+                    {
+                        collection.Parent = rootCollection;
+                        rootCollection.AddSubcollection(collection, true);
+                        SaveCollection(collection);
+                        Debug.LogWarning($"Could not find parent with id {parentId}. Collection name '{collection.CollectionName}' was added as a base collection. savePath {collection.savePath} ");
+                    }
+                }
                 SessionData.CacheCollectionData(collection, false);
             }
             LibraryDatabase.RootCollection.RemoveInvailidItem();
+            LibraryDatabase.RootCollection.ValidateSubCollection();
         }
 
         /// <summary>

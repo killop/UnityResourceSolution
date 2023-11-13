@@ -16,6 +16,7 @@ namespace Bewildered.SmartLibrary
             BundleName,
             BundleCompression,
             CustomTag,
+            ExcludeFileNameContains
         }
 
         [SerializeField] private TagRuleType _tagType;

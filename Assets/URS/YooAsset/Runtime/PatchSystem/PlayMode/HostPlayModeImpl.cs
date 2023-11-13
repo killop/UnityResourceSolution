@@ -52,7 +52,13 @@ namespace YooAsset
             TargetVersion = targetVersion;
         }
 
-		public string GetRemoteFilesVersionIndexUrl() 
+        public string GetResourceVersion() 
+        {
+            return URSFileSystem.RemoteFolder?.FileManifest?.BuildVersion;
+        }
+
+
+        public string GetRemoteFilesVersionIndexUrl() 
 		{
 			return $"{RemoteVersionsRootUrl}/{URSRuntimeSetting.instance.FilesVersionIndexFileName}";
 		}

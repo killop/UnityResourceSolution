@@ -1,16 +1,7 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Text.RegularExpressions;
 using UnityEditor;
-using UnityEngine.Rendering;
-using System.Reflection;
 using System.IO;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEditor;
-using NinjaBeats;
 
 public class BuildTaskValidateModel : BuildTask
 {

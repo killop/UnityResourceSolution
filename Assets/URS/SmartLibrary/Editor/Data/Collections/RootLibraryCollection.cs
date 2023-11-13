@@ -32,6 +32,7 @@ namespace Bewildered.SmartLibrary
         public Dictionary<string, LibraryItem> AssetGuidToItem { get; } =
             new Dictionary<string, LibraryItem>();
 
+        /*
         private Dictionary<int, LibraryCollection> _legacyIdMap = new Dictionary<int, LibraryCollection>();
         public Dictionary<int, LibraryCollection> LegacyIDToCollectionMap
         {
@@ -51,7 +52,7 @@ namespace Bewildered.SmartLibrary
                 return _legacyIdMap;
             }
         }
-
+        */
         public RootLibraryCollection()
         {
             Root = this;
@@ -174,6 +175,20 @@ namespace Bewildered.SmartLibrary
                 {
                     guidSet.Remove(guid);
                 }
+            }
+        }
+        public void ValidateSubCollection() 
+        {
+            var collections = SessionData.instance.IDToCollectionMap;
+            this.SubcollectionsInternal.Clear();
+            this.SubcollectionIDs.Clear();
+            foreach (var collection in collections) 
+            {
+                if (collection.Value is RootLibraryCollection) {
+                    continue;
+                }
+                this.SubcollectionsInternal.Add(collection.Value);
+                this.SubcollectionIDs.Add(collection.Key);
             }
         }
         void ISerializationCallbackReceiver.OnBeforeSerialize()

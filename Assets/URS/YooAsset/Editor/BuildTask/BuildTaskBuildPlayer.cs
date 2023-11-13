@@ -66,6 +66,7 @@ public class BuildTaskBuildPlayer : BuildTask
             return;
 
         BuildOptions options = BuildOptions.None;
+        options |= BuildOptions.CompressWithLz4;
         if (EditorUserBuildSettings.development)
         {
             debug = true;
@@ -127,9 +128,13 @@ public class BuildTaskBuildPlayer : BuildTask
         {
             try
             {
-                var iosProjectPath = Path.Combine(Application.dataPath, "../Build/iOSProject");
-                if (Directory.Exists(iosProjectPath))
-                    Directory.Delete(iosProjectPath, true);
+                var path = Path.Combine(Application.dataPath, "../Build/iOSProject/Data/Raw/");
+                if (Directory.Exists(path))
+                    Directory.Delete(path, true);
+                    
+                path = Path.Combine(Application.dataPath, "../Build/iOSProject/ExportIpa/");
+                if (Directory.Exists(path))
+                    Directory.Delete(path, true);
             }
             catch (Exception e)
             {

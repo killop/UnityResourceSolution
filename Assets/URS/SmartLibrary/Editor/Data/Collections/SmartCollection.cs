@@ -156,6 +156,18 @@ namespace Bewildered.SmartLibrary
         public HashSet<string> GetAssetPaths()
         {
              HashSet<string> paths = new HashSet<string>();
+            string excludeNameContains = "";
+            foreach (var rule in Rules)
+            {
+                if (rule is TagRule tagRule) {
+                    if (tagRule.TagType == TagRule.TagRuleType.ExcludeFileNameContains)
+                    {
+                        excludeNameContains = tagRule.Text;
+                        break;
+                    }
+                }
+            }
+            bool checkExcludeName = !string.IsNullOrEmpty(excludeNameContains);
             for (int i = 0; i < _folders.Count; i++)
             {
                 var folderConfig = _folders[i];
@@ -181,6 +193,12 @@ namespace Bewildered.SmartLibrary
                     foreach (var file in files)
                     {
                         var path = file.path;
+                        if (checkExcludeName) {
+                            var fileName = System.IO.Path.GetFileName(path);
+                            if (fileName.Contains(excludeNameContains)) {
+                                continue;
+                            }
+                        }
                         if (!paths.Contains(path))
                         {
                             paths.Add(path);

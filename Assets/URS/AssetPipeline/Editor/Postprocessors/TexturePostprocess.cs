@@ -101,15 +101,15 @@ public class CustomAssetImportPostprocessor
             message += "  不能开启Read/Write Enabled";
         }
         
-        if (ti.mipmapEnabled)
-        {
-            message += $"  不能开启mipmap";
-        }
-
-        if (ti.streamingMipmaps)
-        {
-            message += "  不能开启mipmap串流";
-        }
+        // if (ti.mipmapEnabled)
+        // {
+        //     message += $"  不能开启mipmap";
+        // }
+        //
+        // if (ti.streamingMipmaps)
+        // {
+        //     message += "  不能开启mipmap串流";
+        // }
 
         int maxTextureSize = 0;
         TextureImporterFormat format = TextureImporterFormat.Automatic;

@@ -1,30 +1,7 @@
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using UnityEditor;
-using Bewildered.SmartLibrary;
 using System.IO;
-using System;
-using UnityEditor.Build.Pipeline;
-using UnityEditor.Build.Pipeline.Injector;
-using UnityEditor.Build.Pipeline.Interfaces;
-using UnityEditor.Build.Pipeline.Tasks;
-using UnityEditor.Build.Pipeline.Utilities;
-using UnityEngine.SceneManagement;
-using UnityEditor.SceneManagement;
-using TagInfo = System.Collections.Generic.Dictionary<Bewildered.SmartLibrary.TagRule.TagRuleType, string>;
 using URS;
-using YooAsset.Utility;
-using System.Linq;
-using YooAsset;
-using UnityEditor.Build.Content;
-using BuildCompression = UnityEngine.BuildCompression;
-using UnityEditor.Search;
-using Context = System.Collections.Generic.Dictionary<string, object>;
-using MHLab.Patch.Core.IO;
-using MHLab.Patch.Core.Utilities;
 using UnityEditor.Build;
-using UnityEditor;
 
 
 public class StreamingAssetsVersionHook : BuildPlayerProcessor
@@ -108,7 +85,7 @@ public class BuildTaskCopyLatestResourceToStreamAsset : BuildTask
                             Directory.CreateDirectory(dstDirectoryName);
                             File.Copy(srcPath, dstPath);
                         }
-                        FileManifest fileManifest = new FileManifest(fileMetas.ToArray());
+                        FileManifest fileManifest = new FileManifest(fileMetas.ToArray(), versionCode);
                         string buildinFileManifestPath = $"{targetFolder}/{URSRuntimeSetting.instance.FileManifestFileName}";
                         FileManifest.Serialize(buildinFileManifestPath, fileManifest, true);
                         if (freshAssetDataBase)

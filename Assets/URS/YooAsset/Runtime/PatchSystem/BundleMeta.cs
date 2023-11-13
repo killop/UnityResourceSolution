@@ -4,6 +4,7 @@ using UnityEngine;
 using System;
 using YooAsset.Utility;
 using System.IO;
+using YooAsset;
 
 namespace URS
 {
@@ -56,6 +57,12 @@ namespace URS
 
 
         /// <summary>
+        /// 资源映射集合（提供AssetPath获取PatchAsset）
+        /// </summary>
+        [NonSerialized]
+        private Dictionary<string, List<string>> BundleLayout = new Dictionary<string, List<string>>();
+
+        /// <summary>
         /// 获取资源依赖列表
         /// </summary>
         public List<FileMeta> GetAllDependenciesRelativePath(string assetPath)
@@ -84,6 +91,14 @@ namespace URS
             }
         }
 
+        public List<string> GetBundleAssets(string bundleRelativePath) 
+        {
+            if (BundleLayout.ContainsKey(bundleRelativePath)) 
+            {
+                return BundleLayout[bundleRelativePath];
+            }
+            return null;
+        }
         /// <summary>
         /// 获取资源包名称
         /// </summary>
@@ -129,6 +144,29 @@ namespace URS
                     if (!AssetMap.ContainsKey(asset.AssetPath))
                     {
                         AssetMap.Add(asset.AssetPath, asset);
+                    }
+                    int bundleID = asset.BundleID;
+                    if (bundleID >= 0 && bundleID < BundleList.Length)
+                    {
+                        var bundle = BundleList[bundleID];
+                        var bundleRelativePath = bundle.RelativePath;
+                        if (BundleLayout.ContainsKey(bundleRelativePath))
+                        {
+                            List<string> assetList = BundleLayout[bundleRelativePath];
+                            if (!assetList.Contains(asset.AssetPath))
+                            {
+                                assetList.Add(asset.AssetPath);
+                            }
+                        }
+                        else 
+                        {
+                            List<string> assetList = new List<string> { asset.AssetPath };
+                            BundleLayout[bundleRelativePath] = assetList;
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception($"Invalid depend id : {bundleID} Asset path : {asset.AssetPath}");
                     }
                 }
             }

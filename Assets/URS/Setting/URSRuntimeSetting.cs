@@ -66,7 +66,7 @@ public class URSRuntimeSetting
     public YooAssets.EPlayMode PlayMode = YooAssets.EPlayMode.EditorPlayMode;
 
     [SerializeField]
-    public string RemoteChannelRootUrl = @"https://staticninja.happyelements.com";
+    public string RemoteChannelRootUrl = @"https://staticninja.happyelements.cn";
 
     [SerializeField]
     public string RemoteAppVersionRouterFileName = "app_version_router.txt";

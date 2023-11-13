@@ -263,28 +263,35 @@ namespace Daihenka.AssetPipeline
 
             if (assetFilter.showOptions)
             {
-                EditorGUI.DrawRect(new Rect(r.x, rect.y - 5, r.width, EditorGUIUtility.singleLineHeight + 8), ColorPalette.BackgroundLight);
-                EditorGUI.DrawRect(new Rect(r.x, rect.y + EditorGUIUtility.singleLineHeight + 8, r.width, 1), ColorPalette.DarkLineColor);
-                EditorGUI.LabelField(new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight), "Filter Options", DaiGUIStyles.boldLabel);
-                rect.y += EditorGUIUtility.singleLineHeight + 2;
-                rowHeight += EditorGUIUtility.singleLineHeight + 2;
+                using (var check = new EditorGUI.ChangeCheckScope())
+                {
 
-                filterSo.Update();
-                var fileExclusionsList = GetCachedFileExclusionsList(assetFilter);
-                var fileExclusionsListHeight = fileExclusionsList.GetHeight();
-                EditorGUI.DrawRect(new Rect(r.x, rect.y - 3, r.width, fileExclusionsListHeight + 6), ColorPalette.BackgroundLight);
-                fileExclusionsList.DoList(new Rect(rect.x, rect.y, rect.width - 10, fileExclusionsListHeight));
-                rect.y += fileExclusionsListHeight + 6;
-                rowHeight += fileExclusionsListHeight + 6;
-                filterSo.ApplyModifiedProperties();
+                    EditorGUI.DrawRect(new Rect(r.x, rect.y - 5, r.width, EditorGUIUtility.singleLineHeight + 8), ColorPalette.BackgroundLight);
+                    EditorGUI.DrawRect(new Rect(r.x, rect.y + EditorGUIUtility.singleLineHeight + 8, r.width, 1), ColorPalette.DarkLineColor);
+                    EditorGUI.LabelField(new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight), "Filter Options", DaiGUIStyles.boldLabel);
+                    rect.y += EditorGUIUtility.singleLineHeight + 2;
+                    rowHeight += EditorGUIUtility.singleLineHeight + 2;
 
-                var subPathsList = GetCachedSubPathsList(assetFilter);
-                var subPathsListHeight = subPathsList.GetHeight();
-                EditorGUI.DrawRect(new Rect(r.x, rect.y - 3, r.width, subPathsListHeight + 6), ColorPalette.BackgroundLight);
-                EditorGUI.DrawRect(new Rect(r.x, rect.y + subPathsListHeight + 3, r.width, 1), ColorPalette.DarkLineColor);
-                subPathsList.DoList(new Rect(rect.x, rect.y, rect.width - 10, subPathsListHeight));
-                rect.y += subPathsListHeight + 6;
-                rowHeight += subPathsListHeight + 6;
+                    filterSo.Update();
+                    var fileExclusionsList = GetCachedFileExclusionsList(assetFilter);
+                    var fileExclusionsListHeight = fileExclusionsList.GetHeight();
+                    EditorGUI.DrawRect(new Rect(r.x, rect.y - 3, r.width, fileExclusionsListHeight + 6), ColorPalette.BackgroundLight);
+                    fileExclusionsList.DoList(new Rect(rect.x, rect.y, rect.width - 10, fileExclusionsListHeight));
+                    rect.y += fileExclusionsListHeight + 6;
+                    rowHeight += fileExclusionsListHeight + 6;
+                    filterSo.ApplyModifiedProperties();
+
+                    var subPathsList = GetCachedSubPathsList(assetFilter);
+                    var subPathsListHeight = subPathsList.GetHeight();
+                    EditorGUI.DrawRect(new Rect(r.x, rect.y - 3, r.width, subPathsListHeight + 6), ColorPalette.BackgroundLight);
+                    EditorGUI.DrawRect(new Rect(r.x, rect.y + subPathsListHeight + 3, r.width, 1), ColorPalette.DarkLineColor);
+                    subPathsList.DoList(new Rect(rect.x, rect.y, rect.width - 10, subPathsListHeight));
+                    rect.y += subPathsListHeight + 6;
+                    rowHeight += subPathsListHeight + 6;
+                    
+                    if (check.changed)
+                        EditorUtility.SetDirty(assetFilter);
+                }
             }
 
             EditorGUI.LabelField(rect, "Processors", DaiGUIStyles.boldLabel);

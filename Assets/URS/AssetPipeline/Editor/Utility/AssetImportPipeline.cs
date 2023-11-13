@@ -406,16 +406,17 @@ namespace Daihenka.AssetPipeline
                         continue;
                     if (!filter.IsMatch(assetPath))
                         continue;
-
                     var userData = new ImportProfileUserData(assetPath);
                     foreach (var processor in filter.assetProcessors)
                     {
                         if (!processor || !processor.enabled)
                             continue;
-                        if (!processor.IsConfigOK(userData.GetAssetImporter()) || !userData.HasProcessor(processor))
+                        if (!processor.IsConfigOK(userData.GetAssetImporter()) || !userData.HasProcessor(processor)|| processor.FireOnEveryImport())
                         {
                             AssetProcessor.SetForceApply(assetPath, true);
+                            processor.BeforeImport(assetPath);
                             AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+                            processor.AfterImport(assetPath);
                             AssetProcessor.SetForceApply(assetPath, false);
                             result = true;
                         }
@@ -426,44 +427,58 @@ namespace Daihenka.AssetPipeline
         }
         
         [MenuItem("Tools/资产管理工具（Asset Pipeline）/一键处理资产")]
-        static void ApplyAssets()
+        static void DealWithAsset()
         {
             try
             {
-                List<string> guidList = new();
-                guidList.AddRange(AssetDatabase.FindAssets("t:Texture", new string[]
-                {
-                    "Assets/Scenes",
-                    "Assets/GameResources",
-                }));
-                guidList.AddRange(AssetDatabase.FindAssets("t:Model", new string[]
-                {
-                    "Assets/Scenes",
-                    "Assets/GameResources",
-                }));
-                for (int i = 0; i < guidList.Count; ++i)
-                {
-                    var path = AssetDatabase.GUIDToAssetPath(guidList[i]);
-                    if (string.IsNullOrWhiteSpace(path))
-                        continue;
-                    if (path.Contains("NotInBundle", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    if (path.Contains("/Editor/"))
-                        continue;
+                AssetImportProfile.InvalidateCachedProfiles();
+                var paths = AssetDatabase.GetAllAssetPaths();
+                var profiles = AssetImportProfile.AllProfiles;
+                var length = profiles.Length;
 
-                    EditorUtility.DisplayProgressBar("一键处理资产", path, (float)i / (float)guidList.Count);
-                    ApplyAssets(path);
+                for (int index=0; index < paths.Length;index++)
+                {
+                    var assetPath = paths[index];
+                    EditorUtility.DisplayProgressBar("一键处理资产", assetPath, (float)(index + 1) / (float)paths.Length);
+                    if (!assetPath.StartsWith("Assets/GameResources") && !assetPath.StartsWith("Assets/Scenes")) {
+                        continue;
+                    }
+                    for (int i = 0; i < profiles.Length; i++)
+                    {
+                        var profile = profiles[i];
+                        if (!profile || !profile.enabled)
+                            continue;
+                        if (!profile.IsMatch(assetPath))
+                            continue;
+                       
+                        foreach (var filter in profile.assetFilters)
+                        {
+                            if (!filter || !filter.enabled)
+                                continue;
+                            if (!filter.IsMatch(assetPath))
+                                continue;
+                            var userData = new ImportProfileUserData(assetPath);
+                            foreach (var processor in filter.assetProcessors)
+                            {
+                                if (!processor || !processor.enabled)
+                                    continue;
+                                if (!processor.IsConfigOK(userData.GetAssetImporter()) || !userData.HasProcessor(processor) || processor.FireOnEveryImport())
+                                {
+                                    AssetProcessor.SetForceApply(assetPath, true);
+                                    processor.BeforeImport(assetPath);
+                                    AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+                                    processor.AfterImport(assetPath);
+                                    AssetProcessor.SetForceApply(assetPath, false);
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            catch
-            {
-                throw;
+            finally 
+            { 
+                EditorUtility.ClearProgressBar(); 
             }
-            finally
-            {
-                EditorUtility.ClearProgressBar();
-            }
-            
         }
     }
 }

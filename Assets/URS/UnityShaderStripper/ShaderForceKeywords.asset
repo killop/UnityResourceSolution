@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ShaderForceKeywords
   m_EditorClassIdentifier: 
   _expanded: 1
-  _order: 1
+  _order: 2
   _active: 1
   _notes: 
   _logOutput: 1
@@ -22,4 +22,5 @@ MonoBehaviour:
   - DYNAMICLIGHTMAP_ON
   - LOD_FADE_CROSSFADE
   - _MIXED_LIGHTING_SUBTRACTIVE
-  - LIGHTMAP_SHADOW_MIXING
+  - INSTANCING_ON
+  - PROCEDURAL_INSTANCING_ON

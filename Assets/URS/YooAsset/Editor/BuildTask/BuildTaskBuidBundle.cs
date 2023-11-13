@@ -34,7 +34,7 @@ public class URSBundleBuildParameters : BundleBuildParameters
 
         DisableVisibleSubAssetRepresentations = false;
 
-        BundleCompression = BuildCompression.LZ4Runtime;
+        BundleCompression = BuildCompression.LZ4;
 
         ContentBuildFlags = ContentBuildFlags.None;
 

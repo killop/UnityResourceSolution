@@ -9,6 +9,10 @@ namespace URS
     [Serializable]
     public class FileManifest
     {
+        [SerializeField]
+        public string BuildVersion;
+
+        [SerializeField]
         public FileMeta[] FileMetas;
 
         [NonSerialized]
@@ -23,9 +27,10 @@ namespace URS
         {
             _fileMetaMap = new Dictionary<string, FileMeta>();
         }
-        public FileManifest(FileMeta[] fileMetas)
+        public FileManifest(FileMeta[] fileMetas,string buildVersion)
         {
             FileMetas = fileMetas;
+            BuildVersion = buildVersion;
         }
         public void  GetFileMetaByTag(string[] tags, ref List<FileMeta> result)
         {

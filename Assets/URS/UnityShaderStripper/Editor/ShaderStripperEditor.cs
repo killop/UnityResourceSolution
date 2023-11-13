@@ -10,7 +10,7 @@ using UnityEditor.Rendering;
 using System.Linq;
 
 namespace Sigtrap.Editors.ShaderStripper {
-    [UnityEditor.Build.Pipeline.Utilities.VersionedCallback(2)]
+    [UnityEditor.Build.Pipeline.Utilities.VersionedCallback(26)]
 	public class ShaderStripperEditor : EditorWindow, IPreprocessShaders{
 		public const string KEY_LOG = "ShaderStripperLogPath";
 		public const string KEY_ENABLE = "ShaderStripperGlobalEnable";

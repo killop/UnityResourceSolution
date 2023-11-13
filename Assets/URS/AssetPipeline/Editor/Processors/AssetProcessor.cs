@@ -240,6 +240,19 @@ namespace Daihenka.AssetPipeline.Import
             return true;
         }
 
+        public virtual bool FireOnEveryImport() {
+
+            return false;
+        }
+
+        public virtual void BeforeImport(string assetpath)
+        { 
+            
+        }
+        public virtual void AfterImport(string assetpath) 
+        { 
+        
+        }
         protected string ReplaceVariables(string input, string assetPath)
         {
             if (string.IsNullOrEmpty(input))

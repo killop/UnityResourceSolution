@@ -18,6 +18,7 @@ namespace Daihenka.AssetPipeline.Processors
             if (importer == null) return false;
             var mi= importer as ModelImporter;
             if (mi == null) return false;
+            if (!mi.importAnimation) return true;
             if (mi.animationCompression != animationCompression) 
             {
                 return false;
@@ -42,13 +43,16 @@ namespace Daihenka.AssetPipeline.Processors
         }
         public override void OnPostprocessModel(string assetPath, ModelImporter importer, GameObject go)
         {
-            importer.animationCompression = animationCompression;
-            importer.animationRotationError = animationRotationError;
-            importer.animationPositionError = animationPositionError;
-            importer.animationScaleError = animationScaleError;
-            importer.resampleCurves = resampleCurve;
-            ImportProfileUserData.AddOrUpdateProcessor(assetPath, this);
-            Debug.Log($"[{GetName()}] Preset applied for <b>{assetPath}</b>");
+            if (importer.importAnimation&& !IsConfigOK(importer))
+            {
+                importer.animationCompression = animationCompression;
+                importer.animationRotationError = animationRotationError;
+                importer.animationPositionError = animationPositionError;
+                importer.animationScaleError = animationScaleError;
+                importer.resampleCurves = resampleCurve;
+                ImportProfileUserData.AddOrUpdateProcessor(assetPath, this);
+                Debug.Log($"[{GetName()}] Preset applied for <b>{assetPath}</b>");
+            }
         }
         
     }

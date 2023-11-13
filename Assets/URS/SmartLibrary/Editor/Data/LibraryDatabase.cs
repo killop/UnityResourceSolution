@@ -120,7 +120,7 @@ namespace Bewildered.SmartLibrary
                 // Iterate in reverse because the RemoveItem method removes the collection id from the list.
                 for (int i = collectionIds.Count - 1; i >= 0; i--)
                 {
-                    FindCollectionByID(collectionIds[i]).RemoveItem(item);
+                    FindCollectionByID(collectionIds[i])?.RemoveItem(item);
                 }
             }
         }

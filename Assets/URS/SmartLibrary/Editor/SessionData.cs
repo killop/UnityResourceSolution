@@ -23,10 +23,10 @@ namespace Bewildered.SmartLibrary
         {
             get
             {
-                if (!Directory.Exists(LibraryConstants.CollectionsPath) && _rootCollection == null)
-                {
-                    LibraryData.ConvertToNewSave();
-                }
+              // if (!Directory.Exists(LibraryConstants.CollectionsPath) && _rootCollection == null)
+              // {
+              //     LibraryData.ConvertToNewSave();
+              // }
 
                 if (_rootCollection == null)
                 {
