@@ -16,7 +16,7 @@ namespace URS
             // Debug.LogError(""+ cmdString);
             return new BuildTaskExcuteCmd(cmd, cmdString);
         }
-        [MenuItem("URS/UploadCDNASyn(·Ç×èÈûÉÏ´«cdn)")]
+        [MenuItem("URS/UploadCDNASyn(éé˜»å¡ä¸Šä¼ cdn)")]
         public static Task GenUploadCdnTask(string channel)
         {
             string cmd = @"coscmd";
